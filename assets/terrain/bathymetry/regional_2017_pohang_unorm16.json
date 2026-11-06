@@ -1,0 +1,34 @@
+{
+  "eventId": "hist_2017_pohang",
+  "titleKo": "2017년 포항 해안 대륙붕 지진 (M5.4)",
+  "geographicType": "COASTAL_CONTINENTAL_SHELF",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 35.61,
+    "lat_max": 36.61,
+    "lon_min": 128.87,
+    "lon_max": 129.87
+  },
+  "elevationRangeMeters": {
+    "min": -1178.0,
+    "max": 1151.16,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "58.4%",
+    "oceanPercentage": "41.6%"
+  },
+  "cameraPreset": {
+    "name": "Pohang Yeongil Bay Shelf",
+    "pitchDeg": 28.0,
+    "headingDeg": 45.0,
+    "camDist": 0.68,
+    "fov": 35.0
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}

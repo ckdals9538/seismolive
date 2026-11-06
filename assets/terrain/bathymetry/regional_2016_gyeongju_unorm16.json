@@ -1,0 +1,34 @@
+{
+  "eventId": "hist_2016_gyeongju",
+  "titleKo": "2016년 경주 내륙 지진 (M5.8)",
+  "geographicType": "INLAND_FAULT_BASIN",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 35.26,
+    "lat_max": 36.26,
+    "lon_min": 128.69,
+    "lon_max": 129.69
+  },
+  "elevationRangeMeters": {
+    "min": -265.0,
+    "max": 1151.16,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "74.8%",
+    "oceanPercentage": "25.2%"
+  },
+  "cameraPreset": {
+    "name": "Gyeongju Yangsan Fault Corridor",
+    "pitchDeg": 32.0,
+    "headingDeg": 26.0,
+    "camDist": 0.65,
+    "fov": 34.0
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}

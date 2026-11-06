@@ -1,0 +1,38 @@
+{
+  "datasetName": "Fused Seoraksan-Gangneung Land DEM & Donghae Bathymetry",
+  "lodLevel": 0,
+  "sources": {
+    "land": "Copernicus GLO-30 (1 arc-second ~30m, EGM2008)",
+    "ocean": "NOAA ETOPO 2022 (15 arc-seconds ~450m, MSL)"
+  },
+  "dimensions": {
+    "width": 1800,
+    "height": 1440
+  },
+  "bounds": {
+    "minLat": 37.7,
+    "maxLat": 38.3,
+    "minLon": 128.3,
+    "maxLon": 129.8
+  },
+  "metrics": {
+    "widthKm": 131.4,
+    "heightKm": 66.3,
+    "areaSqKm": 8711.8
+  },
+  "elevationRangeMeters": {
+    "min": -1724,
+    "max": 1698.1756923781186,
+    "oceanMin": -1724,
+    "landMax": 1698.1756923781186
+  },
+  "normalization": {
+    "format": "UNORM16",
+    "internalFormat": "R16",
+    "hMin": -3500,
+    "hMax": 2500,
+    "formula": "meters = hMin + (u16 / 65535.0) * (hMax - hMin)"
+  },
+  "landPixelPercentage": "30.3%",
+  "oceanPixelPercentage": "69.7%"
+}

@@ -1,0 +1,99 @@
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/mod.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/encoding/hex.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/crypto.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/unstable_keystack.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/timing_safe_equal.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/encoding/_util.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/_wasm/mod.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/encoding/base64url.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assert.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/crypto/_wasm/lib/deno_std_wasm_crypto.generated.mjs
+[0m[32mDownload[0m https://deno.land/std@0.224.0/encoding/base64.ts
+[0m[32mDownload[0m https://deno.land/std@0.224.0/assert/assertion_error.ts
+=== SEISMOLIVE v4.0 — G1 / STEP 0 DEM PROCESSING & VERIFICATION ===
+Raw TIFF Path: /Users/katsina/Downloads/seismolive-clean/assets/terrain/copernicus/Copernicus_DSM_COG_10_N38_00_E128_00_DEM.tif
+Raw File Size: 18904152 bytes (18.03 MB)
+Raw SHA-256: ef70790d1e4c889f6a0965b7f39fb8627e5682ddad7cc893cf61084af8c7c012
+
+[Test A & B] Extracting TIFF Headers & Georeferencing Metadata...
+Raster Dimensions: Width=3600, Height=3600
+Bits Per Sample: 32, Sample Format: 3 (3 = IEEE Float)
+Origin: Lon=128, Lat=39
+Resolution: ResX=0.0002777777777777778 deg, ResY=-0.0002777777777777778 deg
+Bounding Box: [MinLon: 128, MinLat: 38, MaxLon: 129, MaxLat: 39]
+GeoKeys CRS: {
+  "GTModelTypeGeoKey": 2,
+  "GTRasterTypeGeoKey": 2,
+  "GeographicTypeGeoKey": 4326,
+  "GeogCitationGeoKey": "WGS 84",
+  "GeogAngularUnitsGeoKey": 9102,
+  "GeogSemiMajorAxisGeoKey": 6378137,
+  "GeogInvFlatteningGeoKey": 298.257223563
+}
+NoData Value: null
+
+[Test C] Regional Extraction Window (Seoraksan - Yangyang):
+Target Bounding Box: [128.3°E ~ 128.8°E, 38°N ~ 38.3°N]
+Pixel Window: Col [1080..2880] (W=1800), Row [2520..3600] (H=1080)
+Total Sub-grid Pixels: 1944000
+Extracted Elevation Stats:
+  Min Elevation: 0.00 m
+  Max Elevation: 1703.62 m
+  Mean Elevation: 336.60 m
+  Valid Pixels: 1944000, NoData Pixels: 0
+
+[Test D] UNORM16 Quantization & Accuracy Verification:
+Storage Range [h_min, h_max]: [0.00 m, 1704.00 m]
+Elevation Span: 1704.00 m
+Theoretical Quantization Step (Span / 65535): 0.02600 m/level (2.60 cm)
+Quantization Error Analysis:
+  Maximum Absolute Error: 13.00 mm (Max Theoretical: 13.00 mm)
+  Mean Absolute Error (MAE): 4.27 mm
+  Root Mean Square Error (RMSE): 6.08 mm
+  Precision Retained: 99.999749% (Sub-millimeter average precision)
+
+[Test E] Geographic Ground-Truth Cross-Validation:
+
+  Target: Mt. Seorak Daecheongbong Summit (설악산 대청봉 정상)
+    Coord: (38.1194°N, 128.4653°E) ──▶ Pixel: [Col: 595, Row: 650]
+    Known Benchmark: 1,708 m (Official KMA / NGII Survey Benchmark)
+    Copernicus DEM Raw (Float32): 1694.61 m
+    Decoded UNORM16: 1694.61 m (Quant: 65174)
+    Quantization Delta: 0.00159 m
+
+  Target: Mt. Seorak Jungcheong Peak (설악산 중청봉 대피소 부근)
+    Coord: (38.1235°N, 128.455°E) ──▶ Pixel: [Col: 558, Row: 635]
+    Known Benchmark: ~1,664 m
+    Copernicus DEM Raw (Float32): 1485.25 m
+    Decoded UNORM16: 1485.25 m (Quant: 57122)
+    Quantization Delta: 0.00208 m
+
+  Target: Osaek Valley (설악산 오색약수 / 주전골 계곡 바닥)
+    Coord: (38.089°N, 128.448°E) ──▶ Pixel: [Col: 533, Row: 760]
+    Known Benchmark: ~450 m (Valley Floor)
+    Copernicus DEM Raw (Float32): 527.26 m
+    Decoded UNORM16: 527.26 m (Quant: 20278)
+    Quantization Delta: 0.00287 m
+
+  Target: Yangyang Namdaecheon Estuary (양양 남대천 하구 평야)
+    Coord: (38.075°N, 128.63°E) ──▶ Pixel: [Col: 1188, Row: 810]
+    Known Benchmark: ~5 m ~ 15 m (Coastal Plain)
+    Copernicus DEM Raw (Float32): 1.82 m
+    Decoded UNORM16: 1.82 m (Quant: 70)
+    Quantization Delta: 0.00189 m
+
+  Target: East Sea Shoreline Boundary (동해안 양양 해수면 접점)
+    Coord: (38.08°N, 128.665°E) ──▶ Pixel: [Col: 1314, Row: 792]
+    Known Benchmark: 0.0 m (Sea Level Contact)
+    Copernicus DEM Raw (Float32): 21.76 m
+    Decoded UNORM16: 21.76 m (Quant: 837)
+    Quantization Delta: 0.00106 m
+
+[Deliverables] Writing Extracted Buffers and JSON Sidecar...
+UNORM16 Binary Written: /Users/katsina/Downloads/seismolive-clean/assets/terrain/copernicus/seoraksan_yangyang_unorm16.bin (3888000 bytes)
+UNORM16 SHA-256: 613a56e19d11996b42f034835109fc3a98cd30754ea03263932ca999708b3d34
+Float32 Binary Written: /Users/katsina/Downloads/seismolive-clean/assets/terrain/copernicus/seoraksan_yangyang_float32.bin (7776000 bytes)
+Metadata Sidecar Written: /Users/katsina/Downloads/seismolive-clean/assets/terrain/copernicus/seoraksan_yangyang_unorm16.json
+Mirroring deliverables to /Users/katsina/Downloads/earth/assets/terrain/copernicus/...
+
+=== G1 / STEP 0 DEM PROCESSING & VERIFICATION COMPLETED SUCCESSFULLY ===

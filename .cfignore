@@ -1,0 +1,10 @@
+*.tif
+*.tiff
+archive/
+captures/
+scratch/
+tests/
+scripts/
+docs/
+.agents/
+.git/

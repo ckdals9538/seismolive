@@ -1,0 +1,32 @@
+{
+  "source_name": "Copernicus DEM GLO-30 Public (Digital Surface Model)",
+  "source_product_id": "Copernicus_DSM_COG_10_N37_00_E128_00_DEM",
+  "source_sha256": "69036070795162395dcea060375abba2d448dc2a5b74949844784466191b707c",
+  "source_filesize_bytes": 45141829,
+  "output_unorm16_sha256": "e0e902135d36c21301e9d0920f23cbc5d0a6758fe8afa687c2a002bff5171d35",
+  "bounding_box": {
+    "min_longitude": 128.3,
+    "max_longitude": 128.8,
+    "min_latitude": 37.7,
+    "max_latitude": 38
+  },
+  "raster_width": 1800,
+  "raster_height": 1080,
+  "elevation_statistics_meters": {
+    "min_observed": -1.3052077293395996,
+    "max_observed": 1574.278564453125,
+    "mean_observed": 681.809009550169
+  },
+  "normalization_range": {
+    "h_min_meters": 0,
+    "h_max_meters": 1704,
+    "span_meters": 1704,
+    "shared_with_tile_a": true
+  },
+  "seam_boundary_audit_lat_38N": {
+    "tested_points": 1800,
+    "max_diff_meters": 28.289494163424138,
+    "mean_diff_meters": 8.239762976526533,
+    "continuity_status": "DISCRETIZATION_ADMISSIBLE"
+  }
+}

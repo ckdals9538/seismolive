@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE v4.0 — Artistic Reset Studies</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Inter:wght@300;400&family=Noto+Serif+KR:wght@300;500;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #03060c; color: #f1f5f9; font-family: 'Inter', sans-serif; }
+    #canvas { width: 100%; height: 100%; display: block; }
+    
+    /* Minimal Gallery Header (Ultra-discreet) */
+    .gallery-hud {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      right: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud-title {
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      letter-spacing: 0.25em;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+    }
+    .hud-tag {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 300;
+    }
+  </style>
+  <script src="../js/lib/three.min.js"></script>
+</head>
+<body>
+  <div class="gallery-hud">
+    <div class="hud-title" id="study-title">STUDY 01 — 1681 YANGYANG (OFFSHORE)</div>
+    <div class="hud-tag" id="study-tag">SEISMOLIVE v4.0 · ARTISTIC RESET</div>
+  </div>
+  <canvas id="canvas"></canvas>
+
+  <script type="module">
+    const canvas = document.getElementById('canvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x03060c);
+
+    const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    // =========================================================================
+    // SCENE BUILDER: STUDY 1 vs STUDY 2
+    // =========================================================================
+    let currentStudyGroup = new THREE.Group();
+    scene.add(currentStudyGroup);
+
+    // Helper: Create High-Resolution Text Sprite (Pure Korean, No Hanja, No Boxes)
+    function createAtmosphericKoreanSprite(text, fontSize = 72, glowColor = 'rgba(255, 255, 255, 0.6)') {
+      const cvs = document.createElement('canvas');
+      cvs.width = 512;
+      cvs.height = 256;
+      const ctx = cvs.getContext('2d');
+      ctx.clearRect(0, 0, 512, 256);
+
+      ctx.font = `300 ${fontSize}px "Noto Serif KR", serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = glowColor;
+      ctx.shadowBlur = 18;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+      ctx.fillText(text, 256, 128);
+
+      const texture = new THREE.CanvasTexture(cvs);
+      texture.minFilter = THREE.LinearFilter;
+      const mat = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        depthTest: false
+      });
+      const sprite = new THREE.Sprite(mat);
+      sprite.renderOrder = 999;
+      sprite.scale.set(16, 8, 1);
+      return sprite;
+    }
+
+    // -------------------------------------------------------------------------
+    // BUILD STUDY 01: 1681 YANGYANG (Offshore Megathrust, Pre-Dawn Horizon)
+    // -------------------------------------------------------------------------
+    function buildStudy01Yangyang() {
+      while (currentStudyGroup.children.length > 0) {
+        currentStudyGroup.remove(currentStudyGroup.children[0]);
+      }
+      document.getElementById('study-title').innerText = 'STUDY 01 — 1681 YANGYANG (OFFSHORE MEGATHRUST)';
+      document.getElementById('study-tag').innerText = 'COASTAL PERSPECTIVE · PRE-DAWN HORIZON · 울다 / 퇴조';
+
+      // 1. Lighting: Pre-dawn directional grazing light from East Sea horizon
+      const sun = new THREE.DirectionalLight(0xffe2c0, 1.6);
+      sun.position.set(50, 18, -40);
+      currentStudyGroup.add(sun);
+      const amb = new THREE.AmbientLight(0x0a1220, 1.4);
+      currentStudyGroup.add(amb);
+
+      // 2. Starfield in deep upper sky
+      const starsGeom = new THREE.BufferGeometry();
+      const starPos = [];
+      for (let i = 0; i < 600; i++) {
+        starPos.push((Math.random() - 0.5) * 350, 25 + Math.random() * 80, -70 - Math.random() * 80);
+      }
+      starsGeom.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xd0e0f0, size: 0.7, transparent: true, opacity: 0.5 });
+      currentStudyGroup.add(new THREE.Points(starsGeom, starMat));
+
+      // 3. Multi-Layered Taebaek Mountain Ridges
+      // Layer 1: Background Main Ridge
+      const bgRidgeGeom = new THREE.PlaneGeometry(160, 60, 128, 64);
+      const bgPos = bgRidgeGeom.attributes.position;
+      for (let i = 0; i < bgPos.count; i++) {
+        const x = bgPos.getX(i);
+        const y = bgPos.getY(i);
+        const ridgeH = Math.sin(x * 0.07) * 7.5 + Math.cos(x * 0.16) * 4.0 + Math.sin(x * 0.32) * 2.0;
+        bgPos.setZ(i, Math.max(0, ridgeH * (y + 30) / 60));
+      }
+      bgRidgeGeom.computeVertexNormals();
+      const bgRidgeMat = new THREE.MeshStandardMaterial({ color: 0x070e18, roughness: 0.9 });
+      const bgRidge = new THREE.Mesh(bgRidgeGeom, bgRidgeMat);
+      bgRidge.rotation.x = -Math.PI * 0.48;
+      bgRidge.position.set(0, -1, -55);
+      currentStudyGroup.add(bgRidge);
+
+      // Layer 2: Midground Coastal Hills
+      const midRidgeGeom = new THREE.PlaneGeometry(150, 45, 96, 48);
+      const midPos = midRidgeGeom.attributes.position;
+      for (let i = 0; i < midPos.count; i++) {
+        const x = midPos.getX(i);
+        const y = midPos.getY(i);
+        const ridgeH = Math.cos(x * 0.09 + 0.8) * 4.8 + Math.sin(x * 0.22) * 2.5;
+        midPos.setZ(i, Math.max(0, ridgeH * (y + 20) / 45));
+      }
+      midRidgeGeom.computeVertexNormals();
+      const midRidgeMat = new THREE.MeshStandardMaterial({ color: 0x091422, roughness: 0.85 });
+      const midRidge = new THREE.Mesh(midRidgeGeom, midRidgeMat);
+      midRidge.rotation.x = -Math.PI * 0.48;
+      midRidge.position.set(10, -3.5, -42);
+      currentStudyGroup.add(midRidge);
+
+      // 4. Undulating Oceanic Water Surface in Foreground
+      const oceanGeom = new THREE.PlaneGeometry(160, 60, 64, 32);
+      const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x050a14,
+        roughness: 0.25,
+        metalness: 0.75,
+        transparent: true,
+        opacity: 0.95
+      });
+      const ocean = new THREE.Mesh(oceanGeom, oceanMat);
+      ocean.rotation.x = -Math.PI * 0.48;
+      ocean.position.set(0, -6.5, -20);
+      currentStudyGroup.add(ocean);
+
+      // 5. Delicate Offshore Tectonic Fault Fracture Line (Gently glowing under coastal water)
+      const faultPoints = [];
+      for (let i = -50; i <= 50; i += 2) {
+        const jitter = Math.sin(i * 0.22) * 1.5 + Math.cos(i * 0.48) * 0.7;
+        faultPoints.push(new THREE.Vector3(i, -6.1 + Math.sin(i * 0.12) * 0.2, -26 + jitter));
+      }
+      const faultCurve = new THREE.CatmullRomCurve3(faultPoints);
+      const faultTubeGeom = new THREE.TubeGeometry(faultCurve, 64, 0.08, 6, false);
+      const faultTubeMat = new THREE.MeshBasicMaterial({
+        color: 0xf59e0b,
+        transparent: true,
+        opacity: 0.82,
+        blending: THREE.AdditiveBlending
+      });
+      currentStudyGroup.add(new THREE.Mesh(faultTubeGeom, faultTubeMat));
+
+      // 6. Atmospheric Pre-Dawn Sky Backdrop Glow
+      const skyBackdropGeom = new THREE.PlaneGeometry(220, 110);
+      const skyBackdropMat = new THREE.ShaderMaterial({
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          void main() {
+            float horizonGlow = pow(1.0 - abs(vUv.y - 0.25), 3.5) * 0.65;
+            vec3 skyTop = vec3(0.015, 0.03, 0.07);
+            vec3 dawnGold = vec3(0.28, 0.18, 0.11);
+            vec3 finalColor = mix(skyTop, dawnGold, smoothstep(0.1, 0.6, vUv.y)) + vec3(0.20, 0.12, 0.05) * horizonGlow;
+            gl_FragColor = vec4(finalColor, 0.95);
+          }
+        `
+      });
+      const skyBackdrop = new THREE.Mesh(skyBackdropGeom, skyBackdropMat);
+      skyBackdrop.position.set(0, 10, -90);
+      currentStudyGroup.add(skyBackdrop);
+
+      // 7. Living Memory: Pure Korean Atmospheric Words (울다, 퇴조)
+      const wordUl = createAtmosphericKoreanSprite('울다', 88, 'rgba(245, 158, 11, 0.6)');
+      wordUl.position.set(-8, 6.2, -48);
+      wordUl.scale.set(13, 6.5, 1);
+      currentStudyGroup.add(wordUl);
+
+      const wordToejo = createAtmosphericKoreanSprite('퇴조', 72, 'rgba(147, 197, 253, 0.65)');
+      wordToejo.position.set(18, -4.2, -22);
+      wordToejo.scale.set(11, 5.5, 1);
+      currentStudyGroup.add(wordToejo);
+
+      camera.position.set(0, 3, 18);
+      camera.lookAt(0, 2, -45);
+    }
+
+    // -------------------------------------------------------------------------
+    // BUILD STUDY 02: 2016 GYEONGJU (Inland Strike-Slip, Moonlight Fault Trench)
+    // Directly realizes the iconic razor seam of media_1793728693862_667866a1.png
+    // -------------------------------------------------------------------------
+    function buildStudy02Gyeongju() {
+      while (currentStudyGroup.children.length > 0) {
+        currentStudyGroup.remove(currentStudyGroup.children[0]);
+      }
+      document.getElementById('study-title').innerText = 'STUDY 02 — 2016 GYEONGJU (INLAND STRIKE-SLIP)';
+      document.getElementById('study-tag').innerText = 'MOUNTAIN SLOPE PERSPECTIVE · MOONLIGHT · 흔들리다 · RAZOR SEAM';
+
+      // 1. Lighting: Cold moonlight grazing from the upper left, back-rim light behind the peak
+      const rimLight = new THREE.DirectionalLight(0xc8e0ff, 2.2);
+      rimLight.position.set(-15, 30, -55); // Back-rim light illuminating mountain silhouette
+      currentStudyGroup.add(rimLight);
+
+      const fillMoon = new THREE.DirectionalLight(0x94b8e0, 0.7);
+      fillMoon.position.set(30, 20, 20);
+      currentStudyGroup.add(fillMoon);
+
+      const amb = new THREE.AmbientLight(0x060c18, 1.0);
+      currentStudyGroup.add(amb);
+
+      // 2. Starry night sky (fine discrete stars)
+      const starsGeom = new THREE.BufferGeometry();
+      const starPos = [];
+      for (let i = 0; i < 500; i++) {
+        starPos.push((Math.random() - 0.5) * 350, 10 + Math.random() * 80, -60 - Math.random() * 80);
+      }
+      starsGeom.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+      const starMat = new THREE.PointsMaterial({ color: 0xdbeafe, size: 0.8, transparent: true, opacity: 0.75 });
+      currentStudyGroup.add(new THREE.Points(starsGeom, starMat));
+
+      // 3. Faint Atmospheric Rim Gradient behind the dark mountain silhouette
+      const skyGlowGeom = new THREE.PlaneGeometry(220, 90);
+      const skyGlowMat = new THREE.ShaderMaterial({
+        transparent: true,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        vertexShader: `
+          varying vec2 vUv;
+          void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          void main() {
+            // Faint, quiet lunar atmospheric sheen near horizon
+            float glow = pow(smoothstep(0.0, 0.45, vUv.y) * (1.0 - smoothstep(0.45, 0.9, vUv.y)), 2.5);
+            vec3 skyCol = vec3(0.015, 0.03, 0.06);
+            vec3 sheenCol = vec3(0.06, 0.10, 0.16);
+            gl_FragColor = vec4(mix(skyCol, sheenCol, glow), 0.95);
+          }
+        `
+      });
+      const skyGlow = new THREE.Mesh(skyGlowGeom, skyGlowMat);
+      skyGlow.position.set(0, 12, -75);
+      currentStudyGroup.add(skyGlow);
+
+      // 4. Iconic Mountain Silhouette & Slopes (media_1793728693862_667866a1.png)
+      // Main central looming peak
+      const mountainGeom = new THREE.PlaneGeometry(160, 90, 128, 96);
+      const posAttr = mountainGeom.attributes.position;
+      for (let i = 0; i < posAttr.count; i++) {
+        const x = posAttr.getX(i);
+        const y = posAttr.getY(i);
+        
+        // Massive peak at center-left (x ~ -6)
+        const peakDist = Math.sqrt(Math.pow(x + 6, 2) + Math.pow(y - 10, 2));
+        const mainPeak = Math.exp(-Math.pow(peakDist / 28, 2)) * 26.0;
+
+        // Sloping ridge descending to the right
+        const rightSlope = Math.exp(-Math.pow((x - 22) / 38, 2)) * 16.0 * (1.0 - Math.min(1.0, Math.max(0.0, (x + 6) / 50)));
+
+        // Left shoulder peak
+        const leftPeak = Math.exp(-Math.pow((x + 45) / 24, 2)) * 14.0;
+
+        // Micro-ruggedness
+        const rugged = Math.sin(x * 0.22) * 1.5 + Math.cos(y * 0.35) * 1.2;
+
+        posAttr.setZ(i, (mainPeak + rightSlope + leftPeak) * 0.9 + rugged);
+      }
+      mountainGeom.computeVertexNormals();
+
+      const mountainMat = new THREE.MeshStandardMaterial({
+        color: 0x08101a,
+        roughness: 0.94,
+        metalness: 0.06,
+        flatShading: false
+      });
+      const mountain = new THREE.Mesh(mountainGeom, mountainMat);
+      mountain.rotation.x = -Math.PI * 0.46;
+      mountain.position.set(0, -6, -42);
+      currentStudyGroup.add(mountain);
+
+      // 5. Razor-Sharp Crustal Fault Rupture Glow Line (Directly realizing media_1793728693862_667866a1.png)
+      // Attached directly to mountain mesh local coordinate frame
+      const faultPoints = [];
+      const steps = 96;
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        // Oblique fault trajectory climbing across mountain ridge
+        const x = -48 + t * 90;
+        const y = -28 + t * 50;
+
+        const peakDist = Math.sqrt(Math.pow(x + 6, 2) + Math.pow(y - 10, 2));
+        const mainPeak = Math.exp(-Math.pow(peakDist / 28, 2)) * 26.0;
+        const rightSlope = Math.exp(-Math.pow((x - 22) / 38, 2)) * 16.0 * (1.0 - Math.min(1.0, Math.max(0.0, (x + 6) / 50)));
+        const leftPeak = Math.exp(-Math.pow((x + 45) / 24, 2)) * 14.0;
+        const rugged = Math.sin(x * 0.22) * 1.5 + Math.cos(y * 0.35) * 1.2;
+        // Height on mountain surface with micro-offset
+        const z = (mainPeak + rightSlope + leftPeak) * 0.9 + rugged + 0.35;
+        faultPoints.push(new THREE.Vector3(x, y, z));
+      }
+      const seamCurve = new THREE.CatmullRomCurve3(faultPoints);
+
+      // Razor core line (Pure White)
+      const seamTubeGeom = new THREE.TubeGeometry(seamCurve, 128, 0.14, 6, false);
+      const seamTubeMat = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.98,
+        blending: THREE.AdditiveBlending
+      });
+      mountain.add(new THREE.Mesh(seamTubeGeom, seamTubeMat));
+
+      // Atmospheric Cyan/Silvery Glow Halos around the razor line
+      const glowTubeGeom = new THREE.TubeGeometry(seamCurve, 128, 0.42, 6, false);
+      const glowTubeMat = new THREE.MeshBasicMaterial({
+        color: 0x38bdf8,
+        transparent: true,
+        opacity: 0.45,
+        blending: THREE.AdditiveBlending
+      });
+      mountain.add(new THREE.Mesh(glowTubeGeom, glowTubeMat));
+
+      // 6. Living Memory: Pure Korean Single Word "흔들리다" (Tremble / Shake)
+      // Delicate, pure typography hovering quietly in cold moonlight above the fault seam
+      const wordHeun = createAtmosphericKoreanSprite('흔들리다', 80, 'rgba(125, 211, 252, 0.7)');
+      wordHeun.position.set(-2, 1.2, -16);
+      wordHeun.scale.set(11, 5.5, 1);
+      currentStudyGroup.add(wordHeun);
+
+      // Camera: Elevated oblique vantage capturing the majestic silhouette
+      camera.position.set(0, 5, 22);
+      camera.lookAt(0, 2, -32);
+    }
+
+    // Default to Study 1
+    buildStudy01Yangyang();
+
+    // Exposure for Puppeteer / CDP Automation
+    window.renderStudy = function(studyId) {
+      if (studyId === 'YANGYANG' || studyId === 1) {
+        buildStudy01Yangyang();
+      } else if (studyId === 'GYEONGJU' || studyId === 2) {
+        buildStudy02Gyeongju();
+      }
+      renderer.render(scene, camera);
+      return true;
+    };
+    window.sceneReady = true;
+
+    // Render loop
+    function animate() {
+      requestAnimationFrame(animate);
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>

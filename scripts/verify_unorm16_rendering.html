@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE v4.0 — UNORM16 & UV Technical Verification</title>
+  <style>
+    body { margin: 0; background: #000; color: #fff; font-family: monospace; }
+    #log { padding: 20px; white-space: pre-wrap; font-size: 14px; line-height: 1.5; }
+    canvas { display: none; }
+  </style>
+</head>
+<body>
+  <div id="log">Initializing UNORM16 & WebGL2 Verification...</div>
+  <canvas id="cvs" width="256" height="256"></canvas>
+
+  <script type="module">
+    import * as THREE from '../js/lib/three.module.js';
+
+    const logEl = document.getElementById('log');
+    function log(msg) {
+      logEl.textContent += msg + '\n';
+      console.log(msg);
+    }
+
+    window.__verificationResults = {
+      ready: false,
+      success: false,
+      diagnostics: {},
+      errors: []
+    };
+
+    async function run() {
+      try {
+        log('--- STEP 1: Fetching seoraksan_yangyang_unorm16.bin ---');
+        const binRes = await fetch('../assets/terrain/copernicus/seoraksan_yangyang_unorm16.bin');
+        if (!binRes.ok) throw new Error(`HTTP ${binRes.status} loading bin`);
+        const arrayBuf = await binRes.arrayBuffer();
+        log(`Loaded ${arrayBuf.byteLength} bytes (expected 3,888,000 bytes)`);
+        const uint16View = new Uint16Array(arrayBuf);
+        log(`Uint16 array elements: ${uint16View.length} (expected 1800 * 1080 = 1,944,000)`);
+
+        // Check raw peak in buffer
+        let maxVal = 0, maxIdx = -1;
+        for (let i = 0; i < uint16View.length; i++) {
+          if (uint16View[i] > maxVal) {
+            maxVal = uint16View[i];
+            maxIdx = i;
+          }
+        }
+        const maxRow = Math.floor(maxIdx / 1800);
+        const maxCol = maxIdx % 1800;
+        log(`Raw peak in buffer: val=${maxVal} at row=${maxRow}, col=${maxCol}`);
+        const maxElev = (maxVal / 65535.0) * 1704.0;
+        log(`Calculated peak elevation: ${maxElev.toFixed(2)} m`);
+
+        // Initialize WebGL2 Three.js renderer
+        const canvas = document.getElementById('cvs');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+        renderer.setSize(256, 256);
+        const gl = renderer.getContext();
+        log(`WebGL version: ${gl.getParameter(gl.VERSION)}`);
+
+        // Check and bridge EXT_texture_norm16 for Three.js WebGLRenderer
+        const extNorm16 = gl.getExtension('EXT_texture_norm16');
+        log(`EXT_texture_norm16 supported: ${!!extNorm16}`);
+        if (extNorm16) {
+          gl.R16 = extNorm16.R16_EXT;
+          log(`Bridged gl.R16 = ${extNorm16.R16_EXT} for Three.js internalFormat lookup`);
+        }
+
+        // Test Three.js DataTexture creation
+        log('\n--- STEP 2: Testing Three.js DataTexture Configuration ---');
+        const demTexture = new THREE.DataTexture(
+          uint16View,
+          1800,
+          1080,
+          THREE.RedFormat,
+          THREE.UnsignedShortType
+        );
+        demTexture.internalFormat = 'R16';
+        demTexture.magFilter = THREE.LinearFilter;
+        demTexture.minFilter = THREE.LinearFilter;
+        demTexture.wrapS = THREE.ClampToEdgeWrapping;
+        demTexture.wrapT = THREE.ClampToEdgeWrapping;
+        demTexture.flipY = false;
+        demTexture.generateMipmaps = false;
+        demTexture.needsUpdate = true;
+
+        const testPoints = [
+          { name: "Daecheong Peak", row: 651, col: 595, raw: 65520, expMeters: 1703.61 },
+          { name: "Daecheong Summit", row: 650, col: 595, raw: 65174, expMeters: 1694.61 },
+          { name: "Osaek Valley", row: 760, col: 533, raw: 20278, expMeters: 527.26 },
+          { name: "Namdaecheon", row: 810, col: 1188, raw: 70, expMeters: 1.82 },
+          { name: "East Sea Terrace", row: 792, col: 1314, raw: 837, expMeters: 21.76 },
+          { name: "East Sea Shoreline", row: 792, col: 1328, raw: 0, expMeters: 0.00 }
+        ];
+
+        const rtt = new THREE.WebGLRenderTarget(testPoints.length, 1, {
+          type: THREE.FloatType,
+          format: THREE.RGBAFormat,
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter
+        });
+
+        const vertShader = `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = vec4(position, 1.0);
+          }
+        `;
+
+        const fragShader = `
+          precision highp float;
+          uniform sampler2D u_demTexture;
+          uniform int u_invertV;
+          varying vec2 vUv;
+          uniform vec2 u_coords[6];
+
+          void main() {
+            int idx = int(floor(gl_FragCoord.x));
+            vec2 coord = u_coords[idx];
+            float u = (coord.x + 0.5) / 1800.0;
+            float v = (u_invertV == 1) ? (1.0 - (coord.y + 0.5) / 1080.0) : ((coord.y + 0.5) / 1080.0);
+
+            float normSample = texture(u_demTexture, vec2(u, v)).r;
+            float meters = normSample * 1704.0;
+
+            gl_FragColor = vec4(normSample, meters, u, v);
+          }
+        `;
+
+        const coordsArray = testPoints.map(p => new THREE.Vector2(p.col, p.row));
+        const material = new THREE.ShaderMaterial({
+          vertexShader: vertShader,
+          fragmentShader: fragShader,
+          uniforms: {
+            u_demTexture: { value: demTexture },
+            u_invertV: { value: 0 },
+            u_coords: { value: coordsArray }
+          }
+        });
+
+        const quadGeo = new THREE.PlaneGeometry(2, 2);
+        const quadMesh = new THREE.Mesh(quadGeo, material);
+        const scene = new THREE.Scene();
+        scene.add(quadMesh);
+        const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+        // Test with u_invertV = 0 (direct row / H)
+        log('\n--- STEP 3: Testing Shader Sampling (u_invertV = 0, direct v = row / H) ---');
+        material.uniforms.u_invertV.value = 0;
+        renderer.setRenderTarget(rtt);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+
+        const pixelsV0 = new Float32Array(testPoints.length * 4);
+        renderer.readRenderTargetPixels(rtt, 0, 0, testPoints.length, 1, pixelsV0);
+
+        log('Sample results for v = row / 1080:');
+        let v0Matches = 0;
+        for (let i = 0; i < testPoints.length; i++) {
+          const norm = pixelsV0[i * 4];
+          const meters = pixelsV0[i * 4 + 1];
+          const rawBuf = uint16View[testPoints[i].row * 1800 + testPoints[i].col];
+          const expNorm = rawBuf / 65535.0;
+          const diff = Math.abs(norm - expNorm);
+          log(`  [${testPoints[i].name}]: rawBuf=${rawBuf}, sampledNorm=${norm.toFixed(6)} (exp=${expNorm.toFixed(6)}), sampledMeters=${meters.toFixed(2)}m (exp=${testPoints[i].expMeters.toFixed(2)}m), diff=${diff.toExponential(2)}`);
+          if (diff < 1e-4) v0Matches++;
+        }
+
+        // Test with u_invertV = 1 (v = 1.0 - row / H)
+        log('\n--- STEP 4: Testing Shader Sampling (u_invertV = 1, v = 1.0 - row / H) ---');
+        material.uniforms.u_invertV.value = 1;
+        renderer.setRenderTarget(rtt);
+        renderer.render(scene, camera);
+        renderer.setRenderTarget(null);
+
+        const pixelsV1 = new Float32Array(testPoints.length * 4);
+        renderer.readRenderTargetPixels(rtt, 0, 0, testPoints.length, 1, pixelsV1);
+
+        log('Sample results for v = 1.0 - row / 1080:');
+        let v1Matches = 0;
+        for (let i = 0; i < testPoints.length; i++) {
+          const norm = pixelsV1[i * 4];
+          const meters = pixelsV1[i * 4 + 1];
+          const rawBuf = uint16View[testPoints[i].row * 1800 + testPoints[i].col];
+          const expNorm = rawBuf / 65535.0;
+          const diff = Math.abs(norm - expNorm);
+          log(`  [${testPoints[i].name}]: sampledNorm=${norm.toFixed(6)}, sampledMeters=${meters.toFixed(2)}m (exp=${testPoints[i].expMeters.toFixed(2)}m), diff=${diff.toExponential(2)}`);
+          if (diff < 1e-4) v1Matches++;
+        }
+
+        // Verification conclusion
+        log('\n--- CONCLUSION ---');
+        log(`v0 (direct row/H) matches: ${v0Matches} / ${testPoints.length}`);
+        log(`v1 (inverted 1-row/H) matches: ${v1Matches} / ${testPoints.length}`);
+
+        let chosenV = null;
+        if (v0Matches === testPoints.length) {
+          chosenV = 'DIRECT_ROW_IS_V';
+          log('VERIFIED: When demTexture.flipY = false, WebGL texture coordinate V=0 is buffer row 0 (North!).');
+        } else if (v1Matches === testPoints.length) {
+          chosenV = 'INVERTED_ROW_IS_V';
+          log('VERIFIED: When demTexture.flipY = false, WebGL texture coordinate V=0 is buffer bottom (South), so row 0 is at V=1.0.');
+        }
+
+        window.__verificationResults = {
+          ready: true,
+          success: (v0Matches === testPoints.length || v1Matches === testPoints.length),
+          chosenV,
+          v0Matches,
+          v1Matches,
+          webglVersion: gl.getParameter(gl.VERSION),
+          samples: testPoints.map((p, i) => ({
+            name: p.name,
+            row: p.row,
+            col: p.col,
+            rawBuf: uint16View[p.row * 1800 + p.col],
+            sampledNormV0: pixelsV0[i * 4],
+            sampledMetersV0: pixelsV0[i * 4 + 1],
+            sampledNormV1: pixelsV1[i * 4],
+            sampledMetersV1: pixelsV1[i * 4 + 1]
+          }))
+        };
+        log('\n[TEST COMPLETE] window.__verificationResults populated.');
+      } catch (err) {
+        log(`\nERROR: ${err.message}`);
+        console.error(err);
+        window.__verificationResults = {
+          ready: true,
+          success: false,
+          errors: [err.message]
+        };
+      }
+    }
+
+    run();
+  </script>
+</body>
+</html>

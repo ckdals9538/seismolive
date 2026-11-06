@@ -1,0 +1,37 @@
+{
+  "datasetName": "Donghae (East Sea) & Ulleung Basin Macro Bathymetric Grid",
+  "lodLevel": 2,
+  "source": "NOAA ETOPO 2022 15 Arc-Second Global Relief Model (surface)",
+  "sourceResolutionArcSec": 15,
+  "dimensions": {
+    "width": 1320,
+    "height": 720
+  },
+  "bounds": {
+    "minLat": 36,
+    "maxLat": 39,
+    "minLon": 127,
+    "maxLon": 132.5
+  },
+  "metrics": {
+    "widthKm": 482.3,
+    "heightKm": 331.7,
+    "areaSqKm": 159978.9
+  },
+  "elevationRangeMeters": {
+    "min": -3404,
+    "max": 1630.548583984375,
+    "oceanMin": -3404,
+    "landMax": 1630.548583984375
+  },
+  "normalization": {
+    "format": "UNORM16",
+    "internalFormat": "R16",
+    "hMin": -3500,
+    "hMax": 2500,
+    "formula": "meters = hMin + (u16 / 65535.0) * (hMax - hMin)"
+  },
+  "landPixelPercentage": "36.1%",
+  "oceanPixelPercentage": "63.9%",
+  "sha256": "computed_on_save"
+}

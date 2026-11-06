@@ -1,0 +1,25 @@
+{
+  "datasetName": "Korean Peninsula Macro Elevation & Bathymetric Grid",
+  "source": "NOAA ETOPO 2022 15 Arc-Second Global Relief Model",
+  "dimensions": {
+    "width": 960,
+    "height": 1080
+  },
+  "bounds": {
+    "lat_min": 33.0,
+    "lat_max": 42.0,
+    "lon_min": 124.0,
+    "lon_max": 132.0
+  },
+  "elevationRangeMeters": {
+    "min": -3559.0,
+    "max": 2614.78564453125,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "normalization": {
+    "format": "UNORM16",
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  }
+}

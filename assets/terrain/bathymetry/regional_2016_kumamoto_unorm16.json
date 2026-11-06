@@ -1,0 +1,34 @@
+{
+  "eventId": "global_2016_kumamoto",
+  "titleKo": "2016년 일본 구마모토 화산지구대 지진 (M7.3)",
+  "geographicType": "INLAND_VOLCANIC_RIFT",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 32.25,
+    "lat_max": 33.25,
+    "lon_min": 130.26,
+    "lon_max": 131.26
+  },
+  "elevationRangeMeters": {
+    "min": -165.0,
+    "max": 1727.56,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "82.7%",
+    "oceanPercentage": "17.3%"
+  },
+  "cameraPreset": {
+    "name": "Kumamoto Graben & Mount Aso",
+    "pitchDeg": 34.0,
+    "headingDeg": 60.0,
+    "camDist": 0.72,
+    "fov": 36.0
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}

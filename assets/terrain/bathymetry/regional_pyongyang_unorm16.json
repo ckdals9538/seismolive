@@ -1,0 +1,34 @@
+{
+  "eventId": "hist_0502_goguryeo",
+  "titleKo": "평양성·대동강 유역 고구려 역사지진",
+  "geographicType": "INLAND_BASIN_PLAIN",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 38.22,
+    "lat_max": 39.82,
+    "lon_min": 124.75,
+    "lon_max": 126.75
+  },
+  "elevationRangeMeters": {
+    "min": -73.83,
+    "max": 1440.93,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "82.2%",
+    "oceanPercentage": "17.8%"
+  },
+  "cameraPreset": {
+    "name": "Pyongyang Basin & Taedong River Valley",
+    "pitchDeg": 32.0,
+    "headingDeg": 45.0,
+    "camDist": 0.72,
+    "targetY": 0.005
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}

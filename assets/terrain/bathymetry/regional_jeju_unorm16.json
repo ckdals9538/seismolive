@@ -1,0 +1,34 @@
+{
+  "eventId": "hist_jeju_island",
+  "titleKo": "제주도 한라산 화산체 및 남해 대륙붕 지진",
+  "geographicType": "COASTAL_CONTINENTAL_SHELF",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 32.6,
+    "lat_max": 34.2,
+    "lon_min": 125.6,
+    "lon_max": 127.6
+  },
+  "elevationRangeMeters": {
+    "min": -185.0,
+    "max": 1872.87,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "6.2%",
+    "oceanPercentage": "93.8%"
+  },
+  "cameraPreset": {
+    "name": "Mount Halla Caldera & Southern Maritime Shelf",
+    "pitchDeg": 28.0,
+    "headingDeg": 45.0,
+    "camDist": 0.72,
+    "targetY": 0.008
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}

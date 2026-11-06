@@ -1,0 +1,532 @@
+{
+  "generatedAt": "2026-11-05T19:02:32.073Z",
+  "totalEvents": 51,
+  "tierCounts": {
+    "tier3_localHighRes": 1,
+    "tier2_regionalMacro": 48,
+    "tier1_globalRelief": 48,
+    "uncertainCoordinates": 3
+  },
+  "regionDistribution": {
+    "UNCERTAIN_ANCIENT_RECORD": 3,
+    "GYEONGSANG_FAULT_BASIN": 13,
+    "NORTHERN_PYONGYANG_BASIN": 3,
+    "KOREAN_PENINSULA_MACRO": 23,
+    "CENTRAL_HANYANG_GAEGYEONG": 6,
+    "GANGWON_SEORAK_OFFSHORE": 1,
+    "JAPAN_KYUSHU_VOLCANIC_RIFT": 1,
+    "TURKEY_EAST_ANATOLIA_FAULT": 1
+  },
+  "events": [
+    {
+      "id": "hist_0002_goguryeo",
+      "title": "0002 고구려 졸본·국내성 지진 (유리명왕 21년)",
+      "lat": null,
+      "lon": null,
+      "coordinateStatus": "COORDINATES_UNCERTAIN",
+      "tierLevel": "TIER_0_ORBIT_THEATER",
+      "assignedRegion": "UNCERTAIN_ANCIENT_RECORD",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0027_baekje",
+      "title": "0027 백제 한성 위례성 지진 (다루왕 2년)",
+      "lat": null,
+      "lon": null,
+      "coordinateStatus": "COORDINATES_UNCERTAIN",
+      "tierLevel": "TIER_0_ORBIT_THEATER",
+      "assignedRegion": "UNCERTAIN_ANCIENT_RECORD",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0034_silla",
+      "title": "0034 신라 금성(경주) 지진·용천 (유리이사금 11년)",
+      "lat": 35.84,
+      "lon": 129.21,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0100_silla",
+      "title": "0100 신라 금성(경주) 지진 (파사이사금 21년)",
+      "lat": 35.84,
+      "lon": 129.21,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0304_silla",
+      "title": "0304 신라 경주 연속 지진 (기림이사금 7년)",
+      "lat": 35.84,
+      "lon": 129.21,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0502_goguryeo",
+      "title": "0502 고구려 평양성 지진 (문자명왕 11년)",
+      "lat": 39.02,
+      "lon": 125.75,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "NORTHERN_PYONGYANG_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0639_baekje",
+      "title": "0639 백제 사비(부여) 지동 (무왕 40년)",
+      "lat": 36.28,
+      "lon": 126.91,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0779_gyeongju",
+      "title": "0779 경주 대지진 (신라 혜공왕 15년)",
+      "lat": 35.84,
+      "lon": 129.21,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_0971_gaegyeong",
+      "title": "0971 고려 개경 지진 (광종 22년)",
+      "lat": 37.97,
+      "lon": 126.55,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1036_0617_gaegyeong",
+      "title": "1036 개경 5월 지진 (고려 정종 2년 5월 신해)",
+      "lat": 37.97,
+      "lon": 126.55,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1036_0712_gyeongju",
+      "title": "1036 동경(경주)·상주 대지진 (고려 정종 2년 6월 병술)",
+      "lat": 35.84,
+      "lon": 129.21,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1260_gaegyeong",
+      "title": "1260 고려 개경 지진 (원종 원년)",
+      "lat": 37.97,
+      "lon": 126.55,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1338_gaegyeong",
+      "title": "1338 고려 개경 연속 강진 (충숙왕 후7년)",
+      "lat": 37.97,
+      "lon": 126.55,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1366_gimhae",
+      "title": "1366 김해(금주)·밀양(밀성) 지진 (고려 공민왕 15년)",
+      "lat": 35.23,
+      "lon": 128.88,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1385_gaegyeong",
+      "title": "1385 개경·송악산 붕괴 지진 (고려 우왕 11년)",
+      "lat": 37.97,
+      "lon": 126.55,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1405_gyeongsang",
+      "title": "1405 경상·전라도 광역 지진 (조선 태종 5년)",
+      "lat": 36.15,
+      "lon": 127.95,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1430_samnam",
+      "title": "1430 삼남(경상·충청·전라) 지진 (조선 세종 12년)",
+      "lat": 36.35,
+      "lon": 127.85,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1455_namwon",
+      "title": "1455 전라도 남원·구례·진주 지진 (조선 단종 3년)",
+      "lat": 35.41,
+      "lon": 127.39,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1518_seoul",
+      "title": "1518 한성(서울) 대지진 (조선 중종 13년)",
+      "lat": 37.57,
+      "lon": 126.98,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "CENTRAL_HANYANG_GAEGYEONG",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1546_haeju",
+      "title": "1546 황해도 해주·평산·배천 지진·액상화 (조선 명종 원년)",
+      "lat": 38.04,
+      "lon": 125.71,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1553_gyeongseong",
+      "title": "1553 함경도 경성·명천·길주 지진 (조선 명종 8년)",
+      "lat": 41.59,
+      "lon": 129.61,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1565_boeun",
+      "title": "1565 충청도 보은·청주·옥천 지진 (조선 명종 20년)",
+      "lat": 36.49,
+      "lon": 127.72,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1594_samdo",
+      "title": "1594 충청·전라·경상 삼도 지진 (조선 선조 27년)",
+      "lat": 36.05,
+      "lon": 127.65,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1597_samsu",
+      "title": "1597 함경도 삼수·갑산 산붕 대지진 (조선 선조 30년)",
+      "lat": 41.38,
+      "lon": 128.18,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1643_ulsan",
+      "title": "1643 경상도 울산·대구 대지진·액상화 (조선 인조 21년)",
+      "lat": 35.54,
+      "lon": 129.31,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1670_jeju",
+      "title": "1670 제주목·대정·정의 지진 (조선 현종 11년)",
+      "lat": 33.5,
+      "lon": 126.53,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1681_0612",
+      "title": "1681 강원도 양양·삼척 인근 (1차 전진)",
+      "lat": null,
+      "lon": null,
+      "coordinateStatus": "COORDINATES_UNCERTAIN",
+      "tierLevel": "TIER_0_ORBIT_THEATER",
+      "assignedRegion": "UNCERTAIN_ANCIENT_RECORD",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1681_0626",
+      "title": "1681 강원도 양양 인근 (숙종 7년 5월 11일 사료 기록)",
+      "lat": 37.9,
+      "lon": 129.1,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_3_LOCAL_HIGHRES_DEM",
+      "assignedRegion": "GANGWON_SEORAK_OFFSHORE",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1681_0702",
+      "title": "1681 강원도 삼척·울진 해안 붕괴 (3차 여진)",
+      "lat": 37.45,
+      "lon": 129.25,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1700_gyeongju",
+      "title": "1700 경상도 경주·울산·동래 지진 (조선 숙종 26년)",
+      "lat": 35.6,
+      "lon": 129.25,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1727_pyongyang",
+      "title": "1727 평안도 평양·중화·안주 지진 (조선 영조 3년)",
+      "lat": 39.02,
+      "lon": 125.75,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "NORTHERN_PYONGYANG_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1776_jeonju",
+      "title": "1776 전라도 전주·남원·금산 지진 (조선 정조 즉위년)",
+      "lat": 35.82,
+      "lon": 127.15,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1810_gyeongseong",
+      "title": "1810 함경도 경성·명천 대지진 (조선 순조 10년)",
+      "lat": 41.59,
+      "lon": 129.61,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1898_dongnae",
+      "title": "1898 경상남도 동래·김해·울산 지진 (대한제국 광무 2년)",
+      "lat": 35.25,
+      "lon": 129.08,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_1936_ssanggyesa",
+      "title": "1936 지리산 쌍계사 지진",
+      "lat": 35.23,
+      "lon": 127.65,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_1952_pyongyang",
+      "title": "1952 평양 서쪽(강서·증산) 지진",
+      "lat": 38.9,
+      "lon": 125.4,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "NORTHERN_PYONGYANG_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1978_songnisan",
+      "title": "1978 속리산 지진",
+      "lat": 36.6,
+      "lon": 127.9,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_1978_hongseong",
+      "title": "1978 홍성 지진",
+      "lat": 36.6,
+      "lon": 126.66,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_1996_yeongwol",
+      "title": "1996 강원 영월 지진",
+      "lat": 37.2,
+      "lon": 128.8,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2004_uljin",
+      "title": "2004 경북 울진 동남동쪽 해역 지진",
+      "lat": 36.8,
+      "lon": 130.2,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2007_odaesan",
+      "title": "2007 강원 평창(오대산) 지진",
+      "lat": 37.68,
+      "lon": 128.59,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2014_taean",
+      "title": "2014 충남 태안 서격렬비도 서북서쪽 해역 지진",
+      "lat": 36.95,
+      "lon": 124.5,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2016_gyeongju_foreshock",
+      "title": "2016 경주 지진 (전진 ML 5.1)",
+      "lat": 35.7666,
+      "lon": 129.1889,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_2016_gyeongju",
+      "title": "2016 경주 지진 (본진)",
+      "lat": 35.761,
+      "lon": 129.1878,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_2017_pohang",
+      "title": "2017 포항 지진",
+      "lat": 36.109,
+      "lon": 129.366,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2018_pohang_aftershock",
+      "title": "2018 포항 최대 여진 (ML 4.6)",
+      "lat": 36.08,
+      "lon": 129.33,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "GYEONGSANG_FAULT_BASIN",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2022_goesan",
+      "title": "2022 충북 괴산 지진",
+      "lat": 36.88,
+      "lon": 127.88,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "inst_2023_donghae",
+      "title": "2023 강원 동해시 북동쪽 해역 지진",
+      "lat": 37.87,
+      "lon": 129.52,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "hist_2024_buan",
+      "title": "2024 전북 부안 지진",
+      "lat": 35.7,
+      "lon": 126.71,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "KOREAN_PENINSULA_MACRO",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "global_2016_kumamoto",
+      "title": "2016 일본 구마모토 지진 (본진)",
+      "lat": 32.754,
+      "lon": 130.763,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "JAPAN_KYUSHU_VOLCANIC_RIFT",
+      "primarySource": "관측/문헌 카탈로그"
+    },
+    {
+      "id": "global_2023_turkey",
+      "title": "2023 튀르키예 카흐라만마라슈 대단층 지진 (M7.8)",
+      "lat": 37.166,
+      "lon": 37.042,
+      "coordinateStatus": "DEFINITE_COORDINATES",
+      "tierLevel": "TIER_2_REGIONAL_MACRO_GRID",
+      "assignedRegion": "TURKEY_EAST_ANATOLIA_FAULT",
+      "primarySource": "관측/문헌 카탈로그"
+    }
+  ]
+}

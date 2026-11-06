@@ -1,0 +1,34 @@
+{
+  "eventId": "global_2023_turkey",
+  "titleKo": "2023년 튀르키예 카흐라만마라슈 대단층 지진 (M7.8)",
+  "geographicType": "CONTINENTAL_STRIKE_SLIP_FAULT",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 36.67,
+    "lat_max": 37.67,
+    "lon_min": 36.54,
+    "lon_max": 37.54
+  },
+  "elevationRangeMeters": {
+    "min": 226.96,
+    "max": 2302.59,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "100.0%",
+    "oceanPercentage": "0.0%"
+  },
+  "cameraPreset": {
+    "name": "East Anatolian Fault Rift Valley",
+    "pitchDeg": 36.0,
+    "headingDeg": 40.0,
+    "camDist": 0.75,
+    "fov": 35.0
+  },
+  "hasWaterSurface": false,
+  "tier2Available": false
+}

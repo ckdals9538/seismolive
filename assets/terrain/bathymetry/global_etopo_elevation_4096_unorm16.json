@@ -1,0 +1,30 @@
+{
+  "datasetName": "NOAA ETOPO 2022 Global Relief Model (Planetary Elevation & Bathymetry)",
+  "source": "NOAA National Centers for Environmental Information (NCEI)",
+  "doi": "10.25921/fd10-nh44",
+  "license": "Public Domain / U.S. Government Work (CC0 Compatible)",
+  "dimensions": {
+    "width": 4096,
+    "height": 2048
+  },
+  "bounds": {
+    "lat_min": -90.0,
+    "lat_max": 90.0,
+    "lon_min": -180.0,
+    "lon_max": 180.0
+  },
+  "verticalDatum": "EGM2008 Geoid approximating Mean Sea Level (MSL)",
+  "elevationRangeMeters": {
+    "hMin": -11000.0,
+    "hMax": 9000.0,
+    "minSampled": -10473.001953125,
+    "maxSampled": 7382.8896484375
+  },
+  "normalization": {
+    "format": "UNORM16",
+    "bytesPerPixel": 2,
+    "byteOrder": "LITTLE_ENDIAN",
+    "formula": "h = norm * (H_MAX - H_MIN) + H_MIN",
+    "resolutionMetersPerStep": 0.30518043793392846
+  }
+}

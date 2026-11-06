@@ -1,0 +1,159 @@
+{
+  "source_name": "Copernicus DEM GLO-30 Public (Digital Surface Model)",
+  "source_product_id": "Copernicus_DSM_COG_10_N38_00_E128_00_DEM",
+  "source_url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N38_00_E128_00_DEM/Copernicus_DSM_COG_10_N38_00_E128_00_DEM.tif",
+  "retrieval_timestamp": "2026-11-03T20:36:33.728Z",
+  "license_and_attribution": "European Space Agency (ESA) Copernicus Programme / Free & Open Access",
+  "source_sha256": "ef70790d1e4c889f6a0965b7f39fb8627e5682ddad7cc893cf61084af8c7c012",
+  "source_filesize_bytes": 18904152,
+  "output_unorm16_sha256": "613a56e19d11996b42f034835109fc3a98cd30754ea03263932ca999708b3d34",
+  "output_float32_sha256": "8feaafc0151973db9be394e624278ff685d9c48f819ea09cac6f09d0be4c905d",
+  "crs": "EPSG:4326 (WGS 84 Horizontal Coordinate Reference System)",
+  "vertical_datum": "EGM2008 Geoid (Earth Gravitational Model 2008 / Height above MSL)",
+  "model_type": "DSM (Digital Surface Model: includes tree canopies, vegetation and structures; not bare-earth DTM)",
+  "bounding_box": {
+    "min_longitude": 128.3,
+    "max_longitude": 128.8,
+    "min_latitude": 38,
+    "max_latitude": 38.3
+  },
+  "affine_transform": {
+    "origin_x_longitude": 128.3,
+    "origin_y_latitude": 38.3,
+    "pixel_width_longitude_deg": 0.0002777777777777778,
+    "pixel_height_latitude_deg": -0.0002777777777777778,
+    "rotation_x": 0,
+    "rotation_y": 0
+  },
+  "raster_width": 1800,
+  "raster_height": 1080,
+  "pixel_resolution_deg": {
+    "x": 0.0002777777777777778,
+    "y": 0.0002777777777777778
+  },
+  "pixel_resolution_approx_meters": {
+    "x_at_38N": 24.317119813858646,
+    "y": 30.715
+  },
+  "pixel_registration": "Area / PixelIsArea",
+  "nodata_value": -32767,
+  "scale": 1,
+  "offset": 0,
+  "elevation_statistics_meters": {
+    "min_observed": 0,
+    "max_observed": 1703.6204833984375,
+    "mean_observed": 336.5970659617899,
+    "valid_pixels": 1944000,
+    "nodata_pixels": 0
+  },
+  "data_type": "uint16",
+  "encoding": "UNORM16 (Unsigned 16-bit Integer Normalized)",
+  "byte_order": "little-endian",
+  "row_orientation": "north-up (row 0 = north / latitude 38.3°N, row H-1 = south / latitude 38.0°N)",
+  "normalization_range": {
+    "h_min_meters": 0,
+    "h_max_meters": 1704,
+    "span_meters": 1704,
+    "quantization_step_meters": 0.026001373311970704,
+    "quantization_step_cm": 2.6001373311970704,
+    "encode_formula": "Q = round(clamp((h - h_min) / (h_max - h_min), 0.0, 1.0) * 65535.0)",
+    "decode_formula": "h = h_min + (Q / 65535.0) * (h_max - h_min)",
+    "shader_glsl_decode_snippet": "float h = 0.0 + texture(u_demTexture, vUv).r * 1704.0;"
+  },
+  "numerical_accuracy_assessment": {
+    "max_absolute_error_meters": 0.013000661509863676,
+    "max_absolute_error_mm": 13.000661509863676,
+    "mean_absolute_error_meters": 0.004269188079165048,
+    "mean_absolute_error_mm": 4.269188079165048,
+    "rmse_meters": 0.0060831917183621085,
+    "rmse_mm": 6.083191718362109
+  },
+  "sample_ground_truth_cross_validation": [
+    {
+      "name": "Mt. Seorak Daecheongbong Summit Point (설악산 대청봉 표석 부근)",
+      "lat": 38.1194,
+      "lon": 128.4653,
+      "benchmarkKnown": "1,708 m (Official NGII Benchmark)",
+      "pixelCol": 595,
+      "pixelRow": 650,
+      "rawElev": 1694.6119384765625,
+      "unorm16": 65174,
+      "decodedElev": 1694.613525390625,
+      "status": "VERIFIED (Areal average within 13.4m)"
+    },
+    {
+      "name": "Mt. Seorak Daecheongbong Peak Cell (설악산 대청봉 최고 정점 셀)",
+      "lat": 38.119167,
+      "lon": 128.465278,
+      "benchmarkKnown": "1,708 m (Official NGII Benchmark)",
+      "pixelCol": 595,
+      "pixelRow": 651,
+      "rawElev": 1703.6204833984375,
+      "unorm16": 65520,
+      "decodedElev": 1703.6100160219727,
+      "status": "VERIFIED (Global maximum, within 4.38m / 99.74%)"
+    },
+    {
+      "name": "Mt. Seorak Jungcheong Tested Point (설악산 중청봉 시험 좌표)",
+      "lat": 38.1235,
+      "lon": 128.455,
+      "benchmarkKnown": "~1,664 m (Ridge Peak)",
+      "pixelCol": 558,
+      "pixelRow": 635,
+      "rawElev": 1485.2525634765625,
+      "unorm16": 57122,
+      "decodedElev": 1485.25048828125,
+      "status": "UNVERIFIED (Benchmark coordinate mismatch: point is in northern cirque talus slope)"
+    },
+    {
+      "name": "Osaek Valley (설악산 오색약수 / 주전골 계곡 바닥)",
+      "lat": 38.089,
+      "lon": 128.448,
+      "benchmarkKnown": "~450 m (Valley Floor)",
+      "pixelCol": 533,
+      "pixelRow": 760,
+      "rawElev": 527.2587280273438,
+      "unorm16": 20278,
+      "decodedElev": 527.255859375,
+      "status": "CONDITIONALLY VERIFIED (Steep V-gorge canyon wall & DSM tree canopy averaging)"
+    },
+    {
+      "name": "Yangyang Namdaecheon Estuary (양양 남대천 하구 평야)",
+      "lat": 38.075,
+      "lon": 128.63,
+      "benchmarkKnown": "~2 m ~ 5 m (Coastal Plain)",
+      "pixelCol": 1188,
+      "pixelRow": 810,
+      "rawElev": 1.8182023763656616,
+      "unorm16": 70,
+      "decodedElev": 1.8200961351394653,
+      "status": "VERIFIED"
+    },
+    {
+      "name": "East Sea Coastal Terrace (동해안 양양 손양면 연안단구 송림)",
+      "lat": 38.08,
+      "lon": 128.665,
+      "benchmarkKnown": "~15 m ~ 25 m (Coastal Terrace)",
+      "pixelCol": 1314,
+      "pixelRow": 792,
+      "rawElev": 21.76420783996582,
+      "unorm16": 837,
+      "decodedElev": 21.76314926147461,
+      "status": "VERIFIED (Inland terrace ground truth)"
+    },
+    {
+      "name": "East Sea Shoreline Contact (동해안 양양 해수면 워터마스크 접점)",
+      "lat": 38.08,
+      "lon": 128.6689,
+      "benchmarkKnown": "0.0 m (Sea Level Contact)",
+      "pixelCol": 1328,
+      "pixelRow": 792,
+      "rawElev": 0.0,
+      "unorm16": 0,
+      "decodedElev": 0.0,
+      "status": "VERIFIED (Copernicus Water Body Mask 0.00m)"
+    }
+  ],
+  "processing_software": "Deno 2.x native script via npm:geotiff v3.0.5",
+  "processing_version": "SEISMOLIVE G1 Step 0 Pipeline v1.0"
+}

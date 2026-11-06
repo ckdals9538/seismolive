@@ -1,0 +1,34 @@
+{
+  "eventId": "hist_0639_baekje",
+  "titleKo": "사비(부여)·웅진(공주) 백제 역사지진",
+  "geographicType": "INLAND_BASIN_PLAIN",
+  "dimensions": {
+    "width": 900,
+    "height": 720
+  },
+  "bounds": {
+    "lat_min": 35.5,
+    "lat_max": 37.1,
+    "lon_min": 126.0,
+    "lon_max": 128.0
+  },
+  "elevationRangeMeters": {
+    "min": -81.0,
+    "max": 1536.41,
+    "hMin": -3500.0,
+    "hMax": 2500.0
+  },
+  "surfaceDistribution": {
+    "landPercentage": "76.4%",
+    "oceanPercentage": "23.6%"
+  },
+  "cameraPreset": {
+    "name": "Geumgang River Valley & Gyeryongsan",
+    "pitchDeg": 30.0,
+    "headingDeg": 35.0,
+    "camDist": 0.68,
+    "targetY": 0.004
+  },
+  "hasWaterSurface": true,
+  "tier2Available": false
+}
