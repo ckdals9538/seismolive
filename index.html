@@ -197,13 +197,13 @@
       max-height: 80vh;
     }
     #unified-control-surface.state-selected {
-      width: 720px;
+      width: 780px;
       max-width: calc(100vw - 32px);
-      height: 380px;
-      max-height: 75vh;
+      height: 480px;
+      max-height: 82vh;
     }
     #unified-control-surface.state-performance {
-      width: 860px;
+      width: 940px;
       max-width: calc(100vw - 32px);
       height: 52px;
     }
@@ -594,74 +594,179 @@
     /* 3. SELECTED EVENT VIEW (Dossier & Provenance) */
     .view-selected {
       flex-direction: column;
-      padding: 16px 20px;
+      padding: 16px 22px;
       justify-content: space-between;
+      height: 100%;
     }
     .selected-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid rgba(142, 197, 252, 0.12);
-      padding-bottom: 6px;
+      padding-bottom: 8px;
+      flex-shrink: 0;
     }
     .selected-era-badge {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
       color: #C89D54;
       letter-spacing: 0.1em;
+      text-transform: uppercase;
     }
     .selected-body {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin: 8px 0;
+      gap: 10px;
+      margin: 10px 0;
+      overflow-y: auto;
+      padding-right: 6px;
+      flex-grow: 1;
+    }
+    .selected-body::-webkit-scrollbar {
+      width: 4px;
+    }
+    .selected-body::-webkit-scrollbar-thumb {
+      background: rgba(142, 197, 252, 0.25);
+      border-radius: 2px;
+    }
+    .selected-title-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .selected-title {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 18px;
+      font-size: 18.5px;
       font-weight: 600;
       color: #EAE4D5;
       letter-spacing: 0.02em;
+      line-height: 1.35;
     }
-    .selected-date-coords {
+    .selected-provenance-tag {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 11px;
-      color: #7a9ec2;
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(200, 157, 84, 0.15);
+      border: 1px solid rgba(200, 157, 84, 0.35);
+      color: #C89D54;
+      letter-spacing: 0.05em;
+    }
+    .selected-grid-telemetry {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      background: rgba(10, 18, 28, 0.65);
+      border: 1px solid rgba(142, 197, 252, 0.14);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    @media (max-width: 768px) {
+      .selected-grid-telemetry {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .telemetry-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .cell-label {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 9.5px;
+      color: #6482a0;
       letter-spacing: 0.04em;
     }
+    .cell-value {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 11.5px;
+      color: #dceaf8;
+      font-weight: 500;
+    }
     .selected-quote-card {
-      background: rgba(14, 22, 34, 0.75);
+      background: rgba(14, 22, 34, 0.85);
       border-left: 3px solid #C89D54;
-      padding: 8px 12px;
-      border-radius: 0 4px 4px 0;
-      margin: 4px 0;
+      padding: 10px 14px;
+      border-radius: 0 6px 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .quote-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
     .quote-source-label {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 9.5px;
+      font-size: 10px;
       color: #C89D54;
-      margin-bottom: 3px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .quote-confidence-badge {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 9.5px;
+      color: #8da6c0;
     }
     .quote-text {
       font-family: "Noto Serif KR", Batang, serif;
       font-size: 12.5px;
-      line-height: 1.6;
+      line-height: 1.7;
       color: #EAE4D5;
       font-style: italic;
     }
-    .selected-telemetry-row {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
+    .quote-hanja-row {
+      font-family: "Noto Serif KR", Batang, serif;
+      font-size: 11px;
+      color: rgba(234, 228, 213, 0.55);
+      line-height: 1.5;
+      border-top: 1px dashed rgba(142, 197, 252, 0.12);
+      padding-top: 4px;
     }
-    .telemetry-pill {
+    .selected-footer-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #8da6c0;
-      background: rgba(16, 28, 44, 0.6);
-      border: 1px solid rgba(120, 175, 230, 0.18);
+      color: #6482a0;
+    }
+    .meta-item {
+      background: rgba(16, 28, 44, 0.5);
+      border: 1px solid rgba(120, 175, 230, 0.12);
       padding: 3px 8px;
       border-radius: 4px;
+    }
+    .tag-provenance {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.05em;
+    }
+    .tag-usgs {
+      background: rgba(94, 200, 240, 0.15);
+      border: 1px solid rgba(94, 200, 240, 0.4);
+      color: #8ec5fc;
+    }
+    .tag-global {
+      background: rgba(130, 160, 240, 0.15);
+      border: 1px solid rgba(130, 160, 240, 0.4);
+      color: #a4c2f4;
+    }
+    .tag-hist {
+      background: rgba(200, 157, 84, 0.15);
+      border: 1px solid rgba(200, 157, 84, 0.4);
+      color: #C89D54;
+    }
+    .tag-kma {
+      background: rgba(80, 180, 140, 0.15);
+      border: 1px solid rgba(80, 180, 140, 0.4);
+      color: #8ee0b8;
     }
     .selected-action-row {
       display: flex;
@@ -902,18 +1007,28 @@
         <span class="brand-sub" id="brand-count-sub">48 사료 노드</span>
       </div>
 
-      <!-- Segmented Mode Tabs: [역사지진] vs [글로벌 USGS] -->
+      <!-- Segmented Mode Tabs: [글로벌 관측 (USGS)] vs [한반도 역사 사료] -->
       <div class="explore-category-tabs">
-        <button id="tab-cat-historical" class="cat-tab active" data-cat="historical" title="한반도 공인 역사 사료 아카이브 노드">
-          <span class="tab-bullet"></span>역사지진
+        <button id="tab-cat-usgs" class="cat-tab active" data-cat="usgs" title="USGS 전 지구 M4.5+ 실시간 관측 노드">
+          <span class="tab-bullet"></span>글로벌 관측 (USGS)
         </button>
-        <button id="tab-cat-usgs" class="cat-tab" data-cat="usgs" title="USGS 전 지구 M5.5+ 실시간 관측 노드">
-          <span class="tab-bullet"></span>글로벌 USGS
+        <button id="tab-cat-historical" class="cat-tab" data-cat="historical" title="한반도 공인 역사 사료 아카이브 (조선·고려·삼국·근현대)">
+          <span class="tab-bullet"></span>한반도 역사 사료
+        </button>
+      </div>
+
+      <!-- Indexed USGS Global Benchmarks: 2023 튀르키예, 2016 구마모토 -->
+      <div class="explore-benchmarks" id="benchmarks-usgs">
+        <button id="btn-ev-turkey" class="surface-btn pill indexed usgs-idx" data-id="global_2023_turkey" title="2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)">
+          <span class="idx-num">1</span> 2023 튀르키예
+        </button>
+        <button id="btn-ev-kumamoto" class="surface-btn pill indexed usgs-idx" data-id="global_2016_kumamoto" title="2016 일본 구마모토 지진 본진 (Mw 7.0)">
+          <span class="idx-num">2</span> 2016 구마모토
         </button>
       </div>
 
       <!-- Indexed Historical Benchmarks: 1681 양양, 1338 고려, 2016 경주, 2017 포항 -->
-      <div class="explore-benchmarks" id="benchmarks-historical">
+      <div class="explore-benchmarks" id="benchmarks-historical" style="display:none;">
         <button id="btn-ev-1681" class="surface-btn pill indexed" data-id="hist_1681_0626" title="1681년 6월 26일 강원도 양양 대지진 (조선 숙종 7년)">
           <span class="idx-num">1</span> 1681 양양
         </button>
@@ -928,19 +1043,9 @@
         </button>
       </div>
 
-      <!-- Indexed USGS Global Benchmarks: 2023 튀르키예, 2016 구마모토 -->
-      <div class="explore-benchmarks" id="benchmarks-usgs" style="display:none;">
-        <button id="btn-ev-turkey" class="surface-btn pill indexed usgs-idx" data-id="global_2023_turkey" title="2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)">
-          <span class="idx-num">1</span> 2023 튀르키예
-        </button>
-        <button id="btn-ev-kumamoto" class="surface-btn pill indexed usgs-idx" data-id="global_2016_kumamoto" title="2016 일본 구마모토 지진 본진 (Mw 7.0)">
-          <span class="idx-num">2</span> 2016 구마모토
-        </button>
-      </div>
-
       <div class="explore-actions">
         <button id="btn-open-discover" class="surface-btn primary" title="전체 사료 및 관측 아카이브 목록 열기">
-          <span id="discover-btn-icon">✦</span> <span id="discover-btn-label">사료 아카이브</span>
+          <span id="discover-btn-icon">✦</span> <span id="discover-btn-label">글로벌 관측 피드</span>
         </button>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
           <span class="toggle-dot"></span> <span id="auto-continue-text">연속 재생: 꺼짐</span>
@@ -955,21 +1060,22 @@
     <div class="surface-view view-discover" id="view-discover">
       <div class="discover-header">
         <div class="discover-title-group">
-          <span class="discover-title">역사지진 사료 아카이브</span>
-          <span class="discover-count" id="discover-total-count">48개 사료 사건</span>
+          <span class="discover-title">지진 사료 및 관측 아카이브</span>
+          <span class="discover-count" id="discover-total-count">777개 사료 및 글로벌 관측 사건</span>
         </div>
         <button id="btn-close-discover" class="surface-btn icon close" title="탐색 닫기">&times;</button>
       </div>
       <div class="discover-search-row">
-        <input type="text" id="discover-search-input" placeholder="사건명, 연도, 지명, 사료 어휘 검색 (예: 1681, 양양, 경주, 퇴조, 울다)..." />
+        <input type="text" id="discover-search-input" placeholder="사건명, 연도, 지명, 사료 어휘 검색 (예: 1681, 양양, 경주, 튀르키예, 구마모토, 퇴조, 울다)..." />
       </div>
       <div class="discover-filter-chips">
-        <button class="filter-chip active" data-filter="all">전체</button>
-        <button class="filter-chip" data-filter="joseon">조선 (32)</button>
-        <button class="filter-chip" data-filter="goryeo">고려 (8)</button>
-        <button class="filter-chip" data-filter="samguk">삼국 (4)</button>
+        <button class="filter-chip active" data-filter="global">글로벌 관측 (USGS/국제)</button>
+        <button class="filter-chip" data-filter="all-historical">한반도 사료 전체</button>
         <button class="filter-chip" data-filter="instrumental">근현대 계측 (15)</button>
-        <button class="filter-chip" data-filter="global">글로벌 (USGS/국제)</button>
+        <button class="filter-chip" data-filter="joseon">조선 (22)</button>
+        <button class="filter-chip" data-filter="goryeo">고려 (7)</button>
+        <button class="filter-chip" data-filter="samguk">삼국 (8)</button>
+        <button class="filter-chip" data-filter="all">전체 통합</button>
       </div>
       <div class="discover-card-grid" id="discover-cards-container">
         <!-- Populated dynamically -->
@@ -980,31 +1086,61 @@
     <div class="surface-view view-selected" id="view-selected">
       <div class="selected-header">
         <button id="btn-back-to-discover" class="surface-btn text-link">← 아카이브 목록</button>
-        <div class="selected-era-badge" id="selected-era-badge">조선 숙종 7년</div>
+        <div class="selected-era-badge" id="selected-era-badge">조선 숙종 7년 (1681)</div>
         <button id="btn-close-selected" class="surface-btn icon close" title="닫기">&times;</button>
       </div>
-      <div class="selected-body">
-        <h2 class="selected-title" id="selected-title">1681 강원도 양양 인근 해역 대지진</h2>
-        <div class="selected-date-coords" id="selected-date-coords">1681-06-26 · 37.95°N, 129.05°E · 깊이 12.0 km</div>
+
+      <div class="selected-body" id="selected-body-scrollable">
+        <div class="selected-title-row">
+          <h2 class="selected-title" id="selected-title">1681 강원도 양양 인근 해역 대지진</h2>
+          <span class="selected-provenance-tag" id="selected-provenance-tag">공인 1차 사료 확인</span>
+        </div>
         
-        <div class="selected-quote-card">
-          <div class="quote-source-label" id="selected-quote-source">승정원일기 · 조선왕조실록</div>
-          <p class="quote-text" id="selected-quote-text">"강원도 도신이 아뢰기를, 산이 울고 땅이 진동하였으며 거암이 붕괴되고 바닷물이 조수가 밀려가는 듯하더니 갑자기 언덕을 넘어왔다."</p>
+        <div class="selected-grid-telemetry">
+          <div class="telemetry-cell">
+            <span class="cell-label">발생 일시 (Origin Time)</span>
+            <span class="cell-value" id="selected-origin-time">1681-06-26</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="cell-label">진앙 위치 (Epicenter)</span>
+            <span class="cell-value" id="selected-coords">37.95°N, 129.05°E</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="cell-label">지진 규모 (Magnitude)</span>
+            <span class="cell-value" id="selected-mag">추정 규모 ~7.5</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="cell-label">진원 깊이 (Focal Depth)</span>
+            <span class="cell-value" id="selected-depth">12.0 km</span>
+          </div>
         </div>
 
-        <div class="selected-telemetry-row" id="selected-telemetry-row">
-          <span class="telemetry-pill" id="selected-mag">추정 규모 ~7.5</span>
-          <span class="telemetry-pill" id="selected-region">연안·해역 (동해 대륙붕)</span>
-          <span class="telemetry-pill" id="selected-velocity">한반도 관측 지각속도 모델</span>
+        <div class="selected-quote-card">
+          <div class="quote-header">
+            <span class="quote-source-label" id="selected-quote-source">승정원일기 284책 70권 · 조선왕조실록 숙종 11권</span>
+            <span class="quote-confidence-badge" id="selected-confidence">신뢰도: HIGH (당대 교차실증)</span>
+          </div>
+          <p class="quote-text" id="selected-quote-text">"강원도 도신이 아뢰기를, 산이 울고 땅이 진동하였으며 거암이 붕괴되고 바닷물이 조수가 밀려가는 듯하더니 갑자기 언덕을 넘어왔다."</p>
+          <div class="quote-hanja-row" id="selected-hanja-row" style="display:none;">
+            <span class="hanja-label">사료 원문: </span>
+            <span class="hanja-text" id="selected-quote-hanja"></span>
+          </div>
+        </div>
+
+        <div class="selected-footer-meta">
+          <span class="meta-item" id="selected-region">연안·해역 (동해 대륙붕)</span>
+          <span class="meta-item" id="selected-velocity">한반도 관측 지각속도 모델</span>
+          <span class="meta-item" id="selected-catalog-id">사건 식별자: hist_1681_0626</span>
         </div>
       </div>
+
       <div class="selected-action-row">
         <label class="auto-play-checkbox">
           <input type="checkbox" id="chk-auto-continue" />
           <span>재생 완료 후 다음 사건 자동 연속</span>
         </label>
         <button id="btn-launch-performance" class="surface-btn primary large">
-          현장 강하 및 시청각 재생 시작 →
+          현장 강하 및 3D 시각화 재생 시작 →
         </button>
       </div>
     </div>
@@ -1033,6 +1169,9 @@
       </div>
 
       <div class="transport-exit">
+        <button id="btn-performance-detail" class="surface-btn secondary compact" title="사건 상세 사료 및 계측 정보 보기">
+          ℹ 사료 상세
+        </button>
         <button id="btn-performance-discover" class="surface-btn secondary compact" title="사료 아카이브 열기">
           ✦ 사료 목록
         </button>
@@ -1670,16 +1809,17 @@
       constructor() {
         this.container = document.getElementById('unified-control-surface');
         this.currentState = 'EXPLORE';
-        this.exploreCategory = 'historical';
+        this.previousState = 'EXPLORE';
+        this.exploreCategory = 'usgs';
         this.selectedEvent = null;
-        this.activeFilter = 'all';
+        this.activeFilter = 'global';
         this.searchQuery = '';
         this.autoContinue = false;
         this.isScrubbing = false;
 
         window.controlSurface = this;
         this.bindEvents();
-        this.renderDiscoverCards();
+        this.setExploreCategory('usgs');
       }
 
       setExploreCategory(cat) {
@@ -1696,28 +1836,36 @@
           if (tabUsgs) tabUsgs.classList.add('active');
           if (grpHist) grpHist.style.display = 'none';
           if (grpUsgs) grpUsgs.style.display = 'flex';
-          if (subCount) subCount.textContent = "727 글로벌 노드";
-          if (btnLabel) btnLabel.textContent = "USGS 관측 피드";
+          const globalCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.id?.includes('global_') || e.id?.includes('usgs')).length || 727;
+          if (subCount) subCount.textContent = `${globalCount} 글로벌 관측 노드`;
+          if (btnLabel) btnLabel.textContent = "글로벌 관측 피드";
           this.activeFilter = 'global';
           
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "USGS 전 지구 M5.5+ 관측 노드를 탐색하십시오 · [USGS 피드]를 열어 사건을 선택할 수 있습니다";
+            sub.textContent = "USGS 전 지구 M4.5+ 실시간 관측 노드를 탐색하십시오 · [글로벌 관측 피드] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
           }
         } else {
           if (tabHist) tabHist.classList.add('active');
           if (tabUsgs) tabUsgs.classList.remove('active');
           if (grpHist) grpHist.style.display = 'flex';
           if (grpUsgs) grpUsgs.style.display = 'none';
-          if (subCount) subCount.textContent = "48 사료 노드";
+          const histCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.country === 'KOREA' || (!e.id?.includes('global_') && !e.id?.includes('usgs') && e.catalogType !== 'INSTRUMENTAL_GLOBAL')).length || 51;
+          if (subCount) subCount.textContent = `${histCount} 사료 노드`;
           if (btnLabel) btnLabel.textContent = "사료 아카이브";
-          this.activeFilter = 'all';
+          this.activeFilter = 'all-historical';
 
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "지구 표면의 역사지진 노드를 탐색하십시오 · [사료 아카이브]를 열어 사건을 선택할 수 있습니다";
+            sub.textContent = "지구 표면의 역사지진 사료 노드를 탐색하십시오 · [사료 아카이브]를 열어 사건을 선택할 수 있습니다";
           }
         }
+
+        // Update active filter chip in discover drawer to match
+        const filterChips = document.querySelectorAll('.discover-filter-chips .filter-chip');
+        filterChips.forEach(chip => {
+          chip.classList.toggle('active', chip.getAttribute('data-filter') === this.activeFilter);
+        });
       }
 
       get isPlaying() {
@@ -1878,7 +2026,11 @@
         if (btnBackDiscover) {
           btnBackDiscover.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.setState('DISCOVER');
+            if (this.previousState === 'PERFORMANCE') {
+              this.setState('PERFORMANCE');
+            } else {
+              this.setState('DISCOVER');
+            }
           });
         }
 
@@ -1886,7 +2038,11 @@
         if (btnCloseSelected) {
           btnCloseSelected.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.setState('EXPLORE');
+            if (this.previousState === 'PERFORMANCE') {
+              this.setState('PERFORMANCE');
+            } else {
+              this.setState('EXPLORE');
+            }
           });
         }
 
@@ -1913,7 +2069,17 @@
         if (btnPerfDiscover) {
           btnPerfDiscover.addEventListener('click', (e) => {
             e.stopPropagation();
+            this.previousState = 'PERFORMANCE';
             this.setState('DISCOVER');
+          });
+        }
+
+        const btnPerfDetail = document.getElementById('btn-performance-detail');
+        if (btnPerfDetail) {
+          btnPerfDetail.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.previousState = 'PERFORMANCE';
+            this.setState('SELECTED', this.selectedEvent || currentParsedEvent);
           });
         }
         const btnPlayPause = document.getElementById('btn-transport-play-pause');
@@ -1990,7 +2156,7 @@
         if (icon2) icon2.textContent = isMuted ? "🔇" : "🔊";
       }
 
-      renderDiscoverCards(filter = 'all', query = '') {
+      renderDiscoverCards(filter = 'global', query = '') {
         const container = document.getElementById('discover-cards-container');
         if (!container) return;
         container.innerHTML = '';
@@ -1998,61 +2164,86 @@
         const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
         let filtered = allEvents;
 
-        // Filter by Era
-        if (filter === 'joseon') {
+        // Filter by Category / Era
+        if (filter === 'global') {
+          filtered = filtered.filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || (e.country && e.country !== 'KOREA') || e.id?.includes('global') || e.id?.includes('usgs') || e.id?.includes('kumamoto') || e.id?.includes('turkey'));
+        } else if (filter === 'all-historical') {
+          filtered = filtered.filter(e => e.dynasty === 'JOSEON' || e.dynasty === 'GORYEO' || e.dynasty === 'THREE_KINGDOMS' || e.dynasty === 'UNIFIED_SILLA' || (e.century != null && e.century < 20));
+        } else if (filter === 'instrumental') {
+          filtered = filtered.filter(e => (e.century >= 20 || e.catalogType === 'INSTRUMENTAL_EARLY' || e.catalogType === 'INSTRUMENTAL_MODERN') && e.catalogType !== 'INSTRUMENTAL_GLOBAL' && !e.id?.includes('global_') && !e.id?.includes('usgs'));
+        } else if (filter === 'joseon') {
           filtered = filtered.filter(e => e.dynasty === 'JOSEON' || (e.century >= 14 && e.century <= 19));
         } else if (filter === 'goryeo') {
           filtered = filtered.filter(e => e.dynasty === 'GORYEO' || (e.century >= 10 && e.century <= 14));
         } else if (filter === 'samguk') {
-          filtered = filtered.filter(e => e.dynasty === 'THREE_KINGDOMS' || e.dynasty === 'UNIFIED_SILLA' || e.century < 10);
-        } else if (filter === 'instrumental') {
-          filtered = filtered.filter(e => (e.century >= 20 || e.catalogType?.includes('INSTRUMENTAL')) && !e.id?.includes('usgs') && e.country === 'KOREA');
-        } else if (filter === 'global') {
-          filtered = filtered.filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.country !== 'KOREA' || e.id?.includes('global') || e.id?.includes('usgs'));
+          filtered = filtered.filter(e => e.dynasty === 'THREE_KINGDOMS' || e.dynasty === 'UNIFIED_SILLA' || (e.century != null && e.century < 10));
         }
+        // filter === 'all': show everything
 
         // Filter by Query
         if (query) {
+          const q = query.toLowerCase().trim();
           filtered = filtered.filter(e => {
             const title = (e.place || e.titleKo || e.canonicalName || '').toLowerCase();
-            const quote = (e.primaryText?.originalScript || e.text || '').toLowerCase();
+            const quote = (e.primaryText?.originalScript || e.text || e.translationKo || '').toLowerCase();
             const reign = (e.dateConversion?.reignName || '').toLowerCase();
-            const year = String(e.dateConversion?.gregorianYear || e.temporal?.gregorianDate || '');
-            return title.includes(query) || quote.includes(query) || reign.includes(query) || year.includes(query);
+            const year = String(e.dateConversion?.gregorianYear || e.temporal?.gregorianDate || e.year || '');
+            const source = (e.sourceName || e.primaryText?.documentSource || '').toLowerCase();
+            return title.includes(q) || quote.includes(q) || reign.includes(q) || year.includes(q) || source.includes(q);
           });
         }
 
         const countLabel = document.getElementById('discover-total-count');
         if (countLabel) {
-          countLabel.textContent = `${filtered.length}개 사료 및 글로벌 관측 사건`;
+          countLabel.textContent = `${filtered.length}개 지진 사건 조회됨`;
         }
 
         filtered.forEach(ev => {
           const card = document.createElement('div');
           card.className = 'discover-event-card';
 
-          const eraText = ev.dateConversion?.reignName ? `${ev.dateConversion.reignName} (${ev.dateConversion.gregorianYear || ''})` : (ev.dateText || ev.temporal?.gregorianDate?.substring(0,4) || "연대 미상");
-          const titleText = (ev.titleKo || ev.place || ev.canonicalName || "지진 기록").replace(/[\u4e00-\u9fff]/g, '').trim();
+          const eraText = ev.dateConversion?.reignName
+            ? `${ev.dateConversion.reignName} (${ev.dateConversion.gregorianYear || ''})`
+            : (ev.dateText || ev.temporal?.gregorianDate?.substring(0, 10) || (ev.year ? `${ev.year}년` : "연대 미상"));
+          const titleText = (ev.titleKo || ev.place || ev.canonicalName || "지진 사건").replace(/[\u4e00-\u9fff]/g, '').trim();
           const { lat, lon } = getEventCoords(ev);
-          const quoteText = ev.primaryText?.originalScript || ev.text || "";
+          const quoteText = ev.translationKo || ev.primaryText?.originalScript || ev.text || "";
+
+          let provTagClass = "tag-hist";
+          let provTagText = "역사 사료";
+          if (ev.recordType === 'usgs-live') {
+            provTagClass = "tag-usgs";
+            provTagText = "USGS 실시간";
+          } else if (ev.catalogType === 'INSTRUMENTAL_GLOBAL' || ev.country !== 'KOREA') {
+            provTagClass = "tag-global";
+            provTagText = "국제 계측";
+          } else if (ev.country === 'KOREA' && (ev.century >= 20 || ev.catalogType?.includes('INSTRUMENTAL'))) {
+            provTagClass = "tag-kma";
+            provTagText = "기상청 계측";
+          }
 
           const hasCoords = lat != null && lon != null;
           const coordsHtml = hasCoords
             ? `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`
-            : `<span style="color:#dca858; font-size:10px;">[좌표 미상 / 사료 원문 보존]</span>`;
+            : `<span style="color:#dca858; font-size:10px;">[좌표 미상 / 사료 원문]</span>`;
+
+          const magVal = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.mag?.v ?? ev.mag;
+          const magBadge = magVal ? `<span style="color:#EAE4D5; font-weight:600; font-size:10px; margin-left:6px;">M ${Number(magVal).toFixed(1)}</span>` : '';
 
           card.innerHTML = `
             <div class="card-top-row">
-              <span class="card-era">${eraText}</span>
-              <span class="card-coords">${coordsHtml}</span>
+              <span class="card-era">${eraText} ${magBadge}</span>
+              <span class="selected-provenance-tag ${provTagClass}">${provTagText}</span>
             </div>
             <div class="card-title">${titleText}</div>
-            <div class="card-snippet">${quoteText ? `"${quoteText.substring(0, 55)}..."` : '사료 기록 확인'}</div>
+            <div style="font-family:'SF Mono',Menlo,monospace; font-size:10.5px; color:#7a9ec2; margin: 2px 0 4px 0;">${coordsHtml}</div>
+            <div class="card-snippet">${quoteText ? `"${quoteText.substring(0, 52)}..."` : '사료 및 관측 기록 확인'}</div>
           `;
 
-          card.addEventListener('click', async (e) => {
+          card.addEventListener('click', (e) => {
             e.stopPropagation();
-            await this.selectEvent(ev);
+            this.previousState = 'DISCOVER';
+            this.setState('SELECTED', ev);
           });
 
           container.appendChild(card);
@@ -2061,49 +2252,129 @@
 
       renderSelectedEvent(ev) {
         const titleEl = document.getElementById('selected-title');
+        const provTagEl = document.getElementById('selected-provenance-tag');
         const eraEl = document.getElementById('selected-era-badge');
-        const dateCoordsEl = document.getElementById('selected-date-coords');
-        const quoteSourceEl = document.getElementById('selected-quote-source');
-        const quoteTextEl = document.getElementById('selected-quote-text');
+        
+        const originTimeEl = document.getElementById('selected-origin-time');
+        const coordsEl = document.getElementById('selected-coords');
         const magEl = document.getElementById('selected-mag');
+        const depthEl = document.getElementById('selected-depth');
+
+        const quoteSourceEl = document.getElementById('selected-quote-source');
+        const quoteConfEl = document.getElementById('selected-confidence');
+        const quoteTextEl = document.getElementById('selected-quote-text');
+        const hanjaRowEl = document.getElementById('selected-hanja-row');
+
         const regionEl = document.getElementById('selected-region');
         const velEl = document.getElementById('selected-velocity');
+        const catalogIdEl = document.getElementById('selected-catalog-id');
+        const btnLaunch = document.getElementById('btn-launch-performance');
+        const btnBackDiscover = document.getElementById('btn-back-to-discover');
 
-        const cleanTitle = (ev.titleKo || ev.place || ev.canonicalName || "역사지진").replace(/[\u4e00-\u9fff]/g, '').trim();
-        const eraText = ev.dateConversion?.reignName || (ev.century >= 20 ? (ev.recordType === 'usgs-live' ? "USGS 글로벌 실시간 관측" : "현대 계측 지진") : "역사 사료 기록");
-        const dateStr = (ev.dateText || ev.dateConversion?.gregorianDateISO || ev.temporal?.gregorianDate || "연대 미상").replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
+        if (!ev) return;
+
+        const cleanTitle = (ev.titleKo || ev.place || ev.canonicalName || "지진 사건").replace(/[\u4e00-\u9fff]/g, '').trim();
+        const eraText = ev.dateConversion?.reignName || (ev.century >= 20 ? (ev.recordType === 'usgs-live' ? "USGS 글로벌 실시간 관측망" : "현대 정밀 계측 지진") : "역사 문헌 사료 기록");
+        const dateStr = (ev.dateText || ev.dateConversion?.gregorianDateISO || ev.temporal?.gregorianDate || (ev.year ? `${ev.year}년` : "연대 미상")).replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
         const { lat, lon } = getEventCoords(ev);
-        const depthKmRaw = ev.depth?.valKm ?? ev.depth?.v ?? ev.spatial?.focalDepth?.valKm ?? (typeof ev.depth === 'number' ? ev.depth : (ev.id?.includes('1681') ? 12.0 : 10.0));
-        const depthKm = typeof depthKmRaw === 'number' ? depthKmRaw : (Number(depthKmRaw) || 10.0);
 
-        const quoteSource = ev.primaryText?.documentSource || ev.sourceName || (ev.records?.[0]?.corpusId ? "조선왕조실록 · 승정원일기" : "공인 역사지진 사료");
-        const quote = ev.translationKo || ev.originalTranslationKo || ev.translation || ev.koreanTranslation || ev.primaryText?.originalScript || ev.text || "지진 진동 및 지형 변동 기록";
+        // Provenance classification
+        let provTagClass = "tag-hist";
+        let provTagText = "역사 사료 (국사편찬위)";
+        let confText = "1차 사료 공인 기록";
+
+        if (ev.recordType === 'usgs-live') {
+          provTagClass = "tag-usgs";
+          provTagText = "USGS Global Real-time";
+          confText = "USGS 실시간 지진계 네트워크";
+        } else if (ev.catalogType === 'INSTRUMENTAL_GLOBAL' || (ev.country && ev.country !== 'KOREA')) {
+          provTagClass = "tag-global";
+          provTagText = "국제 표준 계측 (ISC/USGS)";
+          confText = "국제 지진 센터(ISC) 공인 관측";
+        } else if (ev.country === 'KOREA' && (ev.century >= 20 || ev.catalogType?.includes('INSTRUMENTAL'))) {
+          provTagClass = "tag-kma";
+          provTagText = "대한민국 기상청 (KMA)";
+          confText = ev.verification === 'kma-verified' ? "기상청 지진관측보고 공인 검증" : "기상청 지진연보 및 학술 논문 교차 검증";
+        } else {
+          if (ev.records?.[0]?.corpusId?.includes('sillok')) {
+            confText = "조선왕조실록 원전 등재 (신뢰도 높음)";
+          } else if (ev.historicalReliability?.confidenceRating) {
+            confText = `사료 신뢰도: ${ev.historicalReliability.confidenceRating.toUpperCase()}`;
+          }
+        }
 
         if (titleEl) titleEl.textContent = cleanTitle;
         if (eraEl) eraEl.textContent = eraText;
-        
-        const hasCoords = lat != null && lon != null;
-        if (hasCoords) {
-          if (dateCoordsEl) dateCoordsEl.textContent = `${dateStr} · 진앙: ${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E · 진원 깊이: ${depthKm.toFixed(1)} km`;
-          const btnLaunch = document.getElementById('btn-launch-performance');
-          if (btnLaunch) btnLaunch.textContent = "현장으로 비행 시작 (Launch Performance)";
-        } else {
-          if (dateCoordsEl) dateCoordsEl.textContent = `${dateStr} · 진앙: 사료 원전 보존 (정밀 좌표 미상) · 문헌 기록`;
-          const btnLaunch = document.getElementById('btn-launch-performance');
-          if (btnLaunch) btnLaunch.textContent = "사료 궤도 조망 시작 (Orbital Archive Theater)";
+        if (provTagEl) {
+          provTagEl.className = `selected-provenance-tag ${provTagClass}`;
+          provTagEl.textContent = provTagText;
         }
 
-        if (quoteSourceEl) quoteSourceEl.textContent = quoteSource;
-        if (quoteTextEl) quoteTextEl.textContent = `"${quote}"`;
+        // Telemetry grid
+        if (originTimeEl) originTimeEl.textContent = dateStr;
+
+        const hasCoords = lat != null && lon != null;
+        if (coordsEl) {
+          coordsEl.textContent = hasCoords 
+            ? `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`
+            : "사료 원전 보존 (정밀 좌표 미상)";
+        }
 
         const magVal = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.mag?.v ?? ev.mag;
-        const magText = magVal ? `규모 M ${Number(magVal).toFixed(1)}` : "문헌 진도 추정";
-        const mmiText = ev.macroseismic?.maxIntensityMMI?.rawRoman ? ` · MMI ${ev.macroseismic.maxIntensityMMI.rawRoman}` : "";
-        if (magEl) magEl.textContent = `${magText}${mmiText}`;
+        const mmiText = ev.macroseismic?.maxIntensityMMI?.rawRoman ? ` (MMI ${ev.macroseismic.maxIntensityMMI.rawRoman})` : "";
+        if (magEl) {
+          magEl.textContent = magVal ? `M ${Number(magVal).toFixed(1)}${mmiText}` : (mmiText ? `진도${mmiText}` : "미확인 (사료 기록 한계)");
+        }
 
+        const depthKmRaw = ev.depth?.valKm ?? ev.depth?.v ?? ev.spatial?.focalDepth?.valKm ?? (typeof ev.depth === 'number' ? ev.depth : null);
+        if (depthEl) {
+          if (depthKmRaw != null) {
+            depthEl.textContent = `${Number(depthKmRaw).toFixed(1)} km`;
+          } else {
+            depthEl.textContent = "미확인 (사료 기록 한계)";
+          }
+        }
+
+        // Document / Quote section
+        const quoteSource = ev.primaryText?.documentSource || ev.sourceName || (ev.records?.[0]?.corpusId ? "조선왕조실록 · 승정원일기" : "공인 역사지진 사료집");
+        const quote = ev.translationKo || ev.originalTranslationKo || ev.translation || ev.koreanTranslation || ev.primaryText?.originalScript || ev.text || "지진 진동 및 지형 변동 기록";
+        const hanja = ev.primaryText?.originalScript || ev.hanja || "";
+
+        if (quoteSourceEl) quoteSourceEl.textContent = quoteSource;
+        if (quoteConfEl) quoteConfEl.textContent = confText;
+        if (quoteTextEl) quoteTextEl.textContent = `"${quote}"`;
+
+        if (hanjaRowEl) {
+          if (hanja && hanja !== quote) {
+            hanjaRowEl.style.display = "block";
+            hanjaRowEl.textContent = `[원문] ${hanja}`;
+          } else {
+            hanjaRowEl.style.display = "none";
+          }
+        }
+
+        // Footer Meta
         const regMeta = getUniversalEventMetadata(ev.id || ev.eventId, lat, lon);
         if (regionEl) regionEl.textContent = regMeta.geographicType || (regMeta.isGlobalPlanetaryRelief ? "글로벌 연속 지구 지형" : "연안·대륙붕");
-        if (velEl) velEl.textContent = regMeta.country === 'KOREA' ? "한반도 관측 지각속도 모델 (KIGAM)" : "IASPEI 글로벌 지각속도 모델";
+        if (velEl) velEl.textContent = (ev.country === 'KOREA' || regMeta.country === 'KOREA') ? "한반도 지각속도 모델 (KIGAM)" : "IASPEI 글로벌 지각속도 모델";
+        if (catalogIdEl) catalogIdEl.textContent = `ID: ${ev.id || ev.eventId || "UNREGISTERED"}`;
+
+        // Launch & Back Buttons
+        if (btnLaunch) {
+          if (hasCoords) {
+            btnLaunch.textContent = "현장으로 비행 시작 (Launch Performance)";
+          } else {
+            btnLaunch.textContent = "사료 궤도 조망 시작 (Orbital Archive Theater)";
+          }
+        }
+
+        if (btnBackDiscover) {
+          if (this.previousState === 'PERFORMANCE') {
+            btnBackDiscover.textContent = "← 3D 현장으로 복귀";
+          } else {
+            btnBackDiscover.textContent = "← 목록으로 복귀";
+          }
+        }
       }
 
       updatePerformanceHeader(ev) {
