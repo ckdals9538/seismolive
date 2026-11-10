@@ -28,48 +28,207 @@ export const LIFECYCLE_STAGES = [
   'DEAD'
 ];
 
-export const HANJA_TO_HANGUL_MAP = {
-  "墻屋頹圮": "무너지다",
-  "頹圮": "무너지다",
-  "倒壞": "무너지다",
-  "崩壞": "무너지다",
-  "山崩": "산이 무너지다",
-  "地裂": "갈라지다",
-  "地動": "흔들리다",
-  "地震": "흔들리다",
-  "退潮": "퇴조",
-  "海溢": "해일",
-  "湧出": "솟구치다",
-  "鳴響": "울다",
-  "聲如雷": "우레처럼 울다",
-  "如雷": "울다",
-  "轟然": "우르릉 울다",
-  "振動": "흔들리다",
-  "搖動": "흔들리다",
-  "大震": "흔들리다",
-  "陷沒": "가라앉다",
-  "沈沒": "가라앉다"
+/**
+ * Comprehensive Chronicle Hanja-to-Korean Archival Expression Database
+ * Grounded in 삼국사기, 고려사, 조선왕조실록, 승정원일기, 일성록, 증보문헌비고
+ */
+export const ARCHIVAL_HANJA_LEXICON_DB = {
+  // 1681 Yangyang & Marine / Tsunami Chronicles
+  "海水退潮百餘步": { displayKo: "바닷물이 백여 보 물러나다", token: "퇴조", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
+  "海水如潮退而溢": { displayKo: "해저가 드러나다", token: "드러나다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "海水退而溢": { displayKo: "바닷물이 물러갔다 넘치다", token: "해일", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
+  "雪嶽山巖崩": { displayKo: "설악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "巨巖崩壞": { displayKo: "설악 거암이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "巖石崩頹": { displayKo: "설악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "竹西樓巖石動搖": { displayKo: "죽서루 절벽이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "海岸崩坼": { displayKo: "해안 언덕이 갈라지다", token: "갈라지다", archetype: "FRACTURE", stageZone: "ZONE_A_OCEAN" },
+  "餘震連日不絶": { displayKo: "여진이 연일 그치지 않다", token: "여진", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "山岳震動": { displayKo: "산악이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN" },
+
+  // Samguk Sagi (AD 2 – 779)
+  "國內地震": { displayKo: "국내의 땅이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "地動": { displayKo: "궁궐과 도성이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "聲如雷": { displayKo: "소리가 우레와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "漢山地震": { displayKo: "한산의 대지가 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "泉涌": { displayKo: "땅이 갈라져 샘이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "京都地震": { displayKo: "서라벌 도성이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "民屋倒وم": { displayKo: "민가가 쓰러져 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "民屋倒墮": { displayKo: "민가가 쓰러져 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "地陷": { displayKo: "땅이 꺼져 내려앉다", token: "가라앉다", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND" },
+  "地裂廣五尺": { displayKo: "땅이 다섯 자나 갈라지다", token: "갈라지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "地裂泉涌": { displayKo: "땅이 찢어져 샘물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "彌勒寺塔震": { displayKo: "미륵사 석탑이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "京都大震": { displayKo: "도성이 크게 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "民屋壞": { displayKo: "민가가 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "死者百餘人": { displayKo: "백여 명이 목숨을 잃다", token: "스러지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+
+  // Goryeosa (971 – 1385)
+  "京城地震": { displayKo: "개경 도성이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "東京管內地震": { displayKo: "동경과 경상 땅이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "城屋頹毁": { displayKo: "성곽과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "屋瓦皆飛": { displayKo: "기와가 물결처럼 날다", token: "날다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "人不能立": { displayKo: "사람이 서지 못하고 넘어지다", token: "넘어지다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "金海府大震": { displayKo: "김해 땅이 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "墻屋頹圮": { displayKo: "담장과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "墻垣頹圮": { displayKo: "담장이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "松嶽崩": { displayKo: "송악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+
+  // Joseon Wangjo Sillok & Seungjeongwon Ilgi & Ilseongnok (1405 – 1898)
+  "屋宇動搖": { displayKo: "가옥이 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "墻屋頹落": { displayKo: "담장과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "聲如怒雷": { displayKo: "소리가 성난 우레 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "墻屋城堞頹落": { displayKo: "담장과 성첩이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "屋宇頹毁": { displayKo: "가옥이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "地坼水涌": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "地坼水湧": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "地裂湧水": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND" },
+  "地坼湧水": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "白沙湧出": { displayKo: "흰 모래가 솟아 나오다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
+  "城堞頹落": { displayKo: "성첩이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "城堞頹毁": { displayKo: "읍성 성첩이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "城堞多頹": { displayKo: "성첩이 많이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "聲如大砲": { displayKo: "소리가 대포와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "聲如大雷": { displayKo: "소리가 큰 우레와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "聲如遠雷": { displayKo: "소리가 먼 우레 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN" },
+  "巖石崩落": { displayKo: "암석이 무너져 떨어지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "瓦礫自落": { displayKo: "기와가 저절로 떨어지다", token: "떨어지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "山崩塞川": { displayKo: "산이 무너져 내를 막다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
+  "水溢": { displayKo: "강물이 범람하여 넘치다", token: "넘치다", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
+  "石垣多頹": { displayKo: "돌담이 많이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "窓戶搖動": { displayKo: "창호가 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "民家頹壓": { displayKo: "민가가 무너져 덮치다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "死者數十人": { displayKo: "수십 명이 깔려 숨지다", token: "스러지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
+  "屋宇微動": { displayKo: "가옥이 미세하게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "八道地震": { displayKo: "팔도에 지진이 일어나다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
+  "京城尤甚": { displayKo: "도성이 더욱 심하게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" }
 };
 
+export const HANJA_TO_HANGUL_MAP = {
+  "墻屋頹圮": "담장과 가옥이 무너지다",
+  "頹圮": "무너져 내리다",
+  "倒壞": "쓰러져 무너지다",
+  "崩壞": "거암이 무너지다",
+  "山崩": "산이 무너지다",
+  "地裂": "땅이 갈라지다",
+  "地動": "대지가 진동하다",
+  "地震": "땅이 흔들리다",
+  "退潮": "바닷물이 물러나다",
+  "海溢": "바닷물이 넘치다",
+  "湧出": "물이 솟구치다",
+  "鳴響": "지하가 울리다",
+  "聲如雷": "소리가 우레와 같다",
+  "如雷": "우레 같은 소리",
+  "轟然": "우르릉 울리다",
+  "振動": "산악이 진동하다",
+  "搖動": "크게 흔들리다",
+  "大震": "대지가 크게 울리다",
+  "陷沒": "땅이 내려앉다",
+  "沈沒": "물속에 잠기다"
+};
+
+/**
+ * Verbatim Chronicle Clause Extractor
+ * Directly splits a historical chronicle or instrumental record (`originalTranslationKo`, `translationKo`, `originalScript`)
+ * into its constituent clauses as-is (`그대로`), removing only framing prefixes and parenthetical notes.
+ */
+export function extractVerbatimChronicleClauses(rawText, allowNative = false) {
+  if (!rawText || typeof rawText !== "string") return [];
+  let text = rawText
+    .replace(/\s*\([^\)]*\)/g, "") // remove parenthetical notes like (서기 2년), (금성)
+    .replace(/^(?:강원도 도신이 아뢰기를|강원감사의 장계에|경상감사의 장계에 이르기를|비변사에서 아뢰기를)\s*,?\s*/g, "")
+    .replace(/^["'「『]|["'」』]$/g, "")
+    .trim();
+
+  if (!allowNative) {
+    text = text.replace(/[\u4e00-\u9fff]/g, "").replace(/\s+/g, " ").trim();
+  }
+
+  // Remove leading date stamps if followed by spaces (e.g., "2016년 4월 16일 ", "2023년 2월 6일 ")
+  text = text.replace(/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*/g, "").trim();
+
+  // Split by sentence/clause boundaries first
+  const primaryParts = text
+    .split(/(?:\.\s+|\.$|,\s+|;\s+|—\s+)/)
+    .map(s => s.replace(/[.。]+$/g, "").trim())
+    .filter(s => s.length >= 2);
+
+  const clauses = [];
+  for (const part of primaryParts) {
+    if (part.length <= 28) {
+      clauses.push(part);
+    } else {
+      // Split longer compound clauses at natural Korean connective endings while keeping the ending intact
+      const subParts = part
+        .split(/(?<=(?:고|며|니|더니|하여|에서|으로|따라))\s+/)
+        .map(s => s.trim())
+        .filter(s => s.length >= 2);
+      if (subParts.length > 1) {
+        clauses.push(...subParts);
+      } else {
+        clauses.push(part);
+      }
+    }
+  }
+  return clauses;
+}
+
+/**
+ * Extracts and returns the verbatim chronicle expression from a lexicon entry or raw token.
+ * Never lumps or paraphrases into abstract 4-word labels (`퇴조`, `드러나다`, `울다`, `무너지다`).
+ */
+export function distillArchivalExpression(entryOrToken, category = "resonance", fallback = "") {
+  if (!entryOrToken) return fallback || "땅이 진동하였으며";
+
+  if (typeof entryOrToken === "object") {
+    if (entryOrToken.displayKo && typeof entryOrToken.displayKo === "string") {
+      const cleanDisp = entryOrToken.displayKo
+        .replace(/\s*\([^\)]*\)/g, "")
+        .replace(/[\u4e00-\u9fff]/g, "")
+        .replace(/[.。]+$/g, "")
+        .trim();
+      if (cleanDisp.length >= 2) return cleanDisp;
+    }
+    if (entryOrToken.translation && typeof entryOrToken.translation === "string") {
+      const extracted = extractVerbatimChronicleClauses(entryOrToken.translation, false);
+      if (extracted.length > 0) return extracted[0];
+    }
+    if (entryOrToken.token && ARCHIVAL_HANJA_LEXICON_DB[entryOrToken.token]) {
+      return ARCHIVAL_HANJA_LEXICON_DB[entryOrToken.token].displayKo;
+    }
+    return sanitizeArchivalToken(entryOrToken.token, entryOrToken.category || category, fallback);
+  }
+
+  return sanitizeArchivalToken(String(entryOrToken), category, fallback);
+}
+
 export function sanitizeArchivalToken(rawToken, category = "resonance", fallback = "") {
-  if (!rawToken || typeof rawToken !== 'string') return fallback || "흔들리다";
-  let token = rawToken.trim();
-  token = token.replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
+  if (!rawToken || typeof rawToken !== 'string') return fallback || "땅이 진동하였으며";
+  const trimmed = rawToken.trim();
 
-  if (token.length > 0 && /^[\uac00-\ud7af\s]+$/.test(token)) {
-    return token.length <= 6 ? token : token.slice(0, 5);
+  if (ARCHIVAL_HANJA_LEXICON_DB[trimmed]) {
+    return ARCHIVAL_HANJA_LEXICON_DB[trimmed].displayKo;
   }
 
-  if (HANJA_TO_HANGUL_MAP[rawToken]) return HANJA_TO_HANGUL_MAP[rawToken];
+  let token = trimmed
+    .replace(/\s*\([^\)]*\)/g, '')
+    .replace(/[\u4e00-\u9fff]/g, '')
+    .replace(/[.。]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (token.length >= 2) {
+    return token;
+  }
+
+  for (const [hanja, spec] of Object.entries(ARCHIVAL_HANJA_LEXICON_DB)) {
+    if (trimmed.includes(hanja)) return spec.displayKo;
+  }
+  if (HANJA_TO_HANGUL_MAP[trimmed]) return HANJA_TO_HANGUL_MAP[trimmed];
   for (const [hanja, hangul] of Object.entries(HANJA_TO_HANGUL_MAP)) {
-    if (rawToken.includes(hanja)) return hangul;
+    if (trimmed.includes(hanja)) return hangul;
   }
 
-  if (category === "water") return "퇴조";
-  if (category === "sound" || category === "resonance") return "울다";
-  if (category === "geology" || category === "structure" || category === "fracture") return "무너지다";
-  if (category === "shaking") return "흔들리다";
-  return fallback || "흔들리다";
+  return fallback || "땅이 진동하였으며";
 }
 
 /**
@@ -165,232 +324,10 @@ export class ArchivalSemanticParser {
     const mag = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.interpretations?.[0]?.estimatedMagnitude?.best ?? (ev.mag?.v ?? (ev.macroseismic?.maxIntensityMMI?.numericEquivalent ? (ev.macroseismic.maxIntensityMMI.numericEquivalent * 0.6 + 1.5) : 6.5));
     const depth = ev.spatial?.focalDepth?.valKm ?? ev.interpretations?.[0]?.focalDepth?.valKm ?? 12.0;
 
-    let semanticUnits = [];
-    let compositionProfileStatus = "PROFILE_APPLIED_1681_YANGYANG";
-
-    if (ev.eventId === "hist_1681_0626") {
-      semanticUnits = [
-        // Meaning 01: 퇴조 (DIRECT_QUOTATION of Hanja 退潮)
-        {
-          id: "unit_1681_recede",
-          token: "퇴조",
-          sourceId: "rec_sjw_1681_0514",
-          originalPassage: "海水退潮百餘步",
-          translation: "바닷물이 백여 보 물러갔다가 밀려왔다",
-          evidenceClass: "DIRECT_QUOTATION",
-          editorialRationale: "승정원일기 1681년 5월 14일 강원감사 장계에 기록된 원문 한자어 '退潮'의 직접 음독 인용",
-          confidence: "HIGH_PRIMARY_CHRONICLE",
-          spatialMotif: "ZONE_OCEAN_SHELF",
-          source: {
-            originalHanja: "海水退潮百餘步",
-            originalTranslationKo: "바닷물이 백여 보 물러갔다가 밀려왔다",
-            evidenceStatus: "DIRECT_QUOTATION",
-            evidenceClass: "DIRECT_QUOTATION",
-            sourceReference: "승정원일기 숙종 7년 5월 14일 辛酉 (강원감사 장계)",
-            confidence: "HIGH_PRIMARY_CHRONICLE"
-          },
-          semantic: {
-            semanticLabel: "퇴조",
-            displayText: "퇴조",
-            phenomenaTags: ["TSUNAMI_TIDAL_WAVE", "WATER_RECESSION"]
-          },
-          spatial: {
-            stageZone: "ZONE_A_OCEAN",
-            preferredType: "coastal_shelf",
-            anchorHint: { worldX: -0.055, worldZ: 0.035 },
-            elevationOffset: 0.038
-          },
-          kinetic: {
-            archetype: "RECEDE",
-            materialAdapter: "WATER_SURFACE_SWELL"
-          },
-          timing: {
-            t_activation: 3.2,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.6,
-            dissolutionDuration: 2.6,
-            residueDuration: 2.2
-          },
-          visual: {
-            archetype: "RECEDE",
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: "#c8e8fc",
-            haloColor: "rgba(130, 200, 255, 0.40)"
-          }
-        },
-        // Meaning 02: 울다 (SOURCE_TRANSLATION of 山岳震動 / 聲如雷)
-        {
-          id: "unit_1681_resonance",
-          token: "울다",
-          sourceId: "rec_sillok_1681_0626",
-          originalPassage: "聲如雷 ... 山岳震動",
-          translation: "소리가 우레와 같고 ... 산이 울고 땅이 진동하였으며",
-          evidenceClass: "SOURCE_TRANSLATION",
-          editorialRationale: "실록의 '山岳震動' 및 '聲如雷'에 대한 공인 국역 표현 '산이 울고'에서 동사 원형 추출",
-          confidence: "HIGH_PRIMARY_CHRONICLE",
-          spatialMotif: "ZONE_ALPINE_RIDGE",
-          source: {
-            originalHanja: "聲如雷 山岳震動",
-            originalTranslationKo: "소리가 우레와 같고 산이 울고 땅이 진동하였으며",
-            evidenceStatus: "SOURCE_TRANSLATION",
-            evidenceClass: "SOURCE_TRANSLATION",
-            sourceReference: "숙종실록 11권 숙종 7년 5월 11일 戊午",
-            confidence: "HIGH_PRIMARY_CHRONICLE"
-          },
-          semantic: {
-            semanticLabel: "울림",
-            displayText: "울다",
-            phenomenaTags: ["ACOUSTIC_BOOM", "GROUND_SHAKING"]
-          },
-          spatial: {
-            stageZone: "ZONE_B_INLAND",
-            preferredType: "inland_foothills",
-            anchorHint: { worldX: -0.230, worldZ: 0.045 },
-            elevationOffset: 0.048
-          },
-          kinetic: {
-            archetype: "RESONANCE",
-            materialAdapter: "BEDROCK_VIBRATION"
-          },
-          timing: {
-            t_activation: 14.5,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 1.8
-          },
-          visual: {
-            archetype: "RESONANCE",
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.160,
-            spriteH: 0.060,
-            colorSecondary: "#cde4fe",
-            haloColor: "rgba(160, 215, 255, 0.40)"
-          }
-        },
-        // Meaning 03: 드러나다 (EDITORIAL_DISTILLATION of 露出)
-        {
-          id: "unit_1681_expose",
-          token: "드러나다",
-          sourceId: "rec_sjw_1681_0514",
-          originalPassage: "海水退潮百餘步",
-          translation: "바닷물이 백여 보 물러가 해저가 드러남",
-          evidenceClass: "EDITORIAL_DISTILLATION",
-          editorialRationale: "백여 보 퇴조로 인해 드러난 해저 노출 사료 현상을 순우리말 동사로 정제",
-          confidence: "HIGH_PRIMARY_CHRONICLE",
-          spatialMotif: "ZONE_COASTAL_BLUFF",
-          source: {
-            originalHanja: "海水退潮百餘步 露出",
-            originalTranslationKo: "바닷물이 백여 보 물러가 해저가 드러남",
-            evidenceStatus: "EDITORIAL_DISTILLATION",
-            evidenceClass: "EDITORIAL_DISTILLATION",
-            sourceReference: "승정원일기 1681-05-14 강원감사 장계",
-            confidence: "HIGH_PRIMARY_CHRONICLE"
-          },
-          semantic: {
-            semanticLabel: "노출",
-            displayText: "드러나다",
-            phenomenaTags: ["SEABED_EXPOSURE", "TSUNAMI_RECESSION"]
-          },
-          spatial: {
-            stageZone: "ZONE_A_OCEAN",
-            preferredType: "shallow_seabed",
-            anchorHint: { worldX: -0.150, worldZ: 0.055 },
-            elevationOffset: 0.040
-          },
-          kinetic: {
-            archetype: "EXPOSE",
-            materialAdapter: "UPRIGHT_BATHYMETRIC_BILLBOARD"
-          },
-          timing: {
-            t_activation: 23.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.2,
-            dissolutionDuration: 2.2,
-            residueDuration: 3.0
-          },
-          visual: {
-            archetype: "EXPOSE",
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: "#bee2fc",
-            haloColor: "rgba(140, 205, 255, 0.40)"
-          }
-        },
-        // Meaning 04: 무너지다 (DIRECT_QUOTATION of 頹落)
-        {
-          id: "unit_1681_fracture",
-          token: "무너지다",
-          sourceId: "rec_sillok_1681_0626",
-          originalPassage: "雪岳山 諸峰 碎石 頹落",
-          translation: "설악산 여러 봉우리의 부서진 돌들이 무너져 내렸다",
-          evidenceClass: "DIRECT_QUOTATION",
-          editorialRationale: "실록의 '諸峰 碎石 頹落'에 대한 공인 국역 표현 '돌들이 무너져 내렸다'의 핵심 동사 직접 인용",
-          confidence: "HIGH_PRIMARY_CHRONICLE",
-          spatialMotif: "ZONE_ALPINE_CLIFF",
-          source: {
-            originalHanja: "雪岳山 諸峰 碎石 頹落",
-            originalTranslationKo: "설악산 여러 봉우리의 부서진 돌들이 무너져 내렸다",
-            evidenceStatus: "DIRECT_QUOTATION",
-            evidenceClass: "DIRECT_QUOTATION",
-            sourceReference: "숙종실록 11권 숙종 7년 5월 11일 戊午",
-            confidence: "HIGH_PRIMARY_CHRONICLE"
-          },
-          semantic: {
-            semanticLabel: "붕락",
-            displayText: "무너지다",
-            phenomenaTags: ["ROCKFALL_COLLAPSE", "MOUNTAIN_SHATTERING"]
-          },
-          spatial: {
-            stageZone: "ZONE_C_MOUNTAIN",
-            preferredType: "mountain_ridge",
-            anchorHint: { worldX: -0.380, worldZ: 0.070 },
-            elevationOffset: 0.052
-          },
-          kinetic: {
-            archetype: "FRACTURE",
-            materialAdapter: "FRACTURED_DEBRIS_FALL"
-          },
-          timing: {
-            t_activation: 31.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: "FRACTURE",
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: "#e0eefc",
-            haloColor: "rgba(180, 220, 255, 0.40)"
-          }
-        }
-      ];
-    } else {
-      semanticUnits = this._extractHistoricalSemanticUnits(ev, records);
-      compositionProfileStatus = `PROFILE_APPLIED_HISTORICAL_${ev.eventId.toUpperCase()}`;
-    }
+    let semanticUnits = this._extractHistoricalSemanticUnits(ev, records);
+    let compositionProfileStatus = (ev.eventId === "hist_1681_0626")
+      ? "PROFILE_APPLIED_1681_YANGYANG"
+      : `PROFILE_APPLIED_HISTORICAL_${ev.eventId.toUpperCase()}`;
 
     const dominantFreq = (ev.eventId === "hist_1681_0626") ? 1.0 : Math.max(0.2, Math.min(2.5, 1.8 * Math.pow(10.0, -0.22 * (mag - 5.0))));
     const q = (ev.eventId === "hist_1681_0626") ? 250.0 : (ev.macroseismic?.tsunamiObserved ? 260.0 : 220.0);
@@ -431,238 +368,194 @@ export class ArchivalSemanticParser {
   }
 
   _extractHistoricalSemanticUnits(ev, records) {
-    const isKo = this.displayMode === 'korean';
     const units = [];
-    const lexicon = Array.isArray(ev.archivalLexicon) ? ev.archivalLexicon : [];
-    const sourceDoc = ev.primaryText?.documentSource || (records[0]?.corpusId ? records[0].corpusId : "역사 사료 기록");
+    const seenDisplays = new Set();
+    const candidateEntries = [];
+
+    // 1. First collect all verbatim chronicle entries from all linked SourceRecords' archivalLexicon
+    for (const rec of records) {
+      if (Array.isArray(rec.archivalLexicon)) {
+        for (const lex of rec.archivalLexicon) {
+          candidateEntries.push({
+            ...lex,
+            recordId: rec.recordId,
+            volumeOrSection: rec.volumeOrSection,
+            originalHanja: rec.originalHanja,
+            originalTranslationKo: rec.originalTranslationKo
+          });
+        }
+      }
+    }
+    // 2. Fallback: if a record had no archivalLexicon, directly extract clauses from its originalTranslationKo
+    for (const rec of records) {
+      if ((!Array.isArray(rec.archivalLexicon) || rec.archivalLexicon.length === 0) && rec.originalTranslationKo) {
+        const directClauses = extractVerbatimChronicleClauses(rec.originalTranslationKo, false);
+        for (const cl of directClauses) {
+          candidateEntries.push({
+            token: cl,
+            displayKo: cl,
+            category: /바닷물|조수|해일|물이|샘물/.test(cl) ? "water" : /소리|우레|울고|울리/.test(cl) ? "sound" : /무너|붕괴|갈라|파손|죽은/.test(cl) ? "structure" : "shaking",
+            recordId: rec.recordId,
+            volumeOrSection: rec.volumeOrSection,
+            originalHanja: rec.originalHanja,
+            originalTranslationKo: rec.originalTranslationKo,
+            translation: cl
+          });
+        }
+      }
+    }
+    if (Array.isArray(ev.archivalLexicon)) {
+      for (const lex of ev.archivalLexicon) {
+        candidateEntries.push({
+          ...lex,
+          recordId: lex.sourceRecordId || records[0]?.recordId || `rec_${ev.eventId}`,
+          volumeOrSection: lex.sourceVolume || ev.primaryText?.documentSource || records[0]?.volumeOrSection || "역사 사료 기록",
+          originalHanja: ev.primaryText?.originalScript || records[0]?.originalHanja || lex.token,
+          originalTranslationKo: ev.text || records[0]?.originalTranslationKo || lex.translation
+        });
+      }
+    }
 
     const hasOcean = ev.terrainContext?.hasOcean !== false &&
                      ev.terrainConfig?.hasOcean !== false &&
                      ev.hasOcean !== false &&
-                     !ev.eventId?.includes("1338"); // 1338 Gaegyeong is inland basin/massif
+                     !ev.eventId?.includes("1338");
 
-    // 1. Water drawback / surge / tsunami record (Only when ocean shelf is present)
-    const waterEntry = lexicon.find(l => l.category === 'water' || /퇴조|해수|물러|해일|바닷물/.test(l.token)) ||
-      (ev.macroseismic?.tsunamiObserved ? { token: "퇴조", translation: "바닷물이 물러갔다가 밀려옴" } : null);
-    if (waterEntry && hasOcean) {
-      const cleanWaterToken = sanitizeArchivalToken(waterEntry.token, 'water', '퇴조');
+    const ANCHOR_RING = [
+      { worldX: -0.055, worldZ: 0.032 },
+      { worldX: 0.052, worldZ: -0.018 },
+      { worldX: -0.024, worldZ: -0.034 },
+      { worldX: 0.068, worldZ: 0.028 },
+      { worldX: -0.072, worldZ: -0.012 },
+      { worldX: 0.018, worldZ: 0.044 },
+      { worldX: -0.042, worldZ: 0.015 },
+      { worldX: 0.038, worldZ: -0.038 },
+      { worldX: -0.062, worldZ: -0.028 },
+      { worldX: 0.028, worldZ: 0.022 }
+    ];
+
+    const maxUnits = (ev.eventId === "hist_1681_0626") ? 10 : 6;
+
+    for (const entry of candidateEntries) {
+      if (units.length >= maxUnits) break;
+      const displayKo = distillArchivalExpression(entry, entry.category || "resonance");
+      if (!displayKo || seenDisplays.has(displayKo)) continue;
+      if (!hasOcean && (entry.stageZone === "ZONE_A_OCEAN" || entry.category === "water") && /바닷물|해수|조수|해일/.test(displayKo)) {
+        continue;
+      }
+      seenDisplays.add(displayKo);
+
+      const idx = units.length;
+      const dbSpec = ARCHIVAL_HANJA_LEXICON_DB[entry.token] || null;
+
+      let archetype = entry.archetype || dbSpec?.archetype || "RESONANCE";
+      if (!entry.archetype && !dbSpec) {
+        if (entry.category === "water" || /물러|해일|넘치|범람|넘어왔|밀려왔/.test(displayKo)) archetype = "RECEDE";
+        else if (/솟구치|솟다|솟아|드러나|꺼져|내려앉|모래/.test(displayKo)) archetype = "EXPOSE";
+        else if (entry.category === "structure" || entry.category === "geology" || /무너|붕괴|갈라|찢어|떨어|날아|파손|죽은|압사/.test(displayKo)) archetype = "FRACTURE";
+        else archetype = "RESONANCE";
+      }
+
+      let stageZone = entry.stageZone || dbSpec?.stageZone || "ZONE_B_INLAND";
+      if (!hasOcean && stageZone === "ZONE_A_OCEAN") {
+        stageZone = "ZONE_B_INLAND";
+      } else if (hasOcean && /바닷물|조수|해일|언덕을 넘어/.test(displayKo)) {
+        stageZone = "ZONE_A_OCEAN";
+      } else if (/산이|설악|바위가|거암|절벽|성첩|산사태/.test(displayKo)) {
+        stageZone = "ZONE_C_MOUNTAIN";
+      }
+
+      // Output the extracted chronicle clause AS-IS in both token and displayText (no lumping!)
+      const verbatimPhrase = displayKo;
+      const nativePhrase = entry.nativeText || entry.token || verbatimPhrase;
+      const activeText = (this.displayMode === 'native' && entry.nativeText) ? nativePhrase : verbatimPhrase;
+
+      const isHanjaSource = /[\u4e00-\u9fff]/.test(entry.originalHanja || entry.token || "");
+      const evidenceClass = isHanjaSource ? "SOURCE_TRANSLATION" : "DIRECT_QUOTATION";
+      const materialAdapter = archetype === "RECEDE"
+        ? "WATER_SURFACE_SWELL"
+        : archetype === "FRACTURE"
+          ? "FRACTURED_DEBRIS_FALL"
+          : archetype === "EXPOSE"
+            ? "UPRIGHT_BATHYMETRIC_BILLBOARD"
+            : "BEDROCK_VIBRATION";
+
+      const preferredType = stageZone === "ZONE_A_OCEAN"
+        ? "coastal_shelf"
+        : stageZone === "ZONE_C_MOUNTAIN"
+          ? "mountain_ridge"
+          : "inland_basin";
+
+      const spatialMotif = stageZone === "ZONE_A_OCEAN"
+        ? "ZONE_OCEAN_SHELF"
+        : stageZone === "ZONE_C_MOUNTAIN"
+          ? "ZONE_ALPINE_RIDGE"
+          : "ZONE_INLAND_BASIN";
+
+      const stepSec = maxUnits > 6 ? 3.1 : 4.2;
+      const t_act = Number((2.4 + idx * stepSec).toFixed(1));
+      const anchor = ANCHOR_RING[idx % ANCHOR_RING.length];
+
       units.push({
-        id: `unit_${ev.eventId}_recede`,
+        id: `unit_${ev.eventId}_${idx + 1}`,
         eventId: ev.eventId,
-        token: cleanWaterToken,
-        sourceId: `rec_${ev.eventId}_water`,
-        originalPassage: ev.primaryText?.originalScript || waterEntry.token,
-        translation: waterEntry.translation || "바닷물이 물러갔다가 밀려옴",
-        evidenceClass: "DIRECT_QUOTATION",
-        editorialRationale: `${sourceDoc}에 수록된 해양 수벽 변동 및 수위 기록 인용`,
+        token: activeText,
+        tokenKo: verbatimPhrase,
+        tokenNative: nativePhrase,
+        phraseKo: verbatimPhrase,
+        phraseNative: nativePhrase,
+        sourceId: entry.recordId || `rec_${ev.eventId}_${idx + 1}`,
+        originalPassage: entry.originalHanja || entry.token || verbatimPhrase,
+        translation: entry.originalTranslationKo || entry.translation || verbatimPhrase,
+        evidenceClass,
+        editorialRationale: `${entry.volumeOrSection || "역사 사료"} 사료 문장('${verbatimPhrase}') 원문 그대로 추출`,
         confidence: "HIGH_PRIMARY_CHRONICLE",
-        spatialMotif: "ZONE_OCEAN_SHELF",
+        spatialMotif,
         source: {
-          originalText: waterEntry.token,
-          evidenceStatus: "VERIFIED_SOURCE",
-          sourceReference: sourceDoc
+          originalHanja: entry.originalHanja || entry.token || verbatimPhrase,
+          originalText: entry.token || verbatimPhrase,
+          originalTranslationKo: entry.originalTranslationKo || entry.translation || verbatimPhrase,
+          evidenceStatus: evidenceClass === "DIRECT_QUOTATION" ? "VERIFIED_SOURCE" : "SOURCE_TRANSLATION",
+          evidenceClass,
+          sourceReference: entry.volumeOrSection || ev.primaryText?.documentSource || "역사 사료 기록",
+          confidence: "HIGH_PRIMARY_CHRONICLE"
         },
         semantic: {
-          semanticLabel: "퇴조",
-          displayText: cleanWaterToken,
-          phenomenaTags: ["WATER_RECESSION", "TSUNAMI_TIDAL_WAVE"]
+          semanticLabel: entry.category || "사료기록",
+          displayText: activeText,
+          phenomenaTags: Array.isArray(records[0]?.phenomenaTags) ? records[0].phenomenaTags : ["GROUND_SHAKING"]
         },
         spatial: {
-          stageZone: "ZONE_A_OCEAN",
-          preferredType: "coastal_shelf",
-          elevationOffset: 0.038,
-          anchorHint: { worldX: 0.082, worldZ: 0.045 }
+          stageZone,
+          preferredType,
+          elevationOffset: 0.040 + (idx % 3) * 0.005,
+          anchorHint: anchor
         },
         kinetic: {
-          archetype: "RECEDE",
-          materialAdapter: "WATER_SURFACE_SWELL"
+          archetype,
+          materialAdapter
         },
         timing: {
-          t_activation: 3.2,
-          formationDuration: 1.2,
-          minLegibilityDuration: 2.2,
-          resonanceDuration: 2.6,
-          dissolutionDuration: 2.6,
-          residueDuration: 2.2
+          t_activation: t_act,
+          formationDuration: 0.9,
+          minLegibilityDuration: 1.5,
+          resonanceDuration: 1.5,
+          dissolutionDuration: 1.2,
+          residueDuration: 0.8
         },
         visual: {
-          archetype: "RECEDE",
-          fontFamily: '"Noto Serif KR", Batang, serif',
-          fontSize: 88,
-          canvasW: 1024,
+          archetype,
+          fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
+          fontSize: 78,
+          canvasW: 1536,
           canvasH: 384,
-          spriteW: 0.170,
-          spriteH: 0.064,
-          colorSecondary: "#c8e8fc",
-          haloColor: "rgba(130, 200, 255, 0.40)"
+          spriteW: 0.235,
+          spriteH: 0.062,
+          colorSecondary: archetype === "RECEDE" ? "#c8e8fc" : archetype === "FRACTURE" ? "#e2eefa" : "#cde4fe",
+          haloColor: "rgba(160, 215, 255, 0.40)"
         }
       });
     }
-
-    // 2. Sound / Roar / Thunder resonance
-    const soundEntry = lexicon.find(l => l.category === 'sound' || /울|우레|굉음|소리/.test(l.token)) ||
-      { token: "울다", translation: "산과 대지가 우레처럼 울림" };
-    const cleanSoundToken = sanitizeArchivalToken(soundEntry.token, 'sound', '울다');
-    units.push({
-      id: `unit_${ev.eventId}_resonance`,
-      eventId: ev.eventId,
-      token: cleanSoundToken,
-      sourceId: `rec_${ev.eventId}_sound`,
-      originalPassage: ev.primaryText?.originalScript || soundEntry.token,
-      translation: soundEntry.translation || "지하와 산악이 울려 퍼짐",
-      evidenceClass: "SOURCE_TRANSLATION",
-      editorialRationale: `${sourceDoc}에 기술된 지하 충격음 및 산천 공명 현상 압축`,
-      confidence: "HIGH_PRIMARY_CHRONICLE",
-      spatialMotif: "ZONE_INLAND_BASIN",
-      source: {
-        originalText: soundEntry.token,
-        evidenceStatus: "SOURCE_TRANSLATION",
-        sourceReference: sourceDoc
-      },
-      semantic: {
-        semanticLabel: "공명",
-        displayText: cleanSoundToken,
-        phenomenaTags: ["ACOUSTIC_BOOM", "GROUND_SHAKING"]
-      },
-      spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "inland_basin",
-        elevationOffset: 0.042,
-        anchorHint: { worldX: -0.038, worldZ: -0.022 }
-      },
-      kinetic: {
-        archetype: "RESONANCE",
-        materialAdapter: "BEDROCK_VIBRATION"
-      },
-      timing: {
-        t_activation: 6.4,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
-      },
-      visual: {
-        archetype: "RESONANCE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 92,
-        canvasW: 1024,
-        canvasH: 384,
-        spriteW: 0.165,
-        spriteH: 0.062,
-        colorSecondary: "#d6eaff",
-        haloColor: "rgba(160, 215, 255, 0.40)"
-      }
-    });
-
-    // 3. Geology / Structure / Fracture
-    const fractureEntry = lexicon.find(l => l.category === 'geology' || l.category === 'structure' || /무너|붕괴|거암|파쇄|갈라|도괴/.test(l.token)) ||
-      { token: "무너지다", translation: "가옥과 암석이 무너져 내림" };
-    const cleanFractureToken = sanitizeArchivalToken(fractureEntry.token, 'fracture', '무너지다');
-    units.push({
-      id: `unit_${ev.eventId}_fracture`,
-      eventId: ev.eventId,
-      token: cleanFractureToken,
-      sourceId: `rec_${ev.eventId}_fracture`,
-      originalPassage: ev.primaryText?.originalScript || fractureEntry.token,
-      translation: fractureEntry.translation || "지각 변형 및 구조물 파쇄 발생",
-      evidenceClass: "SOURCE_TRANSLATION",
-      editorialRationale: `${sourceDoc}에 기록된 사면 붕락 및 구조물 붕괴 피해 인용`,
-      confidence: "HIGH_PRIMARY_CHRONICLE",
-      spatialMotif: "ZONE_ALPINE_RIDGE",
-      source: {
-        originalText: fractureEntry.token,
-        evidenceStatus: "SOURCE_TRANSLATION",
-        sourceReference: sourceDoc
-      },
-      semantic: {
-        semanticLabel: "파쇄",
-        displayText: cleanFractureToken,
-        phenomenaTags: ["STRUCTURAL_FAILURE", "SURFACE_RUPTURE"]
-      },
-      spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "alpine_cliff",
-        elevationOffset: 0.046,
-        anchorHint: { worldX: 0.042, worldZ: 0.016 }
-      },
-      kinetic: {
-        archetype: "FRACTURE",
-        materialAdapter: "FRACTURED_DEBRIS_FALL"
-      },
-      timing: {
-        t_activation: 10.2,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
-      },
-      visual: {
-        archetype: "FRACTURE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 90,
-        canvasW: 1024,
-        canvasH: 384,
-        spriteW: 0.170,
-        spriteH: 0.064,
-        colorSecondary: "#e2eefa",
-        haloColor: "rgba(170, 220, 255, 0.40)"
-      }
-    });
-
-    // 4. Shaking
-    units.push({
-      id: `unit_${ev.eventId}_shaking`,
-      eventId: ev.eventId,
-      token: "흔들리다",
-      sourceId: `rec_${ev.eventId}_shaking`,
-      originalPassage: ev.primaryText?.originalScript || "땅이 크게 진동함",
-      translation: "대지가 심하게 흔들림",
-      evidenceClass: "SOURCE_TRANSLATION",
-      editorialRationale: `${sourceDoc}에 기록된 광역 지진동 기술`,
-      confidence: "HIGH_PRIMARY_CHRONICLE",
-      spatialMotif: "ZONE_INLAND_BASIN",
-      source: {
-        originalText: "地動",
-        evidenceStatus: "SOURCE_TRANSLATION",
-        sourceReference: sourceDoc
-      },
-      semantic: {
-        semanticLabel: "진동",
-        displayText: "흔들리다",
-        phenomenaTags: ["GROUND_SHAKING"]
-      },
-      spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "inland_basin",
-        elevationOffset: 0.040,
-        anchorHint: { worldX: -0.008, worldZ: 0.042 }
-      },
-      kinetic: {
-        archetype: "RESONANCE",
-        materialAdapter: "BEDROCK_VIBRATION"
-      },
-      timing: {
-        t_activation: 14.0,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
-      },
-      visual: {
-        archetype: "RESONANCE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 88,
-        canvasW: 1024,
-        canvasH: 384,
-        spriteW: 0.160,
-        spriteH: 0.060,
-        colorSecondary: "#cde4fe",
-        haloColor: "rgba(160, 215, 255, 0.40)"
-      }
-    });
 
     return units;
   }
@@ -673,686 +566,8 @@ export class ArchivalSemanticParser {
     const mag = ev.mag?.v ?? ev.mag ?? ev.scientificParams?.magnitude?.value ?? ev.scientificEstimates?.[0]?.estimatedMag ?? 5.8;
     const depth = ev.depth?.v ?? ev.depth ?? ev.spatial?.focalDepth?.valKm ?? ev.spatial?.depthKm ?? 10.0;
 
-    let semanticUnits = [];
-    let profileStatus = `PROFILE_APPLIED_${ev.eventId.toUpperCase()}`;
-
-    // ------------------------------------------------------------------------
-    // CASE 1: 2016 Gyeongju (hist_2016_gyeongju) — Inland Granite Strike-Slip
-    // ------------------------------------------------------------------------
-    if (ev.eventId === 'hist_2016_gyeongju') {
-      semanticUnits = [
-        {
-          id: 'unit_2016_boom',
-          token: '굉음',
-          sourceId: 'rec_kma_2016_0912',
-          originalPassage: '지하에서 쿵 하는 거대한 폭발음과 함께 지면이 상하로 요동침',
-          translation: '지하에서 거대한 굉음과 함께 지면이 요동침',
-          evidenceClass: 'SOURCE_TRANSLATION',
-          editorialRationale: '경주 화강암 기반암 고주파 P파 전파 시 주민들이 체감한 지하 충격음을 압축',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_INLAND_BASIN',
-          source: {
-            originalHanja: '轟音',
-            originalTranslationKo: '지하에서 거대한 굉음과 함께 요동침',
-            evidenceStatus: 'SOURCE_TRANSLATION',
-            evidenceClass: 'SOURCE_TRANSLATION',
-            sourceReference: '2016-09-12 기상청 경주 본진 지진통보 및 시민 현장 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '굉음',
-            displayText: '굉음',
-            phenomenaTags: ['ACOUSTIC_BOOM', 'P_WAVE_SHOCK']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.045
-          },
-          kinetic: {
-            archetype: 'RESONANCE',
-            materialAdapter: 'BEDROCK_VIBRATION'
-          },
-          timing: {
-            t_activation: 3.5,
-            formationDuration: 1.0,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.2,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'RESONANCE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 92,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.165,
-            spriteH: 0.062,
-            colorSecondary: '#cde4fe',
-            haloColor: 'rgba(160, 215, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2016_shake',
-          token: '흔들리다',
-          sourceId: 'rec_kma_2016_0912_shaking',
-          originalPassage: '경주 및 대구, 부산 전역에서 건물이 크게 좌우로 요동침',
-          translation: '영남권 전역에서 땅과 건물이 흔들림',
-          evidenceClass: 'EDITORIAL_DISTILLATION',
-          editorialRationale: '영남 일대를 강타한 주향이동 단층의 강한 전단 S파 진동 현상 정제',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_INLAND_BASIN',
-          source: {
-            originalHanja: '振動',
-            originalTranslationKo: '땅과 건물이 크게 흔들림',
-            evidenceStatus: 'EDITORIAL_DISTILLATION',
-            evidenceClass: 'EDITORIAL_DISTILLATION',
-            sourceReference: '2016-09-12 기상청 전국 체감 지진 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '진동',
-            displayText: '흔들리다',
-            phenomenaTags: ['S_WAVE_SHEAR', 'GROUND_SHAKING']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.040
-          },
-          kinetic: {
-            archetype: 'RESONANCE',
-            materialAdapter: 'BEDROCK_VIBRATION'
-          },
-          timing: {
-            t_activation: 12.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.2,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'RESONANCE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.165,
-            spriteH: 0.062,
-            colorSecondary: '#d8eafc',
-            haloColor: 'rgba(160, 215, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2016_collapse',
-          token: '무너지다',
-          sourceId: 'rec_kma_2016_0912_tiles',
-          originalPassage: '한옥 지붕 기와가 떨어지고 담장이 무너져 내림',
-          translation: '기와가 쏟아지고 담장이 무너져 내림',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '경주 황남동 한옥마을 지붕 기와 탈락 및 담장 붕락 피해 보도에서 직접 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_INLAND_BASIN',
-          source: {
-            originalHanja: '頹落 倒壞',
-            originalTranslationKo: '담장과 기와가 쏟아져 무너져 내림',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2016-09-12 경주 문화재 및 한옥 피해 합동조사 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '붕괴',
-            displayText: '무너지다',
-            phenomenaTags: ['STRUCTURAL_COLLAPSE', 'ROOF_TILE_SHATTER']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.042
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 21.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#e0eefc',
-            haloColor: 'rgba(180, 220, 255, 0.40)'
-          }
-        }
-      ];
-    }
-    // ------------------------------------------------------------------------
-    // CASE 2: 2017 Pohang (hist_2017_pohang) — Coastal Shelf & Liquefaction
-    // ------------------------------------------------------------------------
-    else if (ev.eventId === 'hist_2017_pohang') {
-      semanticUnits = [
-        {
-          id: 'unit_2017_spout',
-          token: '솟구치다',
-          sourceId: 'rec_kma_2017_1115_liquefaction',
-          originalPassage: '흥해읍 논밭에서 모래와 물이 분수처럼 솟구쳐 오르는 액상화 현상 발생',
-          translation: '논과 밭에서 흙탕물이 솟구쳐 오름',
-          evidenceClass: 'SOURCE_TRANSLATION',
-          editorialRationale: '국내 최초로 관측된 포항 흥해읍 퇴적 분지 액상화 현상의 핵심 거동 동사 추출',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_ALLUVIAL_SEDIMENT',
-          source: {
-            originalHanja: '噴出 湧出',
-            originalTranslationKo: '진흙과 모래가 지표면을 뚫고 솟구침',
-            evidenceStatus: 'SOURCE_TRANSLATION',
-            evidenceClass: 'SOURCE_TRANSLATION',
-            sourceReference: '2017-11-15 기상청 및 국립재난안전연구원 포항 액상화 현장 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '용출',
-            displayText: '솟구치다',
-            phenomenaTags: ['LIQUEFACTION_SPOUT', 'SEDIMENT_WATER_ERUPTION']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.040
-          },
-          kinetic: {
-            archetype: 'EXPOSE',
-            materialAdapter: 'UPRIGHT_BATHYMETRIC_BILLBOARD'
-          },
-          timing: {
-            t_activation: 3.5,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.2,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'EXPOSE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 90,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#bee2fc',
-            haloColor: 'rgba(140, 205, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2017_shake',
-          token: '흔들리다',
-          sourceId: 'rec_kma_2017_1115_ground',
-          originalPassage: '천부 4.5km 깊이 역단층 운동으로 고주파 충격파가 지표 직격',
-          translation: '지표면이 요동치며 건물 기둥이 좌굴됨',
-          evidenceClass: 'EDITORIAL_DISTILLATION',
-          editorialRationale: '천부 진원에서 유발된 강한 지반 진동과 건물 필로티 구조 파열 현상 정제',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_ALLUVIAL_SEDIMENT',
-          source: {
-            originalHanja: '激震',
-            originalTranslationKo: '천부 역단층에 의한 강한 지표 진동',
-            evidenceStatus: 'EDITORIAL_DISTILLATION',
-            evidenceClass: 'EDITORIAL_DISTILLATION',
-            sourceReference: '2017-11-15 지질자원연구원 포항 지진 정밀 분석',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '진동',
-            displayText: '흔들리다',
-            phenomenaTags: ['SHALLOW_FAULT_SHOCK', 'GROUND_SHAKING']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.038
-          },
-          kinetic: {
-            archetype: 'RESONANCE',
-            materialAdapter: 'BEDROCK_VIBRATION'
-          },
-          timing: {
-            t_activation: 12.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.2,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'RESONANCE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.160,
-            spriteH: 0.060,
-            colorSecondary: '#c8e8fc',
-            haloColor: 'rgba(150, 210, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2017_distort',
-          token: '뒤틀리다',
-          sourceId: 'rec_kma_2017_1115_piloti',
-          originalPassage: '건물 필로티 기둥 철근이 엿가락처럼 휘어지고 아파트 외벽이 전단 균열됨',
-          translation: '기둥이 휘어지고 벽체가 전단 파열되어 뒤틀림',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '구조물 비탄성 소성 변형 및 지반 부등침하 피해 보도에서 직접 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_ALLUVIAL_SEDIMENT',
-          source: {
-            originalHanja: '挫屈 剪斷',
-            originalTranslationKo: '건물 기둥이 좌굴되고 벽체가 뒤틀림',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2017-11-15 포항 건축물 지진 피해 분석 보고서',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '뒤틀림',
-            displayText: '뒤틀리다',
-            phenomenaTags: ['SHEAR_WARPING', 'PILLAR_BUCKLING']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.044
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 21.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#e4f0fc',
-            haloColor: 'rgba(180, 225, 255, 0.40)'
-          }
-        }
-      ];
-    }
-    // ------------------------------------------------------------------------
-    // CASE 3: 2016 Kumamoto (global_2016_kumamoto) — Volcanic Rift Graben
-    // ------------------------------------------------------------------------
-    else if (ev.eventId === 'global_2016_kumamoto') {
-      const isKo = this.displayMode === 'korean';
-      semanticUnits = [
-        {
-          id: 'unit_2016_rift',
-          token: isKo ? '갈라지다' : '割れる',
-          nativeToken: '割れる',
-          koreanToken: '갈라지다',
-          originalLanguage: 'ja',
-          sourceId: 'rec_jma_2016_kumamoto_fault',
-          originalPassage: '布田川断層帯に沿って地표に最大2mを超える右横ずれ変位が露出',
-          translation: '후타가와 단층대를 따라 지표면에 2m 넘는 단층 변위가 갈라져 드러남',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '지구대 단층면 지표 노출 및 지반 균열을 표현한 일본어 원문 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_VOLCANIC_VALLEY',
-          source: {
-            originalText: '地表地震断層が割れて露出',
-            originalTranslationKo: '지표 단층이 갈라져 드러남',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2016-04-16 JMA 및 일본 지진조사위원회 구마모토 본진 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '단층파열',
-            displayText: isKo ? '갈라지다' : '割れる',
-            phenomenaTags: ['SURFACE_RUPTURE', 'STRIKE_SLIP_FAULT']
-          },
-          spatial: {
-            stageZone: 'ZONE_C_MOUNTAIN',
-            preferredType: 'mountain_ridge',
-            elevationOffset: 0.048
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 3.5,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Noto Serif JP", "Yu Mincho", serif',
-            fontSize: 92,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#e8f2fc',
-            haloColor: 'rgba(180, 220, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2016_roar',
-          token: isKo ? '울부짖다' : '唸る',
-          nativeToken: '唸る',
-          koreanToken: '울부짖다',
-          originalLanguage: 'ja',
-          sourceId: 'rec_jma_2016_kumamoto_roar',
-          originalPassage: '阿蘇カルデラ山麓に地鳴りが響き渡る',
-          translation: '아소 칼데라 산록에 거대한 땅울림이 울려 퍼짐',
-          evidenceClass: 'SOURCE_TRANSLATION',
-          editorialRationale: '칼데라 외륜산과 협곡을 진동시킨 강한 지명(地鳴り) 현상 추출',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_VOLCANIC_VALLEY',
-          source: {
-            originalText: '山岳が唸るような地鳴り',
-            originalTranslationKo: '산악이 울부짖는 듯한 땅울림',
-            evidenceStatus: 'SOURCE_TRANSLATION',
-            evidenceClass: 'SOURCE_TRANSLATION',
-            sourceReference: '2016-04-16 아소산 인근 주민 목격 기록',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '지명',
-            displayText: isKo ? '울부짖다' : '唸る',
-            phenomenaTags: ['ACOUSTIC_ROAR', 'VALLEY_RESONANCE']
-          },
-          spatial: {
-            stageZone: 'ZONE_C_MOUNTAIN',
-            preferredType: 'mountain_ridge',
-            elevationOffset: 0.045
-          },
-          kinetic: {
-            archetype: 'RESONANCE',
-            materialAdapter: 'BEDROCK_VIBRATION'
-          },
-          timing: {
-            t_activation: 12.5,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.2,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'RESONANCE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Noto Serif JP", "Yu Mincho", serif',
-            fontSize: 90,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.165,
-            spriteH: 0.062,
-            colorSecondary: '#c8e2fc',
-            haloColor: 'rgba(150, 205, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2016_ruin',
-          token: isKo ? '무너지다' : '壊れる',
-          nativeToken: '壊れる',
-          koreanToken: '무너지다',
-          originalLanguage: 'ja',
-          sourceId: 'rec_jma_2016_kumamoto_castle',
-          originalPassage: '熊本城の石垣が大規模に崩落',
-          translation: '구마모토성 축대와 석벽이 대규모로 붕괴됨',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '역사 문화재 석축 붕락 피해 및 가옥 도괴 보도 직접 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_VOLCANIC_VALLEY',
-          source: {
-            originalText: '石垣が壊れて崩落',
-            originalTranslationKo: '돌담이 부서져 무너짐',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2016-04-16 구마모토성 피해 현장 조사',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '도괴',
-            displayText: isKo ? '무너지다' : '壊れる',
-            phenomenaTags: ['MASONRY_FAILURE', 'STONE_COLLAPSE']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.040
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 21.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Noto Serif JP", "Yu Mincho", serif',
-            fontSize: 90,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#e4f0fc',
-            haloColor: 'rgba(170, 215, 255, 0.40)'
-          }
-        }
-      ];
-    }
-    // ------------------------------------------------------------------------
-    // CASE 4: 2023 Türkiye (global_2023_turkey) — Continental Strike-Slip Fault
-    // ------------------------------------------------------------------------
-    else if (ev.eventId === 'global_2023_turkey') {
-      const isKo = this.displayMode === 'korean';
-      semanticUnits = [
-        {
-          id: 'unit_2023_rupture',
-          token: isKo ? '파열' : 'Kırılma',
-          nativeToken: 'Kırılma',
-          koreanToken: '파열',
-          originalLanguage: 'tr',
-          sourceId: 'rec_afad_2023_turkey_eaf',
-          originalPassage: 'Doğu Anadolu Fay Hattı boyunca 300 kilometreyi aşan yüzey kırığı',
-          translation: '동아나톨리아 단층선을 따라 300km가 넘는 지표 파열 발생',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '300km 대단층 좌수향 주향이동 파열을 뜻하는 터키어 직접 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_CONTINENTAL_PLATEAU',
-          source: {
-            originalText: 'Fay hattında büyük kırılma meydana geldi',
-            originalTranslationKo: '단층선에 거대한 파열이 일어남',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2023-02-06 AFAD 및 Kandilli 관측소 공식 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '단층파열',
-            displayText: isKo ? '파열' : 'Kırılma',
-            phenomenaTags: ['CONTINENTAL_RUPTURE', 'LEFT_LATERAL_STRIKE_SLIP']
-          },
-          spatial: {
-            stageZone: 'ZONE_C_MOUNTAIN',
-            preferredType: 'mountain_ridge',
-            elevationOffset: 0.045
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 3.5,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Times New Roman", "Georgia", serif',
-            fontSize: 90,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.170,
-            spriteH: 0.064,
-            colorSecondary: '#e8f2fc',
-            haloColor: 'rgba(180, 220, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2023_ruin',
-          token: isKo ? '파괴' : 'Yıkım',
-          nativeToken: 'Yıkım',
-          koreanToken: '파괴',
-          originalLanguage: 'tr',
-          sourceId: 'rec_afad_2023_turkey_collapse',
-          originalPassage: 'Kahramanmaraş ve Hatay illerinde binlerce bina yerle bir oldu',
-          translation: '카흐라만마라슈와 하타이에서 수천 동의 건물이 붕괴 파괴됨',
-          evidenceClass: 'DIRECT_QUOTATION',
-          editorialRationale: '10개 주에 걸친 막대한 도시 파괴와 건물 붕괴를 뜻하는 터키어 직접 인용',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_CONTINENTAL_PLATEAU',
-          source: {
-            originalText: 'Geniş çaplı yıkım ve çökme',
-            originalTranslationKo: '광범위한 파괴와 붕괴',
-            evidenceStatus: 'DIRECT_QUOTATION',
-            evidenceClass: 'DIRECT_QUOTATION',
-            sourceReference: '2023-02-06 튀르키예 재난관리청 피해 집계',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '붕괴',
-            displayText: isKo ? '파괴' : 'Yıkım',
-            phenomenaTags: ['MASSIVE_URBAN_COLLAPSE', 'PANCAKE_FAILURE']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.042
-          },
-          kinetic: {
-            archetype: 'FRACTURE',
-            materialAdapter: 'FRACTURED_DEBRIS_FALL'
-          },
-          timing: {
-            t_activation: 12.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.4,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'FRACTURE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Times New Roman", "Georgia", serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.165,
-            spriteH: 0.062,
-            colorSecondary: '#e4f0fc',
-            haloColor: 'rgba(180, 220, 255, 0.40)'
-          }
-        },
-        {
-          id: 'unit_2023_tremor',
-          token: isKo ? '진동' : 'Sarsıntı',
-          nativeToken: 'Sarsıntı',
-          koreanToken: '진동',
-          originalLanguage: 'tr',
-          sourceId: 'rec_afad_2023_turkey_shaking',
-          originalPassage: 'Yüz saniyeyi aşan şiddetli sarsıntı geniş bir coğrafyada hissedildi',
-          translation: '100초를 넘는 격렬한 진동이 중동 전역에서 감지됨',
-          evidenceClass: 'SOURCE_TRANSLATION',
-          editorialRationale: '장주기 지진동과 100초 이상 지속된 광역 진동 특성 표현',
-          confidence: 'VERIFIED_INSTRUMENTAL',
-          spatialMotif: 'ZONE_CONTINENTAL_PLATEAU',
-          source: {
-            originalText: 'Şiddetli sarsıntı yüz saniyeden fazla sürdü',
-            originalTranslationKo: '격렬한 진동이 100초 이상 지속됨',
-            evidenceStatus: 'SOURCE_TRANSLATION',
-            evidenceClass: 'SOURCE_TRANSLATION',
-            sourceReference: '2023-02-06 국제 지진학 연합(IASPEI) 관측 보고',
-            confidence: 'VERIFIED_INSTRUMENTAL'
-          },
-          semantic: {
-            semanticLabel: '진동',
-            displayText: isKo ? '진동' : 'Sarsıntı',
-            phenomenaTags: ['LONG_PERIOD_SHAKING', 'CONTINENTAL_WAVE']
-          },
-          spatial: {
-            stageZone: 'ZONE_B_INLAND',
-            preferredType: 'inland_basin',
-            elevationOffset: 0.040
-          },
-          kinetic: {
-            archetype: 'RESONANCE',
-            materialAdapter: 'BEDROCK_VIBRATION'
-          },
-          timing: {
-            t_activation: 21.0,
-            formationDuration: 1.2,
-            minLegibilityDuration: 2.2,
-            resonanceDuration: 2.4,
-            dissolutionDuration: 2.2,
-            residueDuration: 2.0
-          },
-          visual: {
-            archetype: 'RESONANCE',
-            fontFamily: isKo ? '"Noto Serif KR", Batang, serif' : '"Times New Roman", "Georgia", serif',
-            fontSize: 88,
-            canvasW: 1024,
-            canvasH: 384,
-            spriteW: 0.165,
-            spriteH: 0.062,
-            colorSecondary: '#c8e2fc',
-            haloColor: 'rgba(150, 205, 255, 0.40)'
-          }
-        }
-      ];
-    }
-
-    const phenomenaSet = new Set();
-    semanticUnits.forEach(u => {
-      (u.semantic?.phenomenaTags || []).forEach(tag => phenomenaSet.add(tag));
-    });
+    const semanticUnits = this._extractInstrumentalSemanticUnits(ev);
+    const profileStatus = `PROFILE_APPLIED_${ev.eventId.toUpperCase()}`;
 
     let dominantFreq = 1.2;
     let q = 220.0;
@@ -1381,14 +596,16 @@ export class ArchivalSemanticParser {
       dispScale = 2.2;
       strikeRad = 0.524; // East Anatolian Fault strike
     } else {
-      if (semanticUnits.length === 0) {
-        semanticUnits = this._extractInstrumentalSemanticUnits(ev);
-      }
       dominantFreq = Math.max(0.2, Math.min(2.5, 1.8 * Math.pow(10.0, -0.22 * (mag - 5.0))));
       q = 200.0;
       dispScale = Math.max(0.6, Math.min(2.0, 0.4 + (mag - 5.0) * 0.4));
       strikeRad = 0.5;
     }
+
+    const phenomenaSet = new Set();
+    semanticUnits.forEach(u => {
+      (u.semantic?.phenomenaTags || []).forEach(tag => phenomenaSet.add(tag));
+    });
 
     const verifiedSourceCount = semanticUnits.filter(u => u.evidenceClass === 'DIRECT_QUOTATION' || u.source?.evidenceStatus === 'VERIFIED_SOURCE' || u.confidence === 'VERIFIED_INSTRUMENTAL').length;
     const editorialInterpretationCount = semanticUnits.filter(u => u.evidenceClass === 'EDITORIAL_DISTILLATION' || u.source?.evidenceStatus === 'EDITORIAL_INTERPRETATION').length;
@@ -1424,169 +641,188 @@ export class ArchivalSemanticParser {
     };
   }
 
-  _extractInstrumentalSemanticUnits(ev) {
-    const isKo = this.displayMode === 'korean';
-    const units = [];
-    const lexicon = Array.isArray(ev.archivalLexicon) ? ev.archivalLexicon : [];
-    const docSource = ev.primaryText?.documentSource || ev.sourceName || "기상청 지진관측기록";
-
-    // 1. Shaking / Tremor
-    const shakeEntry = lexicon.find(l => /진동|흔들|요동|충격/.test(l.token)) || { token: "흔들리다", translation: "지면이 강하게 흔들림" };
-    units.push({
-      id: `unit_${ev.eventId}_shake`,
-      token: shakeEntry.token.length <= 4 ? shakeEntry.token : "흔들리다",
-      sourceId: `rec_${ev.eventId}_shake`,
-      originalPassage: ev.primaryText?.originalScript || shakeEntry.token,
-      translation: shakeEntry.translation || "지각 진동 관측",
-      evidenceClass: "DIRECT_QUOTATION",
-      editorialRationale: `${docSource}에 기록된 지진동 관측 보고 인용`,
-      confidence: "VERIFIED_INSTRUMENTAL",
-      spatialMotif: "ZONE_INLAND_BASIN",
+  _buildStyledInstrumentalUnits(eventId, specs) {
+    return specs.map(sp => ({
+      id: sp.id,
+      eventId: eventId,
+      token: sp.token,
+      nativeToken: sp.nativeToken,
+      koreanToken: sp.koreanToken,
+      originalLanguage: sp.originalLanguage || 'ko',
+      sourceId: sp.sourceId,
+      originalPassage: sp.originalPassage,
+      translation: sp.translation,
+      evidenceClass: sp.evidenceClass,
+      editorialRationale: sp.editorialRationale,
+      confidence: 'VERIFIED_INSTRUMENTAL',
+      spatialMotif: sp.spatialMotif,
       source: {
-        originalText: shakeEntry.token,
-        evidenceStatus: "VERIFIED_SOURCE",
-        sourceReference: docSource,
-        confidence: "VERIFIED_INSTRUMENTAL"
+        originalHanja: sp.originalPassage,
+        originalText: sp.originalPassage,
+        originalTranslationKo: sp.translation,
+        evidenceStatus: sp.evidenceClass,
+        evidenceClass: sp.evidenceClass,
+        sourceReference: sp.sourceReference,
+        confidence: 'VERIFIED_INSTRUMENTAL'
       },
       semantic: {
-        semanticLabel: "진동",
-        displayText: shakeEntry.token.length <= 4 ? shakeEntry.token : "흔들리다",
-        phenomenaTags: ["GROUND_SHAKING"]
+        semanticLabel: sp.semanticLabel,
+        displayText: sp.displayText,
+        phenomenaTags: sp.phenomenaTags
       },
       spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "inland_basin",
-        elevationOffset: 0.040
+        stageZone: sp.stageZone,
+        preferredType: sp.preferredType,
+        anchorHint: sp.anchorHint,
+        elevationOffset: 0.042
       },
       kinetic: {
-        archetype: "RESONANCE",
-        materialAdapter: "BEDROCK_VIBRATION"
+        archetype: sp.archetype,
+        materialAdapter: sp.materialAdapter
       },
       timing: {
-        t_activation: 3.5,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
+        t_activation: sp.t_activation,
+        formationDuration: 0.9,
+        minLegibilityDuration: 1.6,
+        resonanceDuration: 1.6,
+        dissolutionDuration: 1.3,
+        residueDuration: 0.9
       },
       visual: {
-        archetype: "RESONANCE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 88,
-        canvasW: 1024,
+        archetype: sp.archetype,
+        allowNativeScript: Boolean(sp.allowNativeScript),
+        fontFamily: sp.allowNativeScript
+          ? (sp.originalLanguage === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
+          : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
+        fontSize: 82,
+        canvasW: 1280,
         canvasH: 384,
-        spriteW: 0.160,
-        spriteH: 0.060,
-        colorSecondary: "#cde4fe",
-        haloColor: "rgba(160, 215, 255, 0.40)"
-      }
-    });
-
-    // 2. Rupture / Fracture / Damage
-    const dmgEntry = lexicon.find(l => /파손|파열|붕괴|무너|낙하|균열/.test(l.token)) || { token: "무너지다", translation: "벽체 균열 및 파손 발생" };
-    units.push({
-      id: `unit_${ev.eventId}_fracture`,
-      token: dmgEntry.token.length <= 4 ? dmgEntry.token : "무너지다",
-      sourceId: `rec_${ev.eventId}_fracture`,
-      originalPassage: ev.primaryText?.originalScript || dmgEntry.token,
-      translation: dmgEntry.translation || "구조물 균열 및 파손",
-      evidenceClass: "SOURCE_TRANSLATION",
-      editorialRationale: `${docSource} 현장 피해 조사 기록 인용`,
-      confidence: "VERIFIED_INSTRUMENTAL",
-      spatialMotif: "ZONE_ALPINE_RIDGE",
-      source: {
-        originalText: dmgEntry.token,
-        evidenceStatus: "SOURCE_TRANSLATION",
-        sourceReference: docSource,
-        confidence: "VERIFIED_INSTRUMENTAL"
-      },
-      semantic: {
-        semanticLabel: "파쇄",
-        displayText: dmgEntry.token.length <= 4 ? dmgEntry.token : "무너지다",
-        phenomenaTags: ["STRUCTURAL_FAILURE"]
-      },
-      spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "alpine_cliff",
-        elevationOffset: 0.045
-      },
-      kinetic: {
-        archetype: "FRACTURE",
-        materialAdapter: "FRACTURED_DEBRIS_FALL"
-      },
-      timing: {
-        t_activation: 8.5,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
-      },
-      visual: {
-        archetype: "FRACTURE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 90,
-        canvasW: 1024,
-        canvasH: 384,
-        spriteW: 0.170,
+        spriteW: 0.215,
         spriteH: 0.064,
-        colorSecondary: "#e2eefa",
-        haloColor: "rgba(170, 220, 255, 0.40)"
+        colorSecondary: sp.archetype === 'EXPOSE' ? '#bee2fc' : sp.archetype === 'FRACTURE' ? '#e4f0fc' : '#cde4fe',
+        haloColor: 'rgba(160, 215, 255, 0.40)'
       }
-    });
+    }));
+  }
 
-    // 3. Acoustic roar / ground boom
-    units.push({
-      id: `unit_${ev.eventId}_boom`,
-      token: "굉음",
-      sourceId: `rec_${ev.eventId}_boom`,
-      originalPassage: ev.primaryText?.originalScript || "지하 폭발음",
-      translation: "지하에서 쿵 하는 굉음 감지",
-      evidenceClass: "EDITORIAL_DISTILLATION",
-      editorialRationale: "고주파 지진파에 의한 지하 충격음 압축",
-      confidence: "VERIFIED_INSTRUMENTAL",
-      spatialMotif: "ZONE_INLAND_BASIN",
-      source: {
-        originalText: "굉음",
-        evidenceStatus: "EDITORIAL_INTERPRETATION",
-        sourceReference: docSource,
-        confidence: "VERIFIED_INSTRUMENTAL"
-      },
-      semantic: {
-        semanticLabel: "굉음",
-        displayText: "굉음",
-        phenomenaTags: ["ACOUSTIC_BOOM"]
-      },
-      spatial: {
-        stageZone: "ZONE_B_INLAND",
-        preferredType: "inland_basin",
-        elevationOffset: 0.040
-      },
-      kinetic: {
-        archetype: "RESONANCE",
-        materialAdapter: "BEDROCK_VIBRATION"
-      },
-      timing: {
-        t_activation: 14.0,
-        formationDuration: 1.2,
-        minLegibilityDuration: 2.2,
-        resonanceDuration: 2.4,
-        dissolutionDuration: 2.4,
-        residueDuration: 2.0
-      },
-      visual: {
-        archetype: "RESONANCE",
-        fontFamily: '"Noto Serif KR", Batang, serif',
-        fontSize: 88,
-        canvasW: 1024,
-        canvasH: 384,
-        spriteW: 0.160,
-        spriteH: 0.060,
-        colorSecondary: "#cde4fe",
-        haloColor: "rgba(160, 215, 255, 0.40)"
+  _extractInstrumentalSemanticUnits(ev) {
+    const units = [];
+    const seenDisplays = new Set();
+    const isKo = this.displayMode === 'korean';
+    const docSource = ev.primaryText?.documentSource || ev.sourceName || "기상청 지진관측기록";
+    const origLang = (ev.primaryText?.scriptLanguage || "").startsWith("ja")
+      ? "ja"
+      : (ev.primaryText?.scriptLanguage || "").startsWith("tr")
+        ? "tr"
+        : "ko";
+
+    const candidateEntries = [];
+    if (Array.isArray(ev.archivalLexicon)) {
+      candidateEntries.push(...ev.archivalLexicon);
+    }
+    const rawChronicle = ev.primaryText?.translationKo || ev.primaryText?.originalScript || ev.text || "";
+    if (rawChronicle) {
+      const directClauses = extractVerbatimChronicleClauses(rawChronicle, false);
+      for (const cl of directClauses) {
+        candidateEntries.push({
+          token: cl,
+          displayKo: cl,
+          category: /해역|바다|해일|액상화/.test(cl) ? "water" : /무너|붕괴|균열|파손|낙석|단층/.test(cl) ? "structure" : "phenomenon",
+          translation: cl
+        });
       }
-    });
+    }
+
+    const ANCHOR_RING = [
+      { worldX: -0.048, worldZ: 0.026 },
+      { worldX: 0.050, worldZ: -0.018 },
+      { worldX: -0.025, worldZ: -0.028 },
+      { worldX: 0.058, worldZ: 0.030 },
+      { worldX: -0.038, worldZ: 0.040 }
+    ];
+
+    for (const entry of candidateEntries) {
+      if (units.length >= 4) break;
+      const phraseKo = distillArchivalExpression(entry, entry.category || "resonance");
+      if (!phraseKo || seenDisplays.has(phraseKo)) continue;
+      seenDisplays.add(phraseKo);
+
+      const phraseNative = entry.nativeText || entry.token || phraseKo;
+      const activeText = (!isKo && entry.nativeText) ? phraseNative : phraseKo;
+
+      const idx = units.length;
+      const archetype = entry.archetype ||
+        (entry.category === "water" ? "RECEDE" :
+         (entry.category === "structure" || entry.category === "geology") ? "FRACTURE" : "RESONANCE");
+      const stageZone = entry.stageZone || (entry.category === "water" ? "ZONE_A_OCEAN" : "ZONE_B_INLAND");
+      const allowNativeScript = Boolean(!isKo && entry.nativeText);
+
+      units.push({
+        id: `unit_${ev.eventId}_${idx + 1}`,
+        eventId: ev.eventId,
+        token: activeText,
+        tokenKo: phraseKo,
+        tokenNative: phraseNative,
+        phraseKo: phraseKo,
+        phraseNative: phraseNative,
+        nativeToken: phraseNative,
+        koreanToken: phraseKo,
+        originalLanguage: origLang,
+        sourceId: `rec_${ev.eventId}_${idx + 1}`,
+        originalPassage: ev.primaryText?.originalScript || entry.nativeText || entry.token || phraseKo,
+        translation: entry.translation || ev.primaryText?.translationKo || ev.text || phraseKo,
+        evidenceClass: "DIRECT_QUOTATION",
+        editorialRationale: `${docSource} 원문 기록('${activeText}') 그대로 추출`,
+        confidence: "VERIFIED_INSTRUMENTAL",
+        spatialMotif: stageZone === "ZONE_A_OCEAN" ? "ZONE_OCEAN_SHELF" : stageZone === "ZONE_C_MOUNTAIN" ? "ZONE_ALPINE_RIDGE" : "ZONE_INLAND_BASIN",
+        source: {
+          originalHanja: ev.primaryText?.originalScript || entry.token || phraseKo,
+          originalText: entry.nativeText || entry.token || phraseKo,
+          originalTranslationKo: entry.translation || phraseKo,
+          evidenceStatus: "VERIFIED_SOURCE",
+          evidenceClass: "DIRECT_QUOTATION",
+          sourceReference: docSource,
+          confidence: "VERIFIED_INSTRUMENTAL"
+        },
+        semantic: {
+          semanticLabel: entry.category || "관측기록",
+          displayText: activeText,
+          phenomenaTags: [archetype === "FRACTURE" ? "SURFACE_RUPTURE" : "GROUND_SHAKING"]
+        },
+        spatial: {
+          stageZone,
+          preferredType: stageZone === "ZONE_A_OCEAN" ? "coastal_shelf" : stageZone === "ZONE_C_MOUNTAIN" ? "mountain_ridge" : "inland_basin",
+          anchorHint: ANCHOR_RING[idx % ANCHOR_RING.length],
+          elevationOffset: 0.042 + idx * 0.004
+        },
+        kinetic: {
+          archetype,
+          materialAdapter: archetype === "FRACTURE" ? "FRACTURED_DEBRIS_FALL" : archetype === "RECEDE" ? "WATER_SURFACE_SWELL" : archetype === "EXPOSE" ? "UPRIGHT_BATHYMETRIC_BILLBOARD" : "BEDROCK_VIBRATION"
+        },
+        timing: {
+          t_activation: Number((2.5 + idx * 5.2).toFixed(1)),
+          formationDuration: 0.9,
+          minLegibilityDuration: 1.6,
+          resonanceDuration: 1.6,
+          dissolutionDuration: 1.3,
+          residueDuration: 0.9
+        },
+        visual: {
+          archetype,
+          allowNativeScript,
+          fontFamily: allowNativeScript
+            ? (origLang === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
+            : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
+          fontSize: 78,
+          canvasW: 1536,
+          canvasH: 384,
+          spriteW: 0.235,
+          spriteH: 0.062,
+          colorSecondary: archetype === "EXPOSE" ? "#bee2fc" : archetype === "FRACTURE" ? "#e2eefa" : "#cde4fe",
+          haloColor: "rgba(160, 215, 255, 0.40)"
+        }
+      });
+    }
 
     return units;
   }
@@ -1595,24 +831,62 @@ export class ArchivalSemanticParser {
 /**
  * Editorial Typography Canvas Rasterizer
  * Dual-Pass Soft Ambient Dark Cushion & Crystalline Serif Glyphs
+ * Automatically scales font size and letter spacing for multi-word chronicle expressions
  */
 export function renderEditorialTypography(ctx, canvas, text, formationProg, visualOpts = {}, strokeJitterPx = 0.0, enableDarkCushion = true) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // Pure Korean Archival Typography Enforcement (Mandatory Rule 4)
-  const cleanText = (text || '').replace(/[\u4e00-\u9fff\u3040-\u30ff]/g, '').trim() || '울다';
+
+  // Pure Korean Archival Typography Enforcement (Mandatory Rule 4), with optional native mode for global benchmarks
+  const rawStr = String(text || '').trim();
+  const cleanText = visualOpts.allowNativeScript
+    ? (rawStr || '대지가 진동하다')
+    : (rawStr.replace(/[\u4e00-\u9fff\u3040-\u30ff]/g, '').replace(/\s+/g, ' ').trim() || '대지가 진동하다');
+
   const cX = canvas.width / 2;
   const cY = canvas.height / 2;
-  const fontSize = visualOpts.fontSize || 84;
+  const baseFontSize = visualOpts.fontSize || 82;
   const fontFamily = visualOpts.fontFamily || '"Noto Serif KR", "Nanum Myeongjo", Batang, serif';
   const colorSecondary = visualOpts.colorSecondary || '#c8e8fc';
   const haloColor = visualOpts.haloColor || 'rgba(140, 205, 255, 0.40)';
 
+  // Adaptive sizing for single-character chunks vs. multi-word chronicle expressions
+  let fontSize = baseFontSize;
+  let letterSpacing = '0.18em';
+  const charCount = cleanText.length;
+
+  if (canvas.width <= 320 && charCount <= 2) {
+    // Single glyph chunk canvas (256x256) in FRACTURE entity
+    fontSize = Math.min(baseFontSize, Math.round(canvas.width * 0.40));
+    letterSpacing = '0.02em';
+  } else if (charCount <= 4) {
+    fontSize = baseFontSize;
+    letterSpacing = '0.20em';
+  } else if (charCount <= 8) {
+    fontSize = Math.round(baseFontSize * 0.88);
+    letterSpacing = '0.12em';
+  } else if (charCount <= 11) {
+    fontSize = Math.round(baseFontSize * 0.78);
+    letterSpacing = '0.08em';
+  } else {
+    fontSize = Math.round(baseFontSize * 0.70);
+    letterSpacing = '0.05em';
+  }
+
+  if ('letterSpacing' in ctx) {
+    ctx.letterSpacing = letterSpacing;
+  }
   ctx.font = `600 ${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  if ('letterSpacing' in ctx) {
-    ctx.letterSpacing = '0.22em';
+  // Ensure text width never overflows the canvas width
+  if (typeof ctx.measureText === 'function' && canvas.width > 320) {
+    const measuredW = ctx.measureText(cleanText).width || 0;
+    const maxAllowedW = canvas.width * 0.86;
+    if (measuredW > maxAllowedW && measuredW > 0) {
+      fontSize = Math.max(36, Math.floor(fontSize * (maxAllowedW / measuredW)));
+      ctx.font = `600 ${fontSize}px ${fontFamily}`;
+    }
   }
 
   // PASS 1: Soft Ambient Dark Cushion (Zero harsh black outlines, no boxes)
@@ -1781,6 +1055,7 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
 
 /**
  * Kinetic Archetype 2: FRACTURE (Rock Shatter & Slope Tumbling)
+ * Preserves word spaces and 1:1 square chunk aspect ratio for multi-word chronicle expressions
  */
 export function createFractureEntity(arg1, arg2, arg3, arg4) {
   let THREE_INST, unitDef, cand, enableDarkCushion;
@@ -1806,11 +1081,16 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
   haloSprite.renderOrder = 95;
   group.add(haloSprite);
 
-  const glyphs = unitDef.semantic.displayText.split('').filter(ch => ch.trim() !== '');
-  const count = Math.max(1, glyphs.length);
-  const spacing = unitDef.visual.spriteW / (count + 0.3);
-  const chunkW = spacing * 1.15;
-  const chunkH = unitDef.visual.spriteH;
+  const rawText = String(unitDef.semantic.displayText || unitDef.token || '거암이 붕괴되고').trim();
+  const hasSpaces = rawText.includes(' ');
+  // When multi-word chronicle clause has spaces, split by word chunks (어절 단위) so each word stays intact and legible before fracturing
+  const tokenChunks = hasSpaces ? rawText.split(/\s+/).filter(Boolean) : rawText.split('');
+  const chunkWeights = tokenChunks.map(tk => Math.max(1.0, tk.length * 0.85));
+  const gapWeight = hasSpaces ? 0.45 : 0.0;
+  const totalWeight = Math.max(1.0, chunkWeights.reduce((acc, w) => acc + w, 0) + Math.max(0, tokenChunks.length - 1) * gapWeight);
+  const effectiveSpanW = Math.max(unitDef.visual.spriteW || 0.22, Math.min(0.32, totalWeight * 0.022));
+  const unitAdvance = effectiveSpanW / totalWeight;
+  const chunkBaseH = unitDef.visual.spriteH || 0.062;
   const chunks = [];
 
   const gradX = cand.gradX || 0;
@@ -1819,8 +1099,15 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
   const slopeDirX = -gradX / gradMag;
   const slopeDirZ = -gradZ / gradMag;
 
-  glyphs.forEach((gl, idx) => {
-    const cW = 256;
+  let cursorWeight = -totalWeight * 0.5;
+  const chunkCount = Math.max(1, tokenChunks.length);
+
+  tokenChunks.forEach((gl, glyphIdx) => {
+    const w = chunkWeights[glyphIdx];
+    const centerWeight = cursorWeight + w * 0.5;
+    cursorWeight += w + gapWeight;
+
+    const cW = gl.length > 2 ? 512 : 256;
     const cH = 256;
     const c = document.createElement('canvas');
     c.width = cW;
@@ -1846,15 +1133,18 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
       depthTest: false
     });
     const sp = new THREE_INST.Sprite(sMat);
-    sp.scale.set(chunkW, chunkH, 1.0);
+    const aspect = cW / cH;
+    const spH = Math.max(0.038, Math.min(chunkBaseH, unitAdvance * 2.1));
+    sp.scale.set(spH * aspect, spH, 1.0);
     sp.renderOrder = 100;
-    const baseOffsetX = (idx - (count - 1) * 0.5) * spacing;
+    const baseOffsetX = centerWeight * unitAdvance;
     sp.position.set(baseOffsetX, 0.0, 0.0);
     group.add(sp);
 
-    const spreadX = (idx - (count - 1) * 0.5) * 0.005;
-    const fallVelY = -0.022 - Math.abs(idx - (count - 1) * 0.5) * 0.003;
-    const spreadZ = ((idx % 2 === 0) ? -1 : 1) * (0.003 + idx * 0.002);
+    const relIdx = glyphIdx - (chunkCount - 1) * 0.5;
+    const spreadX = relIdx * 0.0045;
+    const fallVelY = -0.022 - Math.abs(relIdx) * 0.0025;
+    const spreadZ = ((glyphIdx % 2 === 0) ? -1 : 1) * (0.003 + glyphIdx * 0.0015);
 
     chunks.push({
       glyph: gl,
@@ -1867,7 +1157,7 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
       spreadZ: spreadZ,
       gradDirX: slopeDirX,
       gradDirZ: slopeDirZ,
-      rotSpeed: ((idx % 2 === 0) ? 1 : -1) * (0.8 + idx * 0.25)
+      rotSpeed: ((glyphIdx % 2 === 0) ? 1 : -1) * (0.75 + glyphIdx * 0.18)
     });
   });
 
@@ -2111,7 +1401,6 @@ export class TerrainAwareSpawner {
       );
 
       const pool = (matches.length > 0) ? matches : this.candidateCache.filter(c => c.zone === targetZone);
-      // Strictly restrict fallback candidates to central focal region (|X| <= 0.12, |Z| <= 0.08)
       const focalPool = pool.filter(c => Math.abs(c.worldX) <= 0.12 && Math.abs(c.worldZ) <= 0.08);
       const candidateList = focalPool.length > 0 ? focalPool : pool;
       const chosen = candidateList[Math.floor(candidateList.length / 2)] || { worldX: 0, worldZ: 0, groundY: 0, elevation: 0, slope: 0 };
@@ -2169,20 +1458,21 @@ export class LivingMemoryEngine {
     this.parser = new ArchivalSemanticParser();
     this.spawner = new TerrainAwareSpawner();
     this.enableDarkCushion = true;
-    this.displayMode = 'native'; // 'native' | 'korean'
+    this.displayMode = 'korean'; // 'korean' default per Mandate 4; supports 'native'
   }
 
   setMultilingualDisplayMode(mode) {
-    this.displayMode = mode === 'korean' ? 'korean' : 'native';
+    this.displayMode = mode === 'native' ? 'native' : 'korean';
     this.parser.setDisplayMode(this.displayMode);
     if (this.currentParsedEvent) {
-      // Re-parse and update text for active entities
       const newParsed = this.parser.parseEvent(this.currentParsedEvent.eventId);
       this.currentParsedEvent = newParsed;
       this.entities.forEach((group, idx) => {
         const u = newParsed.semanticUnits[idx];
         if (u && group.userData) {
           group.userData.unitDef = u;
+          group.userData.token = u.token || '';
+          group.userData.displayText = u.semantic?.displayText || u.token || '';
           if (typeof group.userData.renderCanvas === 'function') {
             group.userData.renderCanvas(1.0);
           } else if (Array.isArray(group.userData.chunks)) {

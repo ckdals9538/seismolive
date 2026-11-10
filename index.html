@@ -203,7 +203,7 @@
       max-height: 85vh;
     }
     #unified-control-surface.state-performance {
-      width: 940px;
+      width: 1080px;
       max-width: calc(100vw - 32px);
       height: 52px;
     }
@@ -1045,7 +1045,7 @@
       align-items: center;
       gap: 8px;
       min-width: 170px;
-      max-width: 210px;
+      flex-shrink: 0;
     }
     .transport-beacon-dot {
       width: 7px;
@@ -1161,10 +1161,154 @@
     .transport-exit {
       min-width: 110px;
       text-align: right;
+      display: flex;
+      align-items: center;
+      gap: 5px;
     }
     .surface-btn.compact {
       font-size: 10.5px;
       padding: 5px 10px;
+    }
+    /* Epistemic Provenance Badges (Observed vs Estimated vs Reference Model) */
+    .epistemic-badge {
+      display: inline-block;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-left: 5px;
+      vertical-align: middle;
+      letter-spacing: 0.02em;
+    }
+    .epistemic-badge.obs {
+      background: rgba(86, 194, 136, 0.16);
+      color: #7ce0a8;
+      border: 1px solid rgba(86, 194, 136, 0.38);
+    }
+    .epistemic-badge.est {
+      background: rgba(220, 168, 88, 0.16);
+      color: #f0c478;
+      border: 1px solid rgba(220, 168, 88, 0.38);
+    }
+    .epistemic-badge.mod {
+      background: rgba(142, 197, 252, 0.15);
+      color: #9cd0ff;
+      border: 1px solid rgba(142, 197, 252, 0.35);
+    }
+    /* Sequence Chain & Scholar Comparison in Dossier */
+    .sequence-chain-box {
+      margin-top: 8px;
+      padding: 8px 11px;
+      background: rgba(12, 22, 36, 0.72);
+      border: 1px solid rgba(200, 157, 84, 0.28);
+      border-radius: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sequence-chain-title {
+      font-size: 10.5px;
+      color: #dca858;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .sequence-chain-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .seq-step-btn {
+      background: rgba(22, 34, 52, 0.85);
+      border: 1px solid rgba(142, 197, 252, 0.24);
+      color: #b8cde4;
+      font-size: 10.5px;
+      padding: 4px 9px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .seq-step-btn:hover {
+      background: rgba(142, 197, 252, 0.18);
+      color: #ffffff;
+    }
+    .seq-step-btn.active {
+      background: rgba(200, 157, 84, 0.24);
+      border-color: #dca858;
+      color: #fff6e5;
+      font-weight: 600;
+    }
+    .scholar-compare-box {
+      margin-top: 8px;
+      padding: 8px 11px;
+      background: rgba(10, 18, 30, 0.68);
+      border: 1px solid rgba(142, 197, 252, 0.16);
+      border-radius: 6px;
+      font-size: 11px;
+      color: #b4c8dc;
+      line-height: 1.5;
+    }
+    /* Quality & Immersive Restore Pill */
+    #quality-mode-pill {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      z-index: 45;
+      background: rgba(8, 14, 24, 0.72);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(142, 197, 252, 0.22);
+      color: #9cb8d4;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10px;
+      padding: 5px 10px;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    #quality-mode-pill:hover {
+      border-color: rgba(142, 197, 252, 0.55);
+      color: #e6f2ff;
+    }
+    #immersive-restore-pill {
+      position: fixed;
+      bottom: 20px;
+      right: 22px;
+      z-index: 60;
+      display: none;
+      background: rgba(8, 14, 24, 0.78);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(200, 157, 84, 0.45);
+      color: #eae4d5;
+      font-size: 11px;
+      padding: 6px 13px;
+      border-radius: 18px;
+      cursor: pointer;
+    }
+    .transport-pill-btn {
+      background: rgba(20, 32, 48, 0.85);
+      border: 1px solid rgba(142, 197, 252, 0.25);
+      color: #bdd6f0;
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10px;
+      padding: 4px 7px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .transport-phase-badge,
+    .view-performance .surface-btn,
+    .view-performance .surface-btn.compact,
+    .transport-event-name {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .transport-pill-btn:hover {
+      background: rgba(142, 197, 252, 0.22);
+      color: #ffffff;
     }
 
     @media (max-width: 1060px) {
@@ -1217,7 +1361,15 @@
     <div class="gallery-sub" id="gallery-event-title">한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)</div>
   </div>
 
+  <!-- Adaptive Quality & Classroom PC Optimization Toggle (Top-Right) -->
+  <button id="quality-mode-pill" title="고화질 전시 모드와 강의실/저사양 PC 60FPS 최적화 모드를 전환합니다">
+    ✦ 품질: 고화질 전시 (High)
+  </button>
 
+  <!-- Immersive Exhibition Mode Restore Pill (Bottom-Right when UI hidden) -->
+  <button id="immersive-restore-pill" title="컨트롤 서피스 다시 표시 [H]">
+    ✦ 컨트롤 표시 [H]
+  </button>
 
   <div id="loading-indicator">
     <div class="spinner"></div>
@@ -1343,20 +1495,26 @@
         <div class="selected-grid-telemetry">
           <div class="telemetry-cell">
             <span class="cell-label">발생 일시 (Origin Time)</span>
-            <span class="cell-value" id="selected-origin-time">1681-06-26</span>
+            <span class="cell-value" id="selected-origin-time">1681-06-26 <span class="epistemic-badge obs">사료 기록</span></span>
           </div>
           <div class="telemetry-cell">
             <span class="cell-label">진앙 위치 (Epicenter)</span>
-            <span class="cell-value" id="selected-coords">37.95°N, 129.05°E</span>
+            <span class="cell-value" id="selected-coords">37.90°N, 129.10°E (±45km) <span class="epistemic-badge est">학술 역산</span></span>
           </div>
           <div class="telemetry-cell">
             <span class="cell-label">지진 규모 (Magnitude)</span>
-            <span class="cell-value" id="selected-mag">추정 규모 ~7.5</span>
+            <span class="cell-value" id="selected-mag">M 6.5~7.5 (MMI IX) <span class="epistemic-badge est">감진역 추정</span></span>
           </div>
           <div class="telemetry-cell">
             <span class="cell-label">진원 깊이 (Focal Depth)</span>
-            <span class="cell-value" id="selected-depth">12.0 km</span>
+            <span class="cell-value" id="selected-depth">미상 · 모델 12.0 km <span class="epistemic-badge mod">참조 모델</span></span>
           </div>
+        </div>
+
+        <!-- Sequence Chain Bar (Foreshock - Mainshock - Aftershock) -->
+        <div class="sequence-chain-box" id="dossier-sequence-chain">
+          <div class="sequence-chain-title" id="dossier-sequence-title">✦ 연속 지진 시퀀스 (전진 · 본진 · 여진 기록 연결)</div>
+          <div class="sequence-chain-steps" id="dossier-sequence-steps"></div>
         </div>
 
         <!-- Dossier Sub-Tabs Bar -->
@@ -1394,6 +1552,9 @@
               <span class="p-label">역사적 불확실도</span>
               <span class="p-val" id="selected-archive-uncertainty">진앙 추정오차 ±25 km · 12간지각 시각제 환산</span>
             </div>
+          </div>
+          <div class="scholar-compare-box" id="dossier-scholar-comparison">
+            <!-- Populated dynamically with multi-scholar interpretations & epistemic breakdown -->
           </div>
         </div>
 
@@ -1451,17 +1612,20 @@
       <div class="transport-event-info">
         <span class="transport-beacon-dot"></span>
         <span class="transport-event-name" id="transport-event-name">1681 양양</span>
-        <span class="transport-phase-badge" id="transport-phase-badge">PERFORMANCE</span>
+        <span class="transport-phase-badge" id="transport-phase-badge">P파 도달</span>
       </div>
 
       <div class="transport-controls">
         <button id="btn-transport-play-pause" class="transport-btn play-pause" title="재생 / 일시정지 [Space]">⏸</button>
+        <button id="btn-transport-speed" class="transport-pill-btn" title="재생 배속 전환 (0.5x / 1.0x / 2.0x)">1.0×</button>
         
         <div class="transport-scrubber-group">
           <span class="transport-time-label" id="transport-time-current">0.0s</span>
           <input type="range" id="transport-scrubber" min="0" max="35" step="0.1" value="0" />
           <span class="transport-time-label" id="transport-time-total">35.0s</span>
         </div>
+
+        <button id="btn-transport-shot" class="transport-pill-btn" title="시네마틱 카메라 구도 전환 [단축키 1~6]">구도 1/6</button>
 
         <div class="transport-audio-group">
           <button id="btn-transport-audio" class="transport-btn" title="음향 토글">🔇</button>
@@ -1470,6 +1634,9 @@
       </div>
 
       <div class="transport-exit">
+        <button id="btn-transport-immersive" class="surface-btn secondary compact" title="컨트롤 바 숨김 및 몰입형 전시 감상 [H]">
+          감상 [H]
+        </button>
         <button id="btn-performance-detail" class="surface-btn secondary compact" title="사건 상세 사료 및 계측 정보 보기">
           ℹ 사료 상세
         </button>
@@ -1489,9 +1656,9 @@
     // Unified Architecture · Figure-Ground Contrast · Editorial Serif · Negative Space
     // =========================================================================
 
-    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './js/data/historicalArchiveDB.js';
-    import { INSTRUMENTAL_EVENTS } from './js/data/instrumentalCatalogDB.js';
-    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './js/data/usgsFeedConnector.js';
+    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './js/data/historicalArchiveDB.js?v=4.2';
+    import { INSTRUMENTAL_EVENTS } from './js/data/instrumentalCatalogDB.js?v=4.2';
+    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './js/data/usgsFeedConnector.js?v=4.2';
     import {
       WGS84,
       DATUM_STATUS,
@@ -1530,7 +1697,7 @@
       createFractureEntity,
       createRecedeEntity,
       createExposeEntity
-    } from './js/3d/livingMemoryEngine.js';
+    } from './js/3d/livingMemoryEngine.js?v=4.2';
 
     let orchestrator = null;
     window.orchestrator = null;
@@ -2210,18 +2377,23 @@
 
         if (!this.container) return;
         this.container.classList.remove('state-explore', 'state-discover', 'state-selected', 'state-performance');
+        const subContainer = document.getElementById('chronicle-subtitle-container');
         if (state === 'EXPLORE') {
           this.container.classList.add('state-explore');
+          if (subContainer) subContainer.style.opacity = '1.0';
         } else if (state === 'DISCOVER') {
           this.container.classList.add('state-discover');
+          if (subContainer) subContainer.style.opacity = '0.0';
           this.renderDiscoverCards(this.activeFilter, this.searchQuery);
         } else if (state === 'SELECTED') {
           this.container.classList.add('state-selected');
+          if (subContainer) subContainer.style.opacity = '0.0';
           if (this.selectedEvent) {
             this.renderSelectedEvent(this.selectedEvent);
           }
         } else if (state === 'PERFORMANCE') {
           this.container.classList.add('state-performance');
+          if (subContainer) subContainer.style.opacity = '1.0';
           this.updatePerformanceHeader(this.selectedEvent);
         }
 
@@ -2399,6 +2571,58 @@
           btnPlayPause.addEventListener('click', (e) => {
             e.stopPropagation();
             this.togglePlayPause();
+          });
+        }
+
+        const btnSpeed = document.getElementById('btn-transport-speed');
+        if (btnSpeed) {
+          btnSpeed.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const speeds = [1.0, 2.0, 0.5];
+            const curSpeed = window.playbackSpeed || 1.0;
+            const nextIdx = (speeds.indexOf(curSpeed) + 1) % speeds.length;
+            const nextSpeed = speeds[nextIdx];
+            if (typeof window.setPlaybackSpeed === 'function') {
+              window.setPlaybackSpeed(nextSpeed);
+            }
+          });
+        }
+
+        const btnShot = document.getElementById('btn-transport-shot');
+        if (btnShot) {
+          btnShot.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const shotKeys = [
+              'monumental_continental_scale',
+              'epicenter_wave_corridor',
+              'lyrical_mountain_resonance',
+              'comprehensive_orchestration',
+              'closeup_alpine_spires',
+              'closeup_maritime_shelf'
+            ];
+            const curIdx = shotKeys.indexOf(currentShotKey);
+            const nextIdx = (curIdx + 1) % shotKeys.length;
+            applyCameraShot(shotKeys[nextIdx]);
+            btnShot.textContent = `구도 ${nextIdx + 1}/6`;
+          });
+        }
+
+        const btnImmersive = document.getElementById('btn-transport-immersive');
+        const restorePill = document.getElementById('immersive-restore-pill');
+        if (btnImmersive) {
+          btnImmersive.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof window.toggleImmersiveUI === 'function') {
+              window.toggleImmersiveUI(true);
+            }
+          });
+        }
+        if (restorePill) {
+          restorePill.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof window.toggleImmersiveUI === 'function') {
+              window.toggleImmersiveUI(false);
+            }
           });
         }
 
@@ -2586,7 +2810,8 @@
         if (!ev) return;
 
         const cleanTitle = (ev.titleKo || ev.place || ev.canonicalName || "지진 사건").replace(/[\u4e00-\u9fff]/g, '').trim();
-        const eraText = ev.dateConversion?.reignName || (ev.century >= 20 ? (ev.recordType === 'usgs-live' ? "USGS 글로벌 실시간 관측망" : "현대 정밀 계측 지진") : "역사 문헌 사료 기록");
+        const isHist = !ev.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL' && ev.recordType !== 'usgs-live' && ev.era !== 'ERA_2_INSTRUMENTAL');
+        const eraText = ev.dateConversion?.reignName || (!isHist ? (ev.recordType === 'usgs-live' ? "USGS 글로벌 실시간 관측망" : "현대 정밀 계측 지진") : "역사 문헌 사료 기록");
         const dateStr = (ev.dateText || ev.dateConversion?.gregorianDateISO || ev.temporal?.gregorianDate || (ev.year ? `${ev.year}년` : "연대 미상")).replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
         const { lat, lon } = getEventCoords(ev);
 
@@ -2603,7 +2828,7 @@
           provTagClass = "tag-global";
           provTagText = "국제 표준 계측 (ISC/USGS)";
           confText = "국제 지진 센터(ISC) 공인 관측";
-        } else if (ev.country === 'KOREA' && (ev.century >= 20 || ev.catalogType?.includes('INSTRUMENTAL'))) {
+        } else if (!isHist) {
           provTagClass = "tag-kma";
           provTagText = "대한민국 기상청 (KMA)";
           confText = ev.verification === 'kma-verified' ? "기상청 지진관측보고 공인 검증" : "기상청 지진연보 및 학술 논문 교차 검증";
@@ -2622,28 +2847,54 @@
           provTagEl.textContent = provTagText;
         }
 
-        // Telemetry grid
-        if (originTimeEl) originTimeEl.textContent = dateStr;
+        // Telemetry grid with 3-tier epistemic badges ([사료 기록] / [계측 실측] / [학술 추정] / [참조 모델])
+        if (originTimeEl) {
+          const timeBadge = isHist ? `<span class="epistemic-badge obs">사료 기록</span>` : `<span class="epistemic-badge obs">계측 시각</span>`;
+          originTimeEl.innerHTML = `${dateStr} ${timeBadge}`;
+        }
 
+        const rawHist = (window.HISTORICAL_EVENTS || []).find(h => h.id === (ev.id || ev.eventId)) || ev;
         const hasCoords = lat != null && lon != null;
+        const errRad = rawHist.interpretations?.[0]?.epicenter?.errorRadiusKm ?? rawHist.placeMappings?.[0]?.representativeCoords?.errorRadiusKm ?? (isHist ? 35 : null);
         if (coordsEl) {
-          coordsEl.textContent = hasCoords 
-            ? `${lat.toFixed(3)}°N, ${lon.toFixed(3)}°E`
-            : "사료 원전 보존 (정밀 좌표 미상)";
-        }
-
-        const magVal = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.mag?.v ?? ev.mag;
-        const mmiText = ev.macroseismic?.maxIntensityMMI?.rawRoman ? ` (MMI ${ev.macroseismic.maxIntensityMMI.rawRoman})` : "";
-        if (magEl) {
-          magEl.textContent = magVal ? `M ${Number(magVal).toFixed(1)}${mmiText}` : (mmiText ? `진도${mmiText}` : "미확인 (사료 기록 한계)");
-        }
-
-        const depthKmRaw = ev.depth?.valKm ?? ev.depth?.v ?? ev.spatial?.focalDepth?.valKm ?? (typeof ev.depth === 'number' ? ev.depth : null);
-        if (depthEl) {
-          if (depthKmRaw != null) {
-            depthEl.textContent = `${Number(depthKmRaw).toFixed(1)} km`;
+          if (hasCoords) {
+            const coordBadge = isHist
+              ? `<span class="epistemic-badge est">감진역 역산${errRad ? ` ±${errRad}km` : ''}</span>`
+              : `<span class="epistemic-badge obs">계측 실측</span>`;
+            coordsEl.innerHTML = `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E ${coordBadge}`;
           } else {
-            depthEl.textContent = "미확인 (사료 기록 한계)";
+            coordsEl.innerHTML = `정밀 좌표 미상 <span class="epistemic-badge obs">문헌 원전 보존</span>`;
+          }
+        }
+
+        const rawMagNum = (typeof ev.mag === 'number') ? ev.mag : (typeof ev.mag?.v === 'number' ? ev.mag.v : null);
+        const estMagObj = rawHist.interpretations?.[0]?.estimatedMagnitude;
+        const magVal = rawHist.scientificEstimates?.[0]?.estimatedMag ?? estMagObj?.best ?? rawMagNum;
+        const magMin = estMagObj?.min ?? (Array.isArray(estMagObj?.range) ? estMagObj.range[0] : null);
+        const magMax = estMagObj?.max ?? (Array.isArray(estMagObj?.range) ? estMagObj.range[1] : null);
+        const mmiRaw = rawHist.macroseismic?.maxIntensityMMI?.rawRoman || rawHist.interpretations?.[0]?.maxIntensityMMI?.roman || ev.macroseismic?.maxIntensityMMI?.rawRoman;
+        const mmiText = mmiRaw ? ` (MMI ${mmiRaw})` : "";
+        if (magEl) {
+          if (isHist) {
+            const rangeStr = (magMin != null && magMax != null)
+              ? `M ${Number(magMin).toFixed(1)}~${Number(magMax).toFixed(1)}`
+              : (magVal != null && !isNaN(Number(magVal)) ? `추정 M ~${Number(magVal).toFixed(1)}` : "규모 미상");
+            magEl.innerHTML = `${rangeStr}${mmiText} <span class="epistemic-badge est">학술 추정</span>`;
+          } else {
+            magEl.innerHTML = (magVal != null && !isNaN(Number(magVal)))
+              ? `M ${Number(magVal).toFixed(1)}${mmiText} <span class="epistemic-badge obs">계측 실측</span>`
+              : `미확인`;
+          }
+        }
+
+        const depthKmRaw = !isHist
+          ? (ev.depth?.valKm ?? ev.depth?.v ?? ev.spatial?.focalDepth?.valKm ?? (typeof ev.depth === 'number' ? ev.depth : (ev.focalDepthKm ?? null)))
+          : (ev.spatial?.focalDepth?.valKm ?? null);
+        if (depthEl) {
+          if (depthKmRaw != null && !isHist) {
+            depthEl.innerHTML = `${Number(depthKmRaw).toFixed(1)} km <span class="epistemic-badge obs">계측 실측</span>`;
+          } else {
+            depthEl.innerHTML = `미상 (파동 모델 12.0 km) <span class="epistemic-badge mod">교육용 참조</span>`;
           }
         }
 
@@ -2713,14 +2964,20 @@
       renderArchivalProvenance(ev) {
         const histEl = document.getElementById('selected-archive-history');
         const uncertEl = document.getElementById('selected-archive-uncertainty');
+        const seqBox = document.getElementById('dossier-sequence-chain');
+        const seqSteps = document.getElementById('dossier-sequence-steps');
+        const scholarBox = document.getElementById('dossier-scholar-comparison');
         if (!histEl || !uncertEl) return;
 
-        const isHist = !ev.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL');
+        const evId = String(ev.id || ev.eventId || "");
+        const rawHist = (window.HISTORICAL_EVENTS || []).find(h => h.id === evId) || ev;
+        const isHist = !ev.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL' && ev.recordType !== 'usgs-live' && ev.era !== 'ERA_2_INSTRUMENTAL');
         const isUSGS = ev.recordType === 'usgs-live' || ev.catalogType === 'INSTRUMENTAL_GLOBAL';
 
         if (isHist) {
           histEl.textContent = "조선총독부 관측소 와다 유지(和田雄治, 1912) 7,188책 고문헌 전수조사 및 조선왕조실록·승정원일기 교차실증";
-          uncertEl.textContent = "진앙 추정오차 ±15~30 km · 12간지각 시각제 환산 · 진도 MMI V~IX 감진역 역산";
+          const errRad = rawHist.interpretations?.[0]?.epicenter?.errorRadiusKm ?? rawHist.placeMappings?.[0]?.representativeCoords?.errorRadiusKm ?? 35;
+          uncertEl.textContent = `진앙 추정오차 ±${errRad} km (3D 지형 등고선 표기) · 진원깊이 미상(null) · 감진역 등진도선 역산`;
         } else if (isUSGS) {
           histEl.textContent = "USGS NEIC (전미지진정보센터) 실시간 위성 텔레메트리 및 글로벌 브로드밴드 지진망(GSN) 공인 수집";
           uncertEl.textContent = "진앙 결정오차 ±2.5 km · CMT 단층면해(Moment Tensor) 역산 · W-phase 고속 단층 파쇄 모델";
@@ -2728,13 +2985,89 @@
           histEl.textContent = "대한민국 기상청(KMA) 국가지진관측망 지진연보 및 한국지질자원연구원(KIGAM) 학술 교차 검증";
           uncertEl.textContent = "진앙 결정오차 ±0.8 km · 지진계 가속도 센서(PGA) 실측 · S-P 파두 도달시각 마이크로초 정밀 역산";
         }
+
+        // 1. Sequence Chain Bar (Foreshock -> Mainshock -> Aftershock)
+        if (seqBox && seqSteps) {
+          seqSteps.innerHTML = '';
+          let sequenceItems = [];
+          if (evId.includes('1681')) {
+            sequenceItems = [
+              { id: 'hist_1681_0612', label: '① [전진] 1681.06.12 양양·삼척 전진 (진앙 미확정)' },
+              { id: 'hist_1681_0626', label: '② [본진·해일] 1681.06.26 양양 해역 대지진·퇴조 (MMI IX)' },
+              { id: 'hist_1681_0702', label: '③ [여진·붕락] 1681.07.02 삼척 능파대·설악산 여진' }
+            ];
+          } else if (evId.includes('2016') && evId.includes('gyeongju')) {
+            sequenceItems = [
+              { id: 'inst_2016_gyeongju_foreshock', label: '① [전진] 2016.09.12 19:44 경주 전진 (ML 5.1)' },
+              { id: 'hist_2016_gyeongju', label: '② [본진] 2016.09.12 20:32 경주 본진 (ML 5.8)' }
+            ];
+          }
+
+          if (sequenceItems.length > 0) {
+            seqBox.style.display = 'flex';
+            sequenceItems.forEach(item => {
+              const btn = document.createElement('button');
+              btn.className = 'seq-step-btn' + (evId === item.id ? ' active' : '');
+              btn.textContent = item.label;
+              btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
+                const targetEv = allEvents.find(x => (x.id === item.id || x.eventId === item.id));
+                if (targetEv) {
+                  this.setState('SELECTED', targetEv);
+                }
+              });
+              seqSteps.appendChild(btn);
+            });
+          } else {
+            seqBox.style.display = 'none';
+          }
+        }
+
+        // 2. Multi-Scholar Interpretation & Epistemic Separation Box
+        if (scholarBox) {
+          if (isHist) {
+            const interps = rawHist.interpretations || rawHist.scientificEstimates || [];
+            let interpHtml = `<div style="color:#dca858; font-weight:600; margin-bottom:4px;">✦ 과학적 인식론 구분 및 복수 연구자 추정 비교 (1·3주차 강의 연계)</div>`;
+            if (Array.isArray(interps) && interps.length > 0 && (interps[0].authorOrInstitution || interps[0].author)) {
+              interpHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-bottom:5px;">`;
+              interps.forEach(it => {
+                const authorName = it.authorOrInstitution
+                  ? `${it.authorOrInstitution}${it.publicationYear ? ` (${it.publicationYear})` : ''}`
+                  : it.author;
+                const em = it.estimatedMagnitude;
+                const mBest = em?.best ? `M ${Number(em.best).toFixed(1)}` : '규모 미산정';
+                const mMin = em?.min ?? (Array.isArray(em?.range) ? em.range[0] : null);
+                const mMax = em?.max ?? (Array.isArray(em?.range) ? em.range[1] : null);
+                const mRange = (mMin != null && mMax != null) ? ` (범위 ${mMin}~${mMax})` : '';
+                const mmiRoman = it.maxIntensityMMI?.roman || it.maxIntensityMMI;
+                const mmiStr = (typeof mmiRoman === 'string') ? ` · MMI ${mmiRoman}` : '';
+                const basisStr = it.epicenter?.basis || it.maxIntensityMMI?.intensityBasis || it.methodology || '감진지역 기반 역산';
+                interpHtml += `<div>• <strong>${authorName}:</strong> ${mBest}${mRange}${mmiStr} — <span style="color:#8ea8c3;">${basisStr}</span></div>`;
+              });
+              interpHtml += `</div>`;
+            }
+            interpHtml += `<div style="font-size:10px; color:#86a4c4; border-top:1px solid rgba(142,197,252,0.14); padding-top:4px;">` +
+              `[인식론적 원칙] 역사 사료에는 지진계 계측값이 없으므로 진원 깊이(null)와 단층면해(null)를 허위로 확정하지 않으며, 3D 파동 시연 시에만 상부지각 표준 참조 깊이(12km)와 방위각 중립(등방성) 모델을 적용합니다.</div>`;
+            scholarBox.innerHTML = interpHtml;
+            scholarBox.style.display = 'block';
+          } else {
+            scholarBox.innerHTML = `<div style="color:#7ce0a8; font-weight:600; margin-bottom:3px;">✦ 계측 지진 실측 데이터 (4·6·7주차 강의 연계)</div>` +
+              `<div style="font-size:10.5px; color:#9cb8d4;">3성분(동서·남북·상하) 광대역 속도 지진계 및 가속도계(PGA) 파형 역산을 통해 진원 깊이, 지진 모멘트(Mw), Double-Couple 단층면해(주향·경사·면선각)가 실측 검증된 사건입니다.</div>`;
+            scholarBox.style.display = 'block';
+          }
+        }
       }
 
       renderTxCurve(depthKm, magVal, ev) {
         const container = document.getElementById('tx-graph-container');
         if (!container) return;
 
-        const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 12;
+        const isHist = !ev?.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL' && ev.recordType !== 'usgs-live' && ev.era !== 'ERA_2_INSTRUMENTAL');
+        const depth = (depthKm != null && !isNaN(depthKm) && !isHist) ? Math.max(1, depthKm) : 12.0;
+        const depthNote = (!isHist && depthKm != null)
+          ? `실측 진원깊이 h = ${depth.toFixed(1)} km 반영`
+          : `역사지진 상부지각 참조 깊이 h = 12.0 km (교육용 모델)`;
         const width = 560;
         const height = 138;
         const padL = 45;
@@ -2820,7 +3153,7 @@
 
         const mohoDesc = document.getElementById('tx-moho-desc');
         if (mohoDesc) {
-          mohoDesc.textContent = `한반도 지각-맨틀 경계 심도 ~32km · 진원깊이 ${depth.toFixed(1)}km 매개변수 적용`;
+          mohoDesc.textContent = `한반도 모호면 심도 ~32km · ${depthNote}`;
         }
       }
 
@@ -3008,7 +3341,9 @@
           let displayLabel = "1681 양양 대지진";
           if (ev) {
             const evId = String(ev.id || ev.eventId || "");
-            if (evId.includes("1681")) displayLabel = "1681 양양 대지진";
+            if (evId === "hist_1681_0612") displayLabel = "1681 양양 전진 (6.12)";
+            else if (evId === "hist_1681_0702") displayLabel = "1681 삼척 여진 (7.02)";
+            else if (evId.includes("1681")) displayLabel = "1681 양양 대지진";
             else if (evId.includes("1338")) displayLabel = "1338 고려 개경 지진";
             else if (evId.includes("2016") && evId.includes("gyeongju")) displayLabel = "2016 경주 지진";
             else if (evId.includes("2017") && evId.includes("pohang")) displayLabel = "2017 포항 지진";
@@ -3023,7 +3358,7 @@
           }
           nameEl.textContent = displayLabel;
         }
-        if (badgeEl) badgeEl.textContent = "PERFORMANCE";
+        if (badgeEl) badgeEl.textContent = "P파 도달";
       }
 
       updatePerformanceTime(time, maxTime = 35.0) {
@@ -3033,10 +3368,14 @@
         if (curLabel) curLabel.textContent = time.toFixed(1) + 's';
         if (scrubber && !this.isScrubbing) scrubber.value = time.toFixed(1);
         if (badgeEl) {
-          if (time >= 28.0) {
-            badgeEl.textContent = "CODA (고요)";
+          if (time < 3.2) {
+            badgeEl.textContent = "P파 압축 도달";
+          } else if (time < 11.5) {
+            badgeEl.textContent = "S파 전단 · 능선 공명";
+          } else if (time < 26.5) {
+            badgeEl.textContent = "레일리 표면파 너울";
           } else {
-            badgeEl.textContent = "PERFORMANCE";
+            badgeEl.textContent = "CODA (여운·고요)";
           }
         }
       }
@@ -3170,8 +3509,9 @@
           simTime = 0.0;
           isPlaying = true;
           controls.target.copy(flightEndLookAt);
-          controls.minDistance = 0.02;
+          controls.minDistance = 0.04;
           controls.maxDistance = 6.0;
+          controls.maxPolarAngle = Math.PI * 0.465;
           controls.enabled = true;
           controls.update();
           if (window.livingSoundfield && !livingSoundfield.isMuted) {
@@ -3216,6 +3556,7 @@
           controls.target.copy(flightEndLookAt);
           controls.minDistance = 20.0;
           controls.maxDistance = 400.0;
+          controls.maxPolarAngle = Math.PI;
           controls.enabled = true;
           controls.update();
           orbitDwellTimer = 0.0;
@@ -3305,11 +3646,14 @@
       }
     }
 
+    let qualityMode = isLowSpec ? 'CLASSROOM' : 'HIGH';
+    window.qualityMode = qualityMode;
+
     let tier0GlobeMesh = null;
     function createTier0WGS84Ellipsoid(lat0, lon0) {
       const globeParams = computeGlobeCenterAndPolarAxis(lat0, lon0);
-      const widthSegs = 1080;
-      const heightSegs = 540;
+      const widthSegs = (qualityMode === 'CLASSROOM') ? 540 : 1080;
+      const heightSegs = (qualityMode === 'CLASSROOM') ? 270 : 540;
 
       const geo = new THREE.BufferGeometry();
       const positions = [];
@@ -3582,7 +3926,8 @@
       // Phase E: Continuous Planetary Elevation Foundation (NOAA ETOPO 2022)
       u_globalElevation: { value: null },
       u_globalHMin: { value: -11000.0 },
-      u_globalHMax: { value: 9000.0 }
+      u_globalHMax: { value: 9000.0 },
+      u_uncertaintyRadiusUnits: { value: 0.45 }
     };
     window.terrainUniforms = terrainUniforms;
 
@@ -3827,6 +4172,7 @@
         uniform float u_enableStratum2;
         uniform float u_purePhysicalMode;
         uniform float u_ridgeStyle;
+        uniform float u_uncertaintyRadiusUnits;
 
         varying vec2 vUv;
         varying vec3 vNormal;
@@ -3935,6 +4281,24 @@
               float taperFactor = smoothstep(0.005, 0.180, vEdgeTaper);
               lit += colorRidge * (ridgeResonance * taperFactor * 0.55);
               lit += colorRipple * (surfaceRipple * taperFactor * 0.35);
+
+              // Fast Compressional P-Wave Precursor Crest (Silver-Cyan Topographic Shimmer ahead of S-Wave)
+              float waveRP = sqrt(max(0.0, (u_vP * u_simTime) * (u_vP * u_simTime) - u_depthUnits * u_depthUnits));
+              float distToFrontP = abs(epicentralDist - waveRP);
+              float t_P_arrival = vDistHypo / u_vP;
+              float dtP_arrival = u_simTime - t_P_arrival;
+              float pEnvelope = exp(-pow(distToFrontP / 0.028, 2.0)) * smoothstep(-0.02, 0.04, dtP_arrival) * u_modeP;
+              float pRidgeTrace = (totalRidgeShape * 0.65 + isPlain * 0.12) * pEnvelope * taperFactor;
+              lit += vec3(0.68, 0.86, 0.98) * (pRidgeTrace * 0.28);
+
+              // Historical Epicentral Uncertainty Topographic Contour (±errorRadiusKm on terrain surface)
+              if (u_uncertaintyRadiusUnits > 0.01) {
+                float distToUnc = abs(epicentralDist - u_uncertaintyRadiusUnits);
+                float angleAz = atan(dEpi.y, dEpi.x);
+                float stipple = step(0.35, fract(angleAz * 18.0 / 6.2831853));
+                float contourLine = exp(-pow(distToUnc / 0.0045, 2.0)) * stipple * taperFactor;
+                lit += vec3(0.78, 0.62, 0.33) * (contourLine * 0.13);
+              }
             }
           }
 
@@ -4426,6 +4790,52 @@
           grp.updateMatrixWorld(true);
         }
       });
+
+      // Pairwise NDC De-Overlapping Pass: Guarantee zero screen-space collisions across co-visible semantic units
+      for (let pass = 0; pass < 3; pass++) {
+        for (let i = 0; i < entities.length; i++) {
+          for (let j = i + 1; j < entities.length; j++) {
+            const gA = entities[i];
+            const gB = entities[j];
+            const tA = gA.userData?.t_activation ?? 0;
+            const tB = gB.userData?.t_activation ?? 0;
+            if (Math.abs(tA - tB) > 6.5) continue;
+            const wpA = new THREE.Vector3();
+            const wpB = new THREE.Vector3();
+            gA.getWorldPosition(wpA);
+            gB.getWorldPosition(wpB);
+            const ndcA = wpA.clone().project(evalCam);
+            const ndcB = wpB.clone().project(evalCam);
+
+            const dx = Math.abs(ndcA.x - ndcB.x);
+            const dy = Math.abs(ndcA.y - ndcB.y);
+            if (dx < 0.175 && dy < 0.072) {
+              const dirX = (ndcA.x <= ndcB.x) ? -1.0 : 1.0;
+              const dirY = (ndcA.y <= ndcB.y) ? -1.0 : 1.0;
+              gA.position.x += dirX * 0.028;
+              gB.position.x -= dirX * 0.028;
+              gA.position.y = Math.max(0.035, gA.position.y + dirY * 0.016);
+              gB.position.y = Math.max(0.035, gB.position.y - dirY * 0.016);
+              gA.updateMatrixWorld(true);
+              gB.updateMatrixWorld(true);
+              if (gA.userData) {
+                gA.userData.worldPos = { x: gA.position.x, y: gA.position.y, z: gA.position.z };
+                if (gA.userData.cand) {
+                  gA.userData.cand.worldX = gA.position.x;
+                  gA.userData.cand.worldZ = gA.position.z;
+                }
+              }
+              if (gB.userData) {
+                gB.userData.worldPos = { x: gB.position.x, y: gB.position.y, z: gB.position.z };
+                if (gB.userData.cand) {
+                  gB.userData.cand.worldX = gB.position.x;
+                  gB.userData.cand.worldZ = gB.position.z;
+                }
+              }
+            }
+          }
+        }
+      }
     }
 
     window.getLivingMemoryDiagnostics = function(cam = camera) {
@@ -4537,6 +4947,9 @@
       if (eventMeta.demBinUrl) {
         try {
           const regionalTex = await loadRegionalDEMTexture(THREE, eventMeta.demBinUrl, eventMeta.width, eventMeta.height);
+          if (demTexture && demTexture !== regionalTex) {
+            demTexture.dispose();
+          }
           demTexture = regionalTex;
           currentDemWidth = eventMeta.width;
           currentDemHeight = eventMeta.height;
@@ -4580,7 +4993,9 @@
 
         // Asynchronously build staging geometries with the new epicenter's WGS84 curvature
         if (terrainMesh) {
-          const stagingTerrainGeo = createWGS84CurvedPlaneGeometry(curW, curH, 900, 720, lat0, lon0);
+          const segW = (qualityMode === 'CLASSROOM') ? 540 : 900;
+          const segH = (qualityMode === 'CLASSROOM') ? 432 : 720;
+          const stagingTerrainGeo = createWGS84CurvedPlaneGeometry(curW, curH, segW, segH, lat0, lon0);
           const oldTerrainGeo = terrainMesh.geometry;
           terrainMesh.geometry = stagingTerrainGeo;
           if (oldTerrainGeo) oldTerrainGeo.dispose();
@@ -4674,6 +5089,15 @@
         terrainUniforms.u_radiationDirectivity.value = 0.0; // Isotropic fallback for historical events
       }
 
+      // Update Topographic Epicentral Uncertainty Contour (Historical vs Instrumental)
+      const isHistoricalRecord = !eventId.startsWith('inst_') && !eventId.startsWith('global_') && !eventId.startsWith('usgs_') && !eventId.includes('2016') && !eventId.includes('2017');
+      if (isHistoricalRecord) {
+        const errKm = currentParsedEvent?.errorRadiusKm || 45.0;
+        terrainUniforms.u_uncertaintyRadiusUnits.value = (errKm * 1000.0) * METERS_TO_UNITS;
+      } else {
+        terrainUniforms.u_uncertaintyRadiusUnits.value = 0.0;
+      }
+
       // 4. Synchronize Unified Control Surface
       if (controlSurface) {
         controlSurface.updatePerformanceHeader(currentParsedEvent);
@@ -4723,8 +5147,9 @@
         targetShotLookAt.set(tx, ty, tz);
         if (snapCamera) {
           flightState = FLIGHT_STATES.PERFORMANCE;
-          controls.minDistance = 0.02;
+          controls.minDistance = 0.04;
           controls.maxDistance = 6.0;
+          controls.maxPolarAngle = Math.PI * 0.465;
           discoveryNodes.forEach(n => { n.group.visible = false; });
           camera.position.set(cx, cy, cz);
           controls.target.set(tx, ty, tz);
@@ -4915,16 +5340,98 @@
       camera.fov = shot.fov;
       camera.updateProjectionMatrix();
       controls.update();
-      document.getElementById('view-preset-label').textContent = shot.name;
+      const viewLabel = document.getElementById('view-preset-label');
+      if (viewLabel) viewLabel.textContent = shot.name;
+      const shotOrder = ['monumental_continental_scale', 'epicenter_wave_corridor', 'lyrical_mountain_resonance', 'comprehensive_orchestration', 'closeup_alpine_spires', 'closeup_maritime_shelf'];
+      const shotIdx = shotOrder.indexOf(key);
+      const btnShot = document.getElementById('btn-transport-shot');
+      if (btnShot && shotIdx >= 0) btnShot.textContent = `구도 ${shotIdx + 1}/6`;
+      if (archivalEntities && archivalEntities.length > 0) {
+        validateAndAdjustExhibitionComposition(camera, archivalEntities, null);
+      }
     }
     window.applyCameraShot = applyCameraShot;
 
     // -------------------------------------------------------------------------
-    // 6. TIMELINE & VARIABLE CONTROLS
+    // 6. TIMELINE, PLAYBACK SPEED, IMMERSIVE & QUALITY MODE CONTROLS
     // -------------------------------------------------------------------------
     let simTime = 0.0;
     let isPlaying = true;
+    let playbackSpeed = 1.0;
+    window.playbackSpeed = 1.0;
     const maxSimTime = 35.0;
+
+    window.setPlaybackSpeed = function(speed) {
+      playbackSpeed = Math.max(0.25, Math.min(4.0, Number(speed) || 1.0));
+      window.playbackSpeed = playbackSpeed;
+      const btnSpeed = document.getElementById('btn-transport-speed');
+      if (btnSpeed) btnSpeed.textContent = `${playbackSpeed.toFixed(1)}×`;
+      return playbackSpeed;
+    };
+
+    window.toggleImmersiveUI = function(forceHide) {
+      const ucs = document.getElementById('unified-control-surface');
+      const restorePill = document.getElementById('immersive-restore-pill');
+      const qualityPill = document.getElementById('quality-mode-pill');
+      if (!ucs) return false;
+      const shouldHide = (typeof forceHide === 'boolean') ? forceHide : (ucs.style.display !== 'none');
+      ucs.style.display = shouldHide ? 'none' : 'block';
+      if (restorePill) restorePill.style.display = shouldHide ? 'flex' : 'none';
+      if (qualityPill) qualityPill.style.opacity = shouldHide ? '0.0' : '1.0';
+      return shouldHide;
+    };
+
+    window.setQualityMode = async function(mode) {
+      qualityMode = (mode === 'CLASSROOM') ? 'CLASSROOM' : 'HIGH';
+      window.qualityMode = qualityMode;
+      const dpr = (qualityMode === 'CLASSROOM') ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
+      renderer.setPixelRatio(dpr);
+
+      const pill = document.getElementById('quality-mode-pill');
+      if (pill) {
+        pill.classList.toggle('classroom-mode', qualityMode === 'CLASSROOM');
+        pill.textContent = (qualityMode === 'CLASSROOM')
+          ? '✦ 품질: 강의실 최적화 (Classroom 60fps)'
+          : '✦ 품질: 고화질 전시 (High)';
+      }
+
+      const lat0 = currentParsedEvent?.spatialCoords?.lat ?? 37.95;
+      const lon0 = currentParsedEvent?.spatialCoords?.lon ?? 129.05;
+      if (tier0GlobeMesh) {
+        const newGlobe = createTier0WGS84Ellipsoid(lat0, lon0);
+        newGlobe.renderOrder = 1;
+        scene.remove(tier0GlobeMesh);
+        if (tier0GlobeMesh.geometry) tier0GlobeMesh.geometry.dispose();
+        if (tier0GlobeMesh.material) tier0GlobeMesh.material.dispose();
+        tier0GlobeMesh = newGlobe;
+        scene.add(tier0GlobeMesh);
+        window.tier0GlobeMesh = tier0GlobeMesh;
+      }
+      if (terrainMesh && terrainMesh.visible) {
+        const curW = terrainUniforms.u_physicalSize ? terrainUniforms.u_physicalSize.value.x : PHYSICAL_W_UNITS;
+        const curH = terrainUniforms.u_physicalSize ? terrainUniforms.u_physicalSize.value.y : PHYSICAL_H_UNITS;
+        const segW = (qualityMode === 'CLASSROOM') ? 540 : 900;
+        const segH = (qualityMode === 'CLASSROOM') ? 432 : 720;
+        const newGeo = createWGS84CurvedPlaneGeometry(curW, curH, segW, segH, lat0, lon0);
+        const oldGeo = terrainMesh.geometry;
+        terrainMesh.geometry = newGeo;
+        if (oldGeo) oldGeo.dispose();
+      }
+      return {
+        qualityMode,
+        globeTriangles: tier0GlobeMesh?.geometry?.index ? (tier0GlobeMesh.geometry.index.count / 3) : 0,
+        terrainTriangles: terrainMesh?.geometry?.index ? (terrainMesh.geometry.index.count / 3) : 0
+      };
+    };
+
+    const qualityPillEl = document.getElementById('quality-mode-pill');
+    if (qualityPillEl) {
+      qualityPillEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const nextMode = (qualityMode === 'HIGH') ? 'CLASSROOM' : 'HIGH';
+        window.setQualityMode(nextMode);
+      });
+    }
 
     window.setSimulationPlaying = function(play) { isPlaying = !!play; };
     try {
@@ -5402,6 +5909,37 @@
       });
 
       // -----------------------------------------------------------------------
+      // REAL-TIME CHRONICLE SUBTITLE SYNCHRONIZATION
+      // Synchronize bottom archival bar with the currently active semantic unit
+      // -----------------------------------------------------------------------
+      if (currentParsedEvent && archivalEntities.length > 0) {
+        let bestEntity = null;
+        let bestOp = 0.15;
+        for (let i = 0; i < archivalEntities.length; i++) {
+          const u = archivalEntities[i].userData;
+          if (!u || !u.unitDef) continue;
+          if (
+            (u.lifecycleState === "EMERGENCE" || u.lifecycleState === "FORMATION" || u.lifecycleState === "RESONANCE") &&
+            u.currentOpacity > bestOp
+          ) {
+            bestOp = u.currentOpacity;
+            bestEntity = u;
+          }
+        }
+        const subEl = document.getElementById("chronicle-subtitle-text");
+        if (subEl && bestEntity && bestEntity.unitDef && bestEntity.unitDef.semantic) {
+          const sem = bestEntity.unitDef.semantic;
+          const disp = sem.displayText || bestEntity.unitDef.token;
+          const trans = sem.translation || "";
+          const srcRef = sem.sourceReference || currentParsedEvent.titleKo || "";
+          const nextLine = `"${disp}" — ${trans}${srcRef ? ` (${srcRef})` : ""}`;
+          if (subEl.textContent !== nextLine) {
+            subEl.textContent = nextLine;
+          }
+        }
+      }
+
+      // -----------------------------------------------------------------------
       // LIVING SOUNDFIELD SYNTHESIS HOOK (PHASE D3 MULTI-EVENT)
       // Synchronized with the active event's focal unit
       // -----------------------------------------------------------------------
@@ -5550,8 +6088,9 @@
       } else if (e.key.toLowerCase() === 'm') {
         setStratum3(enableStratum3 < 0.5);
       } else if (e.key.toLowerCase() === 'h') {
-        const ucs = document.getElementById('unified-control-surface');
-        if (ucs) ucs.style.display = (ucs.style.display === 'none') ? 'block' : 'none';
+        if (typeof window.toggleImmersiveUI === 'function') {
+          window.toggleImmersiveUI();
+        }
       }
     });
 
@@ -5564,6 +6103,13 @@
 
     async function init() {
       try {
+        if (qualityMode === 'CLASSROOM') {
+          const pill = document.getElementById('quality-mode-pill');
+          const lbl = document.getElementById('quality-mode-text');
+          if (pill) pill.classList.add('classroom-mode');
+          if (lbl) lbl.textContent = '화질: 강의실 최적화 (Classroom 60fps)';
+        }
+
         // 1. Load Tier 0 / Tier 1 Global Elevation & Bathymetric Relief (NOAA ETOPO 2022)
         globalElevationTexture = await loadGlobalElevationTexture(THREE);
         terrainUniforms.u_globalElevation.value = globalElevationTexture;
@@ -5578,7 +6124,9 @@
 
         const lat0 = 38.00;
         const lon0 = 129.05;
-        const terrainGeo = createWGS84CurvedPlaneGeometry(PHYSICAL_W_UNITS, PHYSICAL_H_UNITS, 900, 720, lat0, lon0);
+        const segW = (qualityMode === 'CLASSROOM') ? 540 : 900;
+        const segH = (qualityMode === 'CLASSROOM') ? 432 : 720;
+        const terrainGeo = createWGS84CurvedPlaneGeometry(PHYSICAL_W_UNITS, PHYSICAL_H_UNITS, segW, segH, lat0, lon0);
         terrainMesh = new THREE.Mesh(terrainGeo, integratedTerrainMat);
         terrainMesh.renderOrder = 2;
         scene.add(terrainMesh);
@@ -5717,10 +6265,11 @@
       });
 
       if (isPlaying) {
-        simTime += delta;
+        const scaledDelta = delta * playbackSpeed;
+        simTime += scaledDelta;
         if (orchestrator) {
           orchestrator.isPlaying = true;
-          orchestrator.update(delta);
+          orchestrator.update(scaledDelta);
         }
         if (simTime > maxSimTime) {
           simTime = 0.0;
@@ -5733,6 +6282,19 @@
       window.flightState = flightState;
 
       controls.update();
+
+      // Underground Camera Clipping Guard (Performance & Coda States)
+      if (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA) {
+        const groundSample = getTerrainMetricsAt(camera.position.x, camera.position.z);
+        const minCamY = Math.max(0.018, (groundSample?.groundY || 0.0) + 0.016);
+        if (camera.position.y < minCamY) {
+          camera.position.y = minCamY;
+        }
+        if (controls.target.y < -0.025) {
+          controls.target.y = -0.025;
+        }
+      }
+
       renderer.render(scene, camera);
     }
 
@@ -5830,12 +6392,24 @@
       // mode: 'native' | 'korean'
       archivalEntities.forEach(g => {
         const u = g.userData?.unitDef;
-        if (u && (u.tokenNative || u.tokenKo)) {
-          const chosenText = (mode === 'korean' && u.tokenKo) ? u.tokenKo : (u.tokenNative || u.token);
+        if (u && (u.phraseNative || u.phraseKo || u.tokenNative || u.tokenKo)) {
+          const chosenText = (mode === 'korean')
+            ? (u.phraseKo || u.tokenKo || u.token)
+            : (u.phraseNative || u.tokenNative || u.token);
+          u.token = chosenText;
           u.semantic.displayText = chosenText;
+          if (u.visual) {
+            u.visual.allowNativeScript = Boolean(mode === 'native' && (u.phraseNative || u.tokenNative));
+          }
+          g.userData.token = chosenText;
+          g.userData.displayText = chosenText;
           if (g.userData.renderCanvas) {
             const prog = (g.userData.lifecycleState === 'LATENT') ? 0.0 : (g.userData.lifecycleState === 'EMERGENCE' ? 0.6 : 1.0);
             g.userData.renderCanvas(prog, 0.0);
+          } else if (Array.isArray(g.userData.chunks)) {
+            g.userData.chunks.forEach(ch => {
+              if (typeof ch.renderChunk === 'function') ch.renderChunk(1.0);
+            });
           }
         }
       });

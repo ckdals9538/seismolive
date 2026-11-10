@@ -52,6 +52,41 @@ export function adaptUSGSFeature(f) {
   }
 
   const reportedMmi = isValidNumber(p.mmi) ? p.mmi : (isValidNumber(p.cdi) ? p.cdi : null);
+  const isTsunami = Boolean(p.tsunami);
+  const isMarine = /ridge|trench|island|sea|ocean|offshore|strait|bay|kuril|tonga|kermadec|fiji|mariana|aleutian|banda|molucca/i.test(place);
+  const isDeep = depth != null && depth >= 70;
+  const isMajor = mag >= 6.5;
+
+  const depthLabel = depth != null ? `${depth.toFixed(1)}km` : '미상';
+  const mmiClause = reportedMmi != null ? `최대 진도 MMI ${reportedMmi.toFixed(1)} 감지` : (isTsunami ? '해일 경보 발령' : '전 지구 광대역 지진망 관측');
+  const scriptText = `${place}에서 규모 ${mag.toFixed(1)} 지진 발생. 진원 깊이 ${depthLabel}. ${mmiClause}.`;
+
+  const dynamicLexicon = [
+    {
+      token: `${place}에서 규모 ${mag.toFixed(1)} 지진 발생`,
+      displayKo: `${place}에서 규모 ${mag.toFixed(1)} 지진 발생`,
+      category: isMarine ? 'water' : 'phenomenon',
+      archetype: isTsunami ? 'RECEDE' : 'RESONANCE',
+      stageZone: isMarine ? 'ZONE_A_OCEAN' : 'ZONE_B_INLAND',
+      translation: `${place}에서 규모 ${mag.toFixed(1)} 지진 발생`
+    },
+    {
+      token: `진원 깊이 ${depthLabel}`,
+      displayKo: `진원 깊이 ${depthLabel}`,
+      category: 'geology',
+      archetype: isMajor ? 'FRACTURE' : 'EXPOSE',
+      stageZone: isDeep ? 'ZONE_C_MOUNTAIN' : 'ZONE_B_INLAND',
+      translation: `진원 깊이 ${depthLabel}`
+    },
+    {
+      token: mmiClause,
+      displayKo: mmiClause,
+      category: isTsunami ? 'water' : 'sound',
+      archetype: isTsunami ? 'RECEDE' : 'RESONANCE',
+      stageZone: isMarine ? 'ZONE_A_OCEAN' : 'ZONE_B_INLAND',
+      translation: mmiClause
+    }
+  ];
 
   return {
     id: id,
@@ -105,13 +140,11 @@ export function adaptUSGSFeature(f) {
       tsunamiObserved: Boolean(p.tsunami)
     },
     primaryText: {
-      originalScript: `${place}에서 규모 ${mag.toFixed(1)} 지진 발생. 진원 깊이 ${depth != null ? depth.toFixed(1) : '미상'}km.`,
+      originalScript: scriptText,
+      translationKo: scriptText,
       documentSource: 'USGS Real-time Earthquake Hazards Program Feed'
     },
-    archivalLexicon: [
-      { token: '진동', category: 'motion', translation: '지각 진동 관측' },
-      { token: '파열', category: 'damage', translation: '단층 파열 전파' }
-    ]
+    archivalLexicon: dynamicLexicon
   };
 }
 

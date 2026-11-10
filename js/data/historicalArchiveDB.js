@@ -387,9 +387,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "二十一年 秋八月", category: "phenomenon", language: "hanja-archival", translation: "유리명왕 21년 가을 8월" },
-      { token: "地震", category: "phenomenon", language: "hanja-archival", translation: "지진이 일어났다" },
-      { token: "지진이 일어났다", category: "phenomenon", language: "ko-KR-archival", translation: "An earthquake occurred" }
+      { token: "二十一年 秋八月", displayKo: "유리명왕 21년 가을 8월에", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "유리명왕 21년 가을 8월에" },
+      { token: "지진이 일어났다", displayKo: "지진이 일어났다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "지진이 일어났다 (地震)" }
     ]
   },
   {
@@ -403,9 +402,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "地震", category: "phenomenon", language: "hanja-archival", translation: "지진이 일어나" },
-      { token: "聲如雷", category: "sound", language: "hanja-archival", translation: "소리가 우레와 같았다" },
-      { token: "소리가 우레와 같았다", category: "sound", language: "ko-KR-archival", translation: "Sounded like thunder" }
+      { token: "冬十一月", displayKo: "다루왕 2년 겨울 11월에", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "다루왕 2년 겨울 11월에" },
+      { token: "地震", displayKo: "지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "지진이 일어나" },
+      { token: "소리가 우레와 같았다", displayKo: "소리가 우레와 같았다", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "소리가 우레와 같았다 (聲如雷)" }
     ]
   },
   {
@@ -419,9 +418,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "WELL_SPRING_ANOMALY"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "京都地震", category: "phenomenon", language: "hanja-archival", translation: "왕경에 지진이 일어나" },
-      { token: "泉涌", category: "water", language: "hanja-archival", translation: "샘물이 솟구쳤다" },
-      { token: "샘물이 솟구쳤다", category: "water", language: "ko-KR-archival", translation: "Springs gushed up" }
+      { token: "京都地震", displayKo: "왕경에 지진이 일어나고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "왕경(금성)에 지진이 일어나고" },
+      { token: "샘물이 솟구쳤다", displayKo: "샘물이 솟구쳤다", category: "water", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "샘물이 솟구쳤다 (泉涌)" }
     ]
   },
   {
@@ -435,9 +433,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "HUMAN_CASUALTIES"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "京都地震", category: "phenomenon", language: "hanja-archival", translation: "서울(경주)에 지진이 일어나" },
-      { token: "倒民屋", category: "structure", language: "hanja-archival", translation: "민가가 쓰러지고" },
-      { token: "有死者", category: "consequence", language: "hanja-archival", translation: "죽은 자가 있었다" }
+      { token: "京都地震", displayKo: "서울에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "서울(금성)에 지진이 일어나" },
+      { token: "倒民屋", displayKo: "민가가 쓰러지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "민가가 쓰러지고" },
+      { token: "有死者", displayKo: "죽은 자가 있었다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "죽은 자가 있었다" }
     ]
   },
   {
@@ -451,8 +449,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "HUMAN_CASUALTIES", "AFTERSHOCK_SWARM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "壞民屋", category: "structure", language: "hanja-archival", translation: "민가가 무너지고" },
-      { token: "有死者", category: "consequence", language: "hanja-archival", translation: "사망자가 발생하였다" }
+      { token: "京都地震", displayKo: "왕경에 지진이 연속하여 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "왕경(경주)에 지진이 연속하여 일어나" },
+      { token: "壞民屋", displayKo: "민가가 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "민가가 무너지고" },
+      { token: "有死者", displayKo: "사망자가 발생하였다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "사망자가 발생하였다" }
     ]
   },
   {
@@ -466,8 +465,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "HUMAN_CASUALTIES"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "民屋倒墮", category: "structure", language: "hanja-archival", translation: "민가가 넘어지고" },
-      { token: "有死者", category: "consequence", language: "hanja-archival", translation: "죽은 자가 있었다" }
+      { token: "地震", displayKo: "평양성에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "평양성에 지진이 일어나" },
+      { token: "民屋倒墮", displayKo: "민가가 넘어지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "민가가 넘어지고" },
+      { token: "有死者", displayKo: "죽은 자가 있었다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "죽은 자가 있었다" }
     ]
   },
   {
@@ -481,7 +481,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "春三月 地動", category: "phenomenon", language: "hanja-archival", translation: "봄 3월에 땅이 흔들렸다" }
+      { token: "春三月", displayKo: "백제 무왕 40년 봄 3월에", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "백제 무왕 40년 봄 3월에" },
+      { token: "地動", displayKo: "사비 도성의 땅이 흔들렸다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "사비 도성의 땅이 흔들렸다" }
     ]
   },
   {
@@ -495,11 +496,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "HUMAN_CASUALTIES"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "京都地震", category: "phenomenon", language: "hanja-archival", translation: "왕경(경주)에 지진이 일어나" },
-      { token: "壞民屋", category: "structure", language: "hanja-archival", translation: "민가가 무너지고" },
-      { token: "死者百餘人", category: "consequence", language: "hanja-archival", translation: "죽은 자가 백여 명이었다" },
-      { token: "민가가 무너지고", category: "structure", language: "ko-KR-archival", translation: "Residential houses collapsed" },
-      { token: "죽은 자가 백여 명이었다", category: "consequence", language: "ko-KR-archival", translation: "Over a hundred fatalities recorded" }
+      { token: "京都地震", displayKo: "서울에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "서울(경주)에 지진이 일어나" },
+      { token: "민가가 무너지고", displayKo: "민가가 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "민가가 무너지고 (壞民屋)" },
+      { token: "죽은 자가 백여 명이었다", displayKo: "죽은 자가 백여 명이었다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "죽은 자가 백여 명이었다 (死者百餘人)" }
     ]
   },
 
@@ -515,8 +514,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "AFTERSHOCK_SWARM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "冬十二月 地震", category: "phenomenon", language: "hanja-archival", translation: "겨울 12월에 지진이 일어났다" },
-      { token: "明年二月又震", category: "phenomenon", language: "hanja-archival", translation: "이듬해 2월에 다시 진동하였다" }
+      { token: "冬十二月 地震", displayKo: "개경에 큰 지진이 일어났고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "광종 22년 겨울 12월에 개경에 큰 지진이 일어났고" },
+      { token: "明年二月又震", displayKo: "이듬해 2월에 다시 진동하였다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "이듬해 2월에 다시 진동하였다" }
     ]
   },
   {
@@ -531,10 +530,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "WALL_FENCE_COLLAPSE", "HOUSE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "京城地震", category: "phenomenon", language: "hanja-archival", translation: "경성(개경)에 지진이 일어나고" },
-      { token: "京城及東京地震", category: "phenomenon", language: "hanja-archival", translation: "개경 및 동경(경주)에 지진이 일어나" },
-      { token: "屋廬頹圮", category: "structure", language: "hanja-archival", translation: "가옥과 담장이 무너졌다" },
-      { token: "가옥과 담장이 무너졌다", category: "structure", language: "ko-KR-archival", translation: "Houses and walls collapsed" }
+      { token: "京城地震", displayKo: "경성에 지진이 일어났고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "정종 2년 5월 신해일에 경성(개경)에 지진이 일어났고" },
+      { token: "京城及東京地震", displayKo: "경성 및 동경에 큰 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "6월 병술일에 경성 및 동경(경주)에 큰 지진이 일어나" },
+      { token: "가옥과 담장이 무너졌다", displayKo: "가옥과 담장이 무너졌다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "가옥과 담장이 무너졌다 (屋廬頹圮)" }
     ]
   },
   {
@@ -548,8 +546,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "壞民廬舍", category: "structure", language: "hanja-archival", translation: "민가가 파손되었는데" },
-      { token: "東京尤甚", category: "place", language: "hanja-archival", translation: "동경(경주)이 더욱 심하였다" }
+      { token: "京城及東京尚州地震", displayKo: "개경과 동경·상주에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "개경과 동경(경주)·상주에 지진이 일어나" },
+      { token: "壞民廬舍", displayKo: "민가가 파손되었는데", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "민가가 파손되었는데" },
+      { token: "東京尤甚", displayKo: "동경이 더욱 심하였다", category: "place", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "동경(경주)이 더욱 심하였다" }
     ]
   },
   {
@@ -563,8 +562,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "WALL_FENCE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "聲如雷", category: "sound", language: "hanja-archival", translation: "소리가 우레와 같고" },
-      { token: "墻屋頹壞", category: "structure", language: "hanja-archival", translation: "담장과 가옥이 무너졌다" }
+      { token: "地震", displayKo: "지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "원종 원년 6월 계미일에 지진이 일어나" },
+      { token: "聲如雷", displayKo: "소리가 우레와 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "소리가 우레와 같고" },
+      { token: "墻屋頹壞", displayKo: "담장과 가옥이 무너졌다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "담장과 가옥이 무너졌다" }
     ]
   },
   {
@@ -578,9 +578,10 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "WALL_FENCE_COLLAPSE", "AFTERSHOCK_SWARM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "又大震", category: "phenomenon", language: "hanja-archival", translation: "다시 크게 진동하여" },
-      { token: "墻屋頹圮", category: "structure", language: "hanja-archival", translation: "담장과 가옥이 무너지고" },
-      { token: "人皆出避", category: "consequence", language: "hanja-archival", translation: "사람들이 모두 밖으로 피하였다" }
+      { token: "聲如雷", displayKo: "소리가 우레 같았고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "지진이 일어나 소리가 우레 같았고" },
+      { token: "又大震", displayKo: "다시 크게 진동하여", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "경인일에 다시 크게 진동하여" },
+      { token: "墻屋頹圮", displayKo: "담장과 가옥이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "담장과 가옥이 무너지고" },
+      { token: "人皆出避", displayKo: "사람들이 모두 밖으로 피하였다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "사람들이 모두 밖으로 피하였다" }
     ]
   },
   {
@@ -594,8 +595,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ROOF_TILE_FALL"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "金州密城地震", category: "phenomenon", language: "hanja-archival", translation: "금주(김해)와 밀성(밀양)에 지진이 일어나" },
-      { token: "屋瓦皆飛", category: "structure", language: "hanja-archival", translation: "기와가 모두 날아 떨어졌다" }
+      { token: "金州密城地震", displayKo: "김해·밀양에 지진이 일어나고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "경상도 김해(금주)·밀양(밀성)에 지진이 일어나고" },
+      { token: "屋瓦皆飛", displayKo: "가옥 기와가 떨어졌다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "가옥 기와가 떨어졌다" }
     ]
   },
   {
@@ -609,9 +610,10 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "WALL_FENCE_COLLAPSE", "LANDSLIDE_ROCKFALL"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "聲如陣馬之奔", category: "sound", language: "hanja-archival", translation: "소리가 군마가 달리는 듯하고" },
-      { token: "墻垣頹圮", category: "structure", language: "hanja-archival", translation: "담장이 무너지며" },
-      { token: "松嶽崩", category: "geology", language: "hanja-archival", translation: "송악산 바위가 무너져 내렸다" }
+      { token: "地震", displayKo: "개경에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "개경에 지진이 일어나" },
+      { token: "聲如陣馬之奔", displayKo: "소리가 군마가 달리는 듯하고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "소리가 군마가 달리는 듯하고" },
+      { token: "墻垣頹圮", displayKo: "담장이 무너지며", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "담장이 무너지며" },
+      { token: "松嶽崩", displayKo: "송악산 바위가 무너져 내렸다", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "송악산 바위가 무너져 내렸다" }
     ]
   },
 
@@ -627,8 +629,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "慶尙道雞林安東尚州", category: "place", language: "hanja-archival", translation: "경상도 경주·안동·상주" },
-      { token: "全羅道完山茂朱等地地震", category: "phenomenon", language: "hanja-archival", translation: "전라도 전주·무주 등지에 지진이 일어났다" }
+      { token: "慶尙道雞林安東尚州", displayKo: "경상도 계림·안동·상주와", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "경상도 계림(경주)·안동·상주와" },
+      { token: "全羅道完山茂朱等地", displayKo: "전라도 완산·무주 등지에", category: "place", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "전라도 완산(전주)·무주 등지에" },
+      { token: "地震", displayKo: "지진이 일어났다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "지진이 일어났다" }
     ]
   },
   {
@@ -642,8 +645,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "屋宇動搖", category: "structure", language: "hanja-archival", translation: "가옥이 흔들렸다" },
-      { token: "가옥이 흔들렸다", category: "structure", language: "ko-KR-archival", translation: "Houses shook across three provinces" }
+      { token: "慶尙道慶州大丘安東", displayKo: "경상도 경주·대구·안동과", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "경상도 경주·대구·안동과" },
+      { token: "忠淸道報恩淸州全羅道錦山茂朱地震", displayKo: "보은·청주, 금산·무주에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "충청도 보은·청주, 전라도 금산·무주에 지진이 일어나" },
+      { token: "가옥이 흔들렸다", displayKo: "가옥이 흔들렸다", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "가옥이 흔들렸다 (屋宇動搖)" }
     ]
   },
   {
@@ -657,8 +661,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "WALL_FENCE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "全羅道南原求禮順天", category: "place", language: "hanja-archival", translation: "전라도 남원·구례·순천" },
-      { token: "墻屋頹落", category: "structure", language: "hanja-archival", translation: "담장과 가옥이 무너져 내렸다" }
+      { token: "全羅道南原求禮順天", displayKo: "전라도 남원·구례·순천과", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "전라도 남원·구례·순천과" },
+      { token: "慶尙道晉州河東地震", displayKo: "경상도 진주·하동에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "경상도 진주·하동에 지진이 일어나" },
+      { token: "墻屋頹落", displayKo: "담장과 가옥이 무너져 내렸다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "담장과 가옥이 무너져 내렸다" }
     ]
   },
   {
@@ -672,11 +677,11 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "WALL_FENCE_COLLAPSE", "FORTRESS_DAMAGE", "AFTERSHOCK_SWARM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "소리가 성난 우레 같았으며", category: "sound", language: "ko-KR-archival", translation: "Sounded like raging thunder (聲如怒雷)" },
-      { token: "인마가 모두 피하고", category: "consequence", language: "ko-KR-archival", translation: "People and horses fled in terror" },
-      { token: "담장과 성첩이 무너졌다", category: "structure", language: "ko-KR-archival", translation: "Walls and fortress battlements collapsed" },
-      { token: "聲如怒雷", category: "sound", language: "hanja-archival", translation: "소리가 성난 우레 같았으며" },
-      { token: "墻屋城堞頹落", category: "structure", language: "hanja-archival", translation: "담장과 성첩이 무너졌다" }
+      { token: "京城地震", displayKo: "도성에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "도성(한성)에 지진이 일어나" },
+      { token: "소리가 성난 우레 같았으며", displayKo: "소리가 성난 우레 같았으며", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "소리가 성난 우레 같았으며 (聲如怒雷)" },
+      { token: "인마가 모두 피하고", displayKo: "인마가 모두 피하고", category: "consequence", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "인마가 모두 피하고 (人馬皆避)" },
+      { token: "담장과 성첩이 무너져", displayKo: "담장과 성첩이 무너져", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "담장과 성첩이 무너져 (墻屋城堞頹落)" },
+      { token: "도성 사람들이 밤새 노숙하였다", displayKo: "도성 사람들이 밤새 노숙하였다", category: "consequence", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "도성 사람들이 밤새 노숙하였다 (都人終夜露處)" }
     ]
   },
   {
@@ -690,9 +695,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "GROUND_FISSURE", "LIQUEFACTION_FOUNTAIN"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "屋宇頹毁", category: "structure", language: "hanja-archival", translation: "가옥이 무너지고" },
-      { token: "地坼水涌", category: "geology", language: "hanja-archival", translation: "땅이 갈라져 물이 솟구쳤다" },
-      { token: "땅이 갈라져 물이 솟구쳤다", category: "water", language: "ko-KR-archival", translation: "Ground fissured and water gushed out" }
+      { token: "黃海道海州平山白川地震", displayKo: "해주·평산·배천에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "황해도 해주·평산·배천에 지진이 일어나" },
+      { token: "屋宇頹毁", displayKo: "가옥이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "가옥이 무너지고" },
+      { token: "땅이 갈라져 물이 솟구쳤다", displayKo: "땅이 갈라져 물이 솟구쳤다", category: "water", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "땅이 갈라져 물이 솟구쳤다 (地坼水涌)" }
     ]
   },
   {
@@ -706,8 +711,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "FORTRESS_DAMAGE", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "城堞頹落", category: "structure", language: "hanja-archival", translation: "성첩이 무너지고" },
-      { token: "聲如大砲", category: "sound", language: "hanja-archival", translation: "소리가 대포와 같았다" }
+      { token: "咸鏡道鏡城明川吉州地震", displayKo: "경성·명천·길주에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "함경도 경성·명천·길주에 지진이 일어나" },
+      { token: "城堞頹落", displayKo: "성첩이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "성첩이 무너지고" },
+      { token: "聲如大砲", displayKo: "소리가 대포와 같았다", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "소리가 대포와 같았다" }
     ]
   },
   {
@@ -721,8 +727,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "LANDSLIDE_ROCKFALL"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "聲如雷", category: "sound", language: "hanja-archival", translation: "소리가 우레와 같고" },
-      { token: "巖石崩落", category: "geology", language: "hanja-archival", translation: "암석이 무너져 떨어졌다" }
+      { token: "忠淸道報恩淸州文義沃川地震", displayKo: "보은·청주·문의·옥천에 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "충청도 보은·청주·문의·옥천에 지진이 일어나" },
+      { token: "聲如雷", displayKo: "소리가 우레와 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "소리가 우레와 같고" },
+      { token: "巖石崩落", displayKo: "암석이 무너져 떨어졌다", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "암석이 무너져 떨어졌다" }
     ]
   },
   {
@@ -736,8 +743,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ROOF_TILE_FALL"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "屋宇動搖", category: "structure", language: "hanja-archival", translation: "가옥이 흔들리고" },
-      { token: "瓦礫自落", category: "structure", language: "hanja-archival", translation: "기와가 저절로 떨어졌다" }
+      { token: "忠淸全羅慶尙道同日地震", displayKo: "삼도에 같은 날 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "충청·전라·경상 삼도에 같은 날 지진이 일어나" },
+      { token: "屋宇動搖", displayKo: "가옥이 흔들리고", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "가옥이 흔들리고" },
+      { token: "瓦礫自落", displayKo: "기와가 저절로 떨어졌다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "기와가 저절로 떨어졌다" }
     ]
   },
   {
@@ -751,8 +759,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "LANDSLIDE_ROCKFALL", "RIVER_TURBIDITY"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "山崩塞川", category: "geology", language: "hanja-archival", translation: "산이 무너져 하천을 막고" },
-      { token: "水溢", category: "water", language: "hanja-archival", translation: "물이 넘쳤다" }
+      { token: "咸鏡道三水甲山地震", displayKo: "삼수·갑산에 큰 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "함경도 삼수·갑산에 큰 지진이 일어나" },
+      { token: "山崩塞川", displayKo: "산이 무너져 내를 막고", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "산이 무너져 내를 막고" },
+      { token: "水溢", displayKo: "물이 넘쳤다", category: "water", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "물이 넘쳤다" }
     ]
   },
   {
@@ -766,11 +775,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "FORTRESS_DAMAGE", "GROUND_FISSURE", "LIQUEFACTION_FOUNTAIN"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "성첩이 무너지고", category: "structure", language: "ko-KR-archival", translation: "Fortress battlements collapsed (城堞頹毁)" },
-      { token: "땅이 갈라져", category: "geology", language: "ko-KR-archival", translation: "The ground fissured (地坼)" },
-      { token: "물이 솟구쳤다", category: "water", language: "ko-KR-archival", translation: "Water gushed forth (水湧)" },
-      { token: "城堞頹毁", category: "structure", language: "hanja-archival", translation: "성첩이 무너지고" },
-      { token: "地坼水湧", category: "geology", language: "hanja-archival", translation: "땅이 갈라져 물이 솟구쳤다" }
+      { token: "성첩이 무너지고", displayKo: "성첩이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "성첩이 무너지고 (城堞頹毁)" },
+      { token: "울산에서는 땅이 갈라져", displayKo: "울산에서는 땅이 갈라져", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "울산에서는 땅이 갈라져 (蔚山則地坼)" },
+      { token: "물이 솟구쳤다", displayKo: "물이 솟구쳤다", category: "water", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "물이 솟구쳤다 (水湧)" }
     ]
   },
   {
@@ -784,8 +791,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "WALL_FENCE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "濟州牧大靜旌義地震", category: "place", language: "hanja-archival", translation: "제주목·대정·정의에 지진이 일어나" },
-      { token: "石垣多頹", category: "structure", language: "hanja-archival", translation: "돌담이 많이 무너졌다" }
+      { token: "濟州牧大靜旌義地震", displayKo: "제주목·대정·정의 세 고을에 지진이 일어나", category: "place", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "제주목·대정·정의 세 고을에 지진이 일어나" },
+      { token: "소리가 우레와 같고", displayKo: "소리가 우레와 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "소리가 우레와 같고 (聲如雷)" },
+      { token: "石垣多頹", displayKo: "돌담이 많이 무너졌다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "돌담이 많이 무너졌다" }
     ]
   },
   {
@@ -799,12 +807,10 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "강원도 양양·삼척", category: "place", language: "ko-KR-archival", translation: "Gangwon-do Yangyang & Samcheok" },
-      { token: "지진이 일어나", category: "phenomenon", language: "ko-KR-archival", translation: "Earthquake occurred" },
-      { token: "소리가 우레와 같고", category: "sound", language: "ko-KR-archival", translation: "Sound like thunder (聲如雷)" },
-      { token: "집들이 흔들렸다", category: "structure", language: "ko-KR-archival", translation: "Houses shook (屋宇動搖)" },
-      { token: "聲如雷", category: "sound", language: "hanja-archival", translation: "소리가 우레와 같고" },
-      { token: "屋宇動搖", category: "structure", language: "hanja-archival", translation: "집들이 흔들렸다" }
+      { token: "강원도 양양·삼척 등지에서", displayKo: "강원도 양양·삼척 등지에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "강원도 양양·삼척 등지에서 (江原道襄陽三陟等地)" },
+      { token: "지진이 일어나", displayKo: "지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "지진이 일어나 (地震)" },
+      { token: "소리가 우레와 같고", displayKo: "소리가 우레와 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "소리가 우레와 같고 (聲如雷)" },
+      { token: "집들이 흔들렸다", displayKo: "집들이 흔들렸다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "집들이 흔들렸다 (屋宇動搖)" }
     ]
   },
   {
@@ -818,14 +824,11 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM", "LANDSLIDE_ROCKFALL", "TSUNAMI_TIDAL_WAVE", "WALL_FENCE_COLLAPSE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "산이 울고", category: "sound", language: "ko-KR-archival", translation: "Mountains roared" },
-      { token: "땅이 진동하였으며", category: "phenomenon", language: "ko-KR-archival", translation: "The earth shook violently" },
-      { token: "거암이 붕괴되고", category: "geology", language: "ko-KR-archival", translation: "Massive boulders collapsed (巨巖崩壞)" },
-      { token: "바닷물이 조수가 밀려가는 듯하더니", category: "water", language: "ko-KR-archival", translation: "Sea water receded like the tide (海水如潮退)" },
-      { token: "갑자기 언덕을 넘어왔다", category: "water", language: "ko-KR-archival", translation: "Suddenly surged over the coastal bluffs" },
-      { token: "山岳震動", category: "phenomenon", language: "hanja-archival", translation: "산악이 진동하고" },
-      { token: "巨巖崩壞", category: "geology", language: "hanja-archival", translation: "거암이 붕괴되고" },
-      { token: "海水如潮退而溢", category: "water", language: "hanja-archival", translation: "바닷물이 조수처럼 물러갔다 넘침" }
+      { token: "산이 울고", displayKo: "산이 울고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "산이 울고 (聲如雷)" },
+      { token: "땅이 진동하였으며", displayKo: "땅이 진동하였으며", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "땅이 진동하였으며 (山岳震動)" },
+      { token: "거암이 붕괴되고", displayKo: "거암이 붕괴되고", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-archival", translation: "거암이 붕괴되고 (巨巖崩壞)" },
+      { token: "바닷물이 조수가 밀려가는 듯하더니", displayKo: "바닷물이 조수가 밀려가는 듯하더니", category: "water", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "바닷물이 조수가 밀려가는 듯하더니 (海水如潮退)" },
+      { token: "갑자기 언덕을 넘어왔다", displayKo: "갑자기 언덕을 넘어왔다", category: "water", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "갑자기 언덕을 넘어왔다 (而溢)" }
     ]
   },
 
@@ -841,9 +844,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "FORTRESS_DAMAGE", "GROUND_FISSURE", "LIQUEFACTION_FOUNTAIN"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "城堞多頹", category: "structure", language: "hanja-archival", translation: "성첩이 많이 무너지고" },
-      { token: "地裂湧水", category: "geology", language: "hanja-archival", translation: "땅이 갈라져 물이 솟아나고" },
-      { token: "白沙湧出", category: "geology", language: "hanja-archival", translation: "흰 모래가 솟아 나왔다 (액상화 분사)" }
+      { token: "城堞多頹", displayKo: "성첩이 많이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "성첩이 많이 무너지고" },
+      { token: "地裂湧水", displayKo: "울산부에서는 땅이 갈라져", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "울산부에서는 땅이 갈라져" },
+      { token: "白沙湧出", displayKo: "물과 흰 모래가 솟아 나왔다", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "물과 흰 모래가 솟아 나왔다고 하였다" }
     ]
   },
   {
@@ -851,14 +854,15 @@ export const SOURCE_RECORDS = [
     corpusId: "seungjeongwon_ilseongnok",
     volumeOrSection: "승정원일기 숙종 7년 5월 14일 신유 (강원감사 장계)",
     reignCalendarText: "肅宗 七年 五月 十四日 辛酉",
-    originalHanja: "江原監司狀啓 襄陽洛山寺雪嶽山神興寺巖石崩頹 三陟府竹西樓巖석動搖 海水退潮百餘步",
+    originalHanja: "江原監司狀啓 襄陽洛山寺雪嶽山神興寺巖石崩頹 三陟府竹西樓巖石動搖 海水退潮百餘步",
     originalTranslationKo: "강원감사의 장계에 양양 낙산사와 설악산 신흥사의 바위가 무너지고 삼척 죽서루 절벽이 흔들렸으며 바닷물이 백여 보 물러갔다가 밀려왔다고 보고하였다.",
     quotedPlacesRaw: ["양양 낙산사", "설악산 신흥사", "삼척 죽서루", "울진"],
     phenomenaTags: ["GROUND_SHAKING", "LANDSLIDE_ROCKFALL", "TSUNAMI_TIDAL_WAVE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "巖石崩頹", category: "geology", language: "hanja-archival", translation: "바위가 무너져 내리고" },
-      { token: "海水退潮百餘步", category: "water", language: "hanja-archival", translation: "바닷물이 백여 보 물러갔다가 밀려왔다" }
+      { token: "巖石崩頹", displayKo: "양양 낙산사와 설악산 신흥사의 바위가 무너지고", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "양양 낙산사와 설악산 신흥사의 바위가 무너지고" },
+      { token: "竹西樓巖石動搖", displayKo: "삼척 죽서루 절벽이 흔들렸으며", category: "geology", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "삼척 죽서루 절벽이 흔들렸으며" },
+      { token: "海水退潮百餘步", displayKo: "바닷물이 백여 보 물러갔다가 밀려왔다", category: "water", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "바닷물이 백여 보 물러갔다가 밀려왔다고 보고하였다" }
     ]
   },
   {
@@ -872,8 +876,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "AFTERSHOCK_SWARM", "GROUND_FISSURE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "餘震連日不絶", category: "phenomenon", language: "hanja-archival", translation: "여진이 연일 그치지 않고" },
-      { token: "海岸崩坼", category: "geology", language: "hanja-archival", translation: "해안 언덕이 갈라져 무너졌다" }
+      { token: "江原道三陟蔚珍平海", displayKo: "강원도 삼척·울진·평해 일대에", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "강원도 삼척·울진·평해 일대에" },
+      { token: "餘震連日不絶", displayKo: "여진이 연일 그치지 않고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "여진이 연일 그치지 않고" },
+      { token: "海岸崩坼", displayKo: "해안 언덕이 갈라져 무너졌다", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "해안 언덕이 갈라져 무너졌다" }
     ]
   },
   {
@@ -887,8 +892,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "慶州蔚山東萊地震", category: "place", language: "hanja-archival", translation: "경주·울산·동래에 지진이 일어나" },
-      { token: "屋宇動搖", category: "structure", language: "hanja-archival", translation: "가옥이 흔들렸다" }
+      { token: "慶州蔚山東萊地震", displayKo: "경주·울산·동래에 지진이 일어나", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "경상도 경주·울산·동래에 지진이 일어나" },
+      { token: "소리가 우레와 같고", displayKo: "소리가 우레와 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-archival", translation: "소리가 우레와 같고 (聲如雷)" },
+      { token: "屋宇動搖", displayKo: "가옥이 흔들렸다", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "가옥이 흔들렸다" }
     ]
   },
   {
@@ -902,8 +908,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "FORTRESS_DAMAGE", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "平安道平壤中和安州地震", category: "place", language: "hanja-archival", translation: "평안도 평양·중화·안주 지진" },
-      { token: "城堞頹落", category: "structure", language: "hanja-archival", translation: "성첩이 무너지고" }
+      { token: "平安道平壤中和安州地震", displayKo: "평양·중화·안주에 지진이 일어나", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "평안도 평양·중화·안주에 지진이 일어나" },
+      { token: "城堞頹落", displayKo: "성첩이 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "성첩이 무너지고" },
+      { token: "聲如大雷", displayKo: "소리가 큰 우레와 같았다", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "소리가 큰 우레와 같았다" }
     ]
   },
   {
@@ -917,8 +924,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "窓戶搖動", category: "structure", language: "hanja-archival", translation: "창호가 흔들리고" },
-      { token: "聲如雷", category: "sound", language: "hanja-archival", translation: "소리가 우레와 같았다" }
+      { token: "全羅道全州南原錦山地震", displayKo: "전주·남원·금산에 지진이 일어나", category: "place", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "전라도 전주·남원·금산에 지진이 일어나" },
+      { token: "窓戶搖動", displayKo: "창호가 흔들리고", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "창호가 흔들리고" },
+      { token: "聲如雷", displayKo: "소리가 우레와 같았다", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "소리가 우레와 같았다" }
     ]
   },
   {
@@ -932,9 +940,10 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "HOUSE_COLLAPSE", "HUMAN_CASUALTIES", "GROUND_FISSURE", "LIQUEFACTION_FOUNTAIN"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "民家頹壓", category: "structure", language: "hanja-archival", translation: "민가가 무너져 덮치고" },
-      { token: "死者數十人", category: "consequence", language: "hanja-archival", translation: "죽은 자가 수십 명이고" },
-      { token: "地坼湧水", category: "geology", language: "hanja-archival", translation: "땅이 갈라져 물이 솟구쳤다" }
+      { token: "咸鏡道鏡城明川吉州大地震", displayKo: "경성·명천·길주에 큰 지진이 일어나", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "함경도 경성·명천·길주에 큰 지진이 일어나" },
+      { token: "民家頹壓", displayKo: "민가가 무너져", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "민가가 무너져" },
+      { token: "死者數十人", displayKo: "깔려 죽은 자가 수십 명이고", category: "consequence", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "깔려 죽은 자가 수십 명이고" },
+      { token: "地坼湧水", displayKo: "땅이 갈라져 물이 솟구쳤다", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "땅이 갈라져 물이 솟구쳤다" }
     ]
   },
   {
@@ -948,8 +957,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "ACOUSTIC_BOOM"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "聲如遠雷", category: "sound", language: "hanja-archival", translation: "소리가 먼 우레 같고" },
-      { token: "屋宇微動", category: "structure", language: "hanja-archival", translation: "가옥이 미세하게 흔들렸다" }
+      { token: "慶尙南道東萊金海蔚山地震", displayKo: "동래·김해·울산에 지진이 일어나", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "경상남도 동래·김해·울산에 지진이 일어나" },
+      { token: "聲如遠雷", displayKo: "소리가 먼 우레 같고", category: "sound", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "소리가 먼 우레 같고" },
+      { token: "屋宇微動", displayKo: "가옥이 미세하게 흔들렸다", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "가옥이 미세하게 흔들렸다" }
     ]
   },
   {
@@ -963,9 +973,9 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "FORTRESS_DAMAGE"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "八道地震", category: "phenomenon", language: "hanja-archival", translation: "팔도에 지진이 일어났는데" },
-      { token: "京城尤甚", category: "place", language: "hanja-archival", translation: "도성(한성)이 더욱 심하여" },
-      { token: "城堞頹落", category: "structure", language: "hanja-archival", translation: "성첩이 무너져 내렸다" }
+      { token: "八道地震", displayKo: "팔도에 지진이 일어났는데", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "팔도에 지진이 일어났는데" },
+      { token: "京城尤甚", displayKo: "도성이 더욱 심하여", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "도성(한성)이 더욱 심하여" },
+      { token: "城堞頹落", displayKo: "성첩이 무너져 내렸다", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "성첩이 무너져 내렸다" }
     ]
   },
   {
@@ -979,8 +989,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING", "TSUNAMI_TIDAL_WAVE", "LANDSLIDE_ROCKFALL"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "海水退而溢", category: "water", language: "hanja-archival", translation: "바닷물이 물러갔다 넘치고" },
-      { token: "雪嶽山巖崩", category: "geology", language: "hanja-archival", translation: "설악산 바위가 무너졌다" }
+      { token: "海水退而溢", displayKo: "바닷물이 물러갔다 넘치고", category: "water", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN", language: "hanja-archival", translation: "바닷물이 물러갔다 넘치고" },
+      { token: "雪嶽山巖崩", displayKo: "설악산 바위가 무너졌다", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "hanja-archival", translation: "설악산 바위가 무너졌다" }
     ]
   },
 
@@ -1114,9 +1124,14 @@ function createHistoricalEvent(spec) {
     const rec = RECORD_MAP.get(lnk.recordId);
     if (rec && Array.isArray(rec.archivalLexicon)) {
       for (const tok of rec.archivalLexicon) {
-        if (!seenTokens.has(tok.token)) {
-          seenTokens.add(tok.token);
-          mergedLexicon.push(tok);
+        const dedupKey = `${tok.token}::${tok.displayKo || ""}`;
+        if (!seenTokens.has(dedupKey)) {
+          seenTokens.add(dedupKey);
+          mergedLexicon.push({
+            ...tok,
+            sourceRecordId: rec.recordId,
+            sourceVolume: rec.volumeOrSection
+          });
         }
       }
     }

@@ -90,10 +90,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상남도 하동군 화개면"
     },
     archivalLexicon: [
-      { token: "지리산 쌍계사 부근", category: "place", language: "ko-KR-official", translation: "Near Ssanggyesa Temple, Mt. Jirisan" },
-      { token: "규모 5.1 지진", category: "phenomenon", language: "ko-KR-official", translation: "M 5.1 Early Instrumental Earthquake" },
-      { token: "전각과 돌담이 파손", category: "structure", language: "ko-KR-official", translation: "Temple halls and stone walls damaged" },
-      { token: "바위가 무너져 내림", category: "geology", language: "ko-KR-official", translation: "Rockfalls around Mt. Jirisan" }
+      { token: "지리산 쌍계사 부근에서 발생한 규모 5.1 지진", displayKo: "지리산 쌍계사 부근에서 발생한 규모 5.1 지진", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "지리산 쌍계사 부근에서 발생한 규모 5.1 지진" },
+      { token: "쌍계사 경내 전각과 돌담이 파손되고", displayKo: "쌍계사 경내 전각과 돌담이 파손되고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "쌍계사 경내 전각과 돌담이 파손되고" },
+      { token: "바위가 무너져 내림", displayKo: "바위가 무너져 내림", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "바위가 무너져 내림" }
     ],
     text: "지리산 쌍계사 부근에서 발생한 규모 5.1 지진으로 전각과 돌담이 파손되고 바위가 무너져 내림.",
     originalText: "지리산 쌍계사 부근에서 발생한 규모 5.1 지진으로 전각과 돌담이 파손되고 바위가 무너져 내림.",
@@ -176,8 +175,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "평안남도 강서군 일원"
     },
     archivalLexicon: [
-      { token: "평양 서쪽 강서·온천", category: "place", language: "ko-KR-official", translation: "Gangseo-gun W of Pyongyang" },
-      { token: "규모 6.2 지진", category: "phenomenon", language: "ko-KR-official", translation: "Mw 6.2 Instrumental Earthquake" }
+      { token: "평양 서쪽 강서·온천 일대에서 발생한 규모 6.2 지진", displayKo: "평양 서쪽 강서·온천 일대에서 발생한 규모 6.2 지진", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "평양 서쪽 강서·온천 일대에서 발생한 규모 6.2 지진" },
+      { token: "20세기 한반도 내륙 최대 규모 계기지진으로 기록됨", displayKo: "20세기 한반도 내륙 최대 규모 계기지진으로 기록됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "20세기 한반도 내륙 최대 규모 계기지진으로 기록됨" },
+      { token: "평남 서부 강진동 및 구조물 피해", displayKo: "평남 서부 강진동 및 구조물 피해", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "평남 서부 강진동 및 구조물 피해" }
     ],
     text: "평양 서쪽 강서·온천 일대에서 발생한 규모 6.2 지진으로 20세기 한반도 내륙 최대 규모 계기지진.",
     originalText: "평양 서쪽 강서·온천 일대에서 발생한 규모 6.2 지진으로 20세기 한반도 내륙 최대 규모 계기지진.",
@@ -263,11 +263,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "충청북도 보은군 속리산 일대"
     },
     archivalLexicon: [
-      { token: "충북 속리산 부근", category: "place", language: "ko-KR-official", translation: "Near Mt. Songnisan, Chungbuk" },
-      { token: "규모 5.2 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 5.2 Earthquake" },
-      { token: "강한 진동이 감지되고", category: "phenomenon", language: "ko-KR-official", translation: "Strong ground shaking felt" },
-      { token: "가옥 균열", category: "structure", language: "ko-KR-official", translation: "Cracks in residential structures" },
-      { token: "암석 낙하", category: "geology", language: "ko-KR-official", translation: "Rockfalls reported" }
+      { token: "충북 속리산 부근에서 발생한 규모 5.2 지진", displayKo: "충북 속리산 부근에서 발생한 규모 5.2 지진", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "충북 속리산 부근에서 발생한 규모 5.2 지진" },
+      { token: "한반도 중남부 전역에서 강한 진동이 감지되고", displayKo: "한반도 중남부 전역에서 강한 진동이 감지되고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "한반도 중남부 전역에서 강한 진동이 감지되고" },
+      { token: "가옥 균열이 발생함", displayKo: "가옥 균열이 발생함", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "가옥 균열이 발생함" },
+      { token: "암석 낙하가 발생함", displayKo: "암석 낙하가 발생함", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "속리산 일대에서 강한 지동을 느끼고 가옥 균열과 암석 낙하가 발생함" }
     ],
     text: "속리산 일대에서 강한 지동을 느끼고 가옥 균열과 암석 낙하가 발생함.",
     originalText: "속리산 일대에서 강한 지동을 느끼고 가옥 균열과 암석 낙하가 발생함.",
@@ -350,10 +349,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "충청남도 홍성군 홍성읍"
     },
     archivalLexicon: [
-      { token: "충남 홍성읍 일대", category: "place", language: "ko-KR-official", translation: "Hongseong-eup, Chungnam" },
-      { token: "홍주성 성곽 일부가 무너지고", category: "structure", language: "ko-KR-official", translation: "Partial collapse of Hongjuseong fortress wall" },
-      { token: "건물 균열", category: "structure", language: "ko-KR-official", translation: "Structural building cracks" },
-      { token: "지면 갈라짐 현상", category: "geology", language: "ko-KR-official", translation: "Ground surface cracking" }
+      { token: "충남 홍성읍 일대에서 발생한 규모 5.0 지진", displayKo: "충남 홍성읍 일대에서 발생한 규모 5.0 지진", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "충남 홍성읍 일대에서 발생한 규모 5.0 지진" },
+      { token: "홍주성 성곽 일부가 무너지고", displayKo: "홍주성 성곽 일부가 무너지고", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "홍주성 성곽 일부가 무너지고" },
+      { token: "건물 균열 및 지면 갈라짐 현상이 발생함", displayKo: "건물 균열 및 지면 갈라짐 현상이 발생함", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "건물 균열 및 지면 갈라짐 현상이 발생함" }
     ],
     text: "홍주성 성곽 일부가 무너지고 건물 균열 및 지면 갈라짐 현상이 발생함.",
     originalText: "홍주성 성곽 일부가 무너지고 건물 균열 및 지면 갈라짐 현상이 발생함.",
@@ -436,9 +434,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "강원특별자치도 영월군 동쪽 20km"
     },
     archivalLexicon: [
-      { token: "강원 영월군 동쪽", category: "place", language: "ko-KR-official", translation: "20km E of Yeongwol-gun" },
-      { token: "규모 4.5 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 4.5 Earthquake" },
-      { token: "건물 벽체 균열", category: "structure", language: "ko-KR-official", translation: "Building wall cracks" }
+      { token: "강원 영월군 동쪽 지역에서 규모 4.5 지진이 발생하여", displayKo: "강원 영월군 동쪽 지역에서 규모 4.5 지진이 발생하여", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "강원 영월군 동쪽 지역에서 규모 4.5 지진이 발생하여" },
+      { token: "영월·태백 일대 건물 벽체 균열", displayKo: "영월·태백 일대 건물 벽체 균열", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "영월·태백 일대 건물 벽체 균열" },
+      { token: "낙석이 보고됨", displayKo: "낙석이 보고됨", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "낙석이 보고됨" }
     ],
     text: "강원 영월군 동쪽 지역에서 규모 4.5 지진이 발생하여 건물 벽체 균열 및 낙석이 보고됨.",
     originalText: "강원 영월군 동쪽 지역에서 규모 4.5 지진이 발생하여 건물 벽체 균열 및 낙석이 보고됨.",
@@ -521,8 +519,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상북도 울진군 동남동쪽 80km 해역"
     },
     archivalLexicon: [
-      { token: "울진 동남동쪽 80km 해역", category: "place", language: "ko-KR-official", translation: "80km ESE offshore of Uljin" },
-      { token: "규모 5.2 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 5.2 / Mw 5.1 Offshore Earthquake" }
+      { token: "경북 울진 동남동쪽 80km 해역에서", displayKo: "경북 울진 동남동쪽 80km 해역에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "경북 울진 동남동쪽 80km 해역에서" },
+      { token: "규모 5.2 지진이 발생하여", displayKo: "규모 5.2 지진이 발생하여", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "규모 5.2 지진이 발생하여" },
+      { token: "동해안 및 내륙 전역에서 진동이 감지됨", displayKo: "동해안 및 내륙 전역에서 진동이 감지됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "동해안 및 내륙 전역에서 진동이 감지됨" }
     ],
     text: "경북 울진 동남동쪽 80km 해역에서 규모 5.2 지진이 발생하여 동해안 및 내륙에서 진동이 감지됨.",
     originalText: "경북 울진 동남동쪽 80km 해역에서 규모 5.2 지진이 발생하여 동해안 및 내륙에서 진동이 감지됨.",
@@ -602,8 +601,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "강원특별자치도 평창군 오대산 일원"
     },
     archivalLexicon: [
-      { token: "평창군 오대산 부근", category: "place", language: "ko-KR-official", translation: "Near Mt. Odaesan, Pyeongchang" },
-      { token: "규모 4.8 주향이동단층 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 4.8 Strike-Slip Earthquake" }
+      { token: "강원 평창군 오대산 부근에서 발생한", displayKo: "강원 평창군 오대산 부근에서 발생한", category: "place", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "강원 평창군 오대산 부근에서 발생한" },
+      { token: "규모 4.8 주향이동단층 지진으로", displayKo: "규모 4.8 주향이동단층 지진으로", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "규모 4.8 주향이동단층 지진으로" },
+      { token: "강원·수도권 전역에서 진동이 감지됨", displayKo: "강원·수도권 전역에서 진동이 감지됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "강원·수도권 전역에서 진동이 감지됨" }
     ],
     text: "강원 평창군 오대산 부근에서 발생한 규모 4.8 지진으로 강원·수도권 전역에서 진동이 감지됨.",
     originalText: "강원 평창군 오대산 부근에서 발생한 규모 4.8 지진으로 강원·수도권 전역에서 진동이 감지됨.",
@@ -682,8 +682,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "충청남도 태안군 서격렬비도 서북서쪽 100km 해역"
     },
     archivalLexicon: [
-      { token: "서격렬비도 서북서쪽 100km 해역", category: "place", language: "ko-KR-official", translation: "100km WNW of Seogyeongnyeolbido, Taean" },
-      { token: "규모 5.1 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 5.1 Yellow Sea Earthquake" }
+      { token: "충남 태안 서격렬비도 서북서쪽 100km 해역에서", displayKo: "충남 태안 서격렬비도 서북서쪽 100km 해역에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "충남 태안 서격렬비도 서북서쪽 100km 해역에서" },
+      { token: "규모 5.1 지진이 발생하여", displayKo: "규모 5.1 지진이 발생하여", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "규모 5.1 지진이 발생하여" },
+      { token: "서해안 및 수도권에서 진동이 감지됨", displayKo: "서해안 및 수도권에서 진동이 감지됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "서해안 및 수도권에서 진동이 감지됨" }
     ],
     text: "충남 태안 서격렬비도 서북서쪽 100km 해역에서 규모 5.1 지진이 발생하여 수도권까지 진동이 감지됨.",
     originalText: "충남 태안 서격렬비도 서북서쪽 100km 해역에서 규모 5.1 지진이 발생하여 수도권까지 진동이 감지됨.",
@@ -765,8 +766,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상북도 경주시 남남서쪽 8.2km"
     },
     archivalLexicon: [
-      { token: "경주 남남서쪽 8.2km", category: "place", language: "ko-KR-official", translation: "8.2km SSW of Gyeongju" },
-      { token: "규모 5.1 전진", category: "phenomenon", language: "ko-KR-official", translation: "ML 5.1 Foreshock (48m before mainshock)" }
+      { token: "경주 남남서쪽 8.2km 지역에서", displayKo: "경주 남남서쪽 8.2km 지역에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "경주 남남서쪽 8.2km 지역에서" },
+      { token: "본진 48분 전에 발생한 규모 5.1 전진으로", displayKo: "본진 48분 전에 발생한 규모 5.1 전진으로", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "본진 48분 전에 발생한 규모 5.1 전진으로" },
+      { token: "영남권 전역에서 강한 진동이 감지됨", displayKo: "영남권 전역에서 강한 진동이 감지됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "영남권 전역에서 강한 진동이 감지됨" }
     ],
     text: "경주 남남서쪽 8.2km 지역에서 본진 48분 전에 발생한 규모 5.1 전진.",
     originalText: "경주 남남서쪽 8.2km 지역에서 본진 48분 전에 발생한 규모 5.1 전진.",
@@ -858,10 +860,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상북도 경주시 남남서쪽 8.7km"
     },
     archivalLexicon: [
-      { token: "경주 남남서쪽 8.7km", category: "place", language: "ko-KR-official", translation: "8.7km SSW of Gyeongju" },
-      { token: "계측 사상 최대 규모 5.8", category: "phenomenon", language: "ko-KR-official", translation: "Largest instrumental ML 5.8" },
-      { token: "전국에서 진동을 감지", category: "phenomenon", language: "ko-KR-official", translation: "Felt across the entire peninsula" },
-      { token: "첨성대 미세 균열", category: "structure", language: "ko-KR-official", translation: "Structural displacement at Cheomseongdae" }
+      { token: "경주 남남서쪽 8.7km 지역에서 발생한", displayKo: "경주 남남서쪽 8.7km 지역에서 발생한", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "경주 남남서쪽 8.7km 지역에서 발생한" },
+      { token: "계측 사상 최대 규모 5.8 지진으로", displayKo: "계측 사상 최대 규모 5.8 지진으로", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "계측 사상 최대 규모 5.8 지진으로" },
+      { token: "전국에서 진동을 감지하고", displayKo: "전국에서 진동을 감지하고", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "전국에서 진동을 감지하고" },
+      { token: "첨성대 미세 균열 등 발생", displayKo: "첨성대 미세 균열 등 발생", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "첨성대 미세 균열 등 발생" }
     ],
     text: "기상청 계측 사상 최대 규모 5.8 지진으로 첨성대 등 진동 감지.",
     originalText: "기상청 계측 사상 최대 규모 5.8 지진으로 첨성대 등 진동 감지.",
@@ -955,11 +957,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상북도 포항시 북구 북쪽 9km"
     },
     archivalLexicon: [
-      { token: "포항 북구 북쪽 9km", category: "place", language: "ko-KR-official", translation: "9km N of Buk-gu, Pohang" },
-      { token: "필로티 기둥 붕괴", category: "structure", language: "ko-KR-official", translation: "Piloti column structural collapse" },
-      { token: "지표 균열", category: "geology", language: "ko-KR-official", translation: "Surface ground fissure" },
-      { token: "액상화 현상", category: "water", language: "ko-KR-official", translation: "Soil liquefaction observed" },
-      { token: "지표 파열", category: "geology", language: "ko-KR-official", translation: "Surface rupture deformation" }
+      { token: "포항 북구 북쪽 9km 지역에서 발생한 규모 5.4 지진으로", displayKo: "포항 북구 북쪽 9km 지역에서 발생한 규모 5.4 지진으로", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "포항 북구 북쪽 9km 지역에서 발생한 규모 5.4 지진으로" },
+      { token: "필로티 기둥 붕괴", displayKo: "필로티 기둥 붕괴", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "필로티 기둥 붕괴" },
+      { token: "지표 균열 및 액상화 현상이 계측 사상 최초로 확인됨", displayKo: "지표 균열 및 액상화 현상이 계측 사상 최초로 확인됨", category: "water", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "지표 균열 및 액상화 현상이 계측 사상 최초로 확인됨" },
+      { token: "지표 파열 및 액상화 현상과 필로티 구조물 파손 발생", displayKo: "지표 파열 및 액상화 현상과 필로티 구조물 파손 발생", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "지표 파열 및 액상화 현상과 필로티 구조물 파손 발생" }
     ],
     text: "지표 파열 및 액상화 현상과 필로티 구조물 파손 발생.",
     originalText: "지표 파열 및 액상화 현상과 필로티 구조물 파손 발생.",
@@ -1041,8 +1042,9 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "경상북도 포항시 북구 서북서쪽 5km"
     },
     archivalLexicon: [
-      { token: "포항 북구 서북서쪽 5km", category: "place", language: "ko-KR-official", translation: "5km WNW of Buk-gu, Pohang" },
-      { token: "포항지진의 최대 여진", category: "phenomenon", language: "ko-KR-official", translation: "Largest Pohang Aftershock (ML 4.6)" }
+      { token: "포항 북구 서북서쪽 5km 지역에서 발생한", displayKo: "포항 북구 서북서쪽 5km 지역에서 발생한", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "포항 북구 서북서쪽 5km 지역에서 발생한" },
+      { token: "2017 포항지진의 최대 여진으로", displayKo: "2017 포항지진의 최대 여진으로", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "2017 포항지진의 최대 여진으로" },
+      { token: "기존 피해 건축물의 추가 균열 발생", displayKo: "기존 피해 건축물의 추가 균열 발생", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "기존 피해 건축물의 추가 균열 발생" }
     ],
     text: "포항 북구 서북서쪽 5km 지역에서 발생한 2017 포항지진의 최대 여진(규모 4.6).",
     originalText: "포항 북구 서북서쪽 5km 지역에서 발생한 2017 포항지진의 최대 여진(규모 4.6).",
@@ -1122,8 +1124,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "충청북도 괴산군 북동쪽 11km"
     },
     archivalLexicon: [
-      { token: "충북 괴산군 북동쪽 11km", category: "place", language: "ko-KR-official", translation: "11km NE of Goesan-gun, Chungbuk" },
-      { token: "규모 4.1 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 4.1 Earthquake" }
+      { token: "충북 괴산군 북동쪽 11km 지역에서", displayKo: "충북 괴산군 북동쪽 11km 지역에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "충북 괴산군 북동쪽 11km 지역에서" },
+      { token: "규모 4.1 지진이 발생하여", displayKo: "규모 4.1 지진이 발생하여", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "규모 4.1 지진이 발생하여" },
+      { token: "충청·경북·경기 내륙에서 진동이 감지됨", displayKo: "충청·경북·경기 내륙에서 진동이 감지됨", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "충청·경북·경기 내륙에서 진동이 감지됨" },
+      { token: "지붕 기와 및 벽체 미세 균열", displayKo: "지붕 기와 및 벽체 미세 균열", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "지붕 기와 및 벽체 미세 균열" }
     ],
     text: "충북 괴산군 북동쪽 11km 지역에서 규모 4.1 지진이 발생하여 중부 내륙에서 진동이 감지됨.",
     originalText: "충북 괴산군 북동쪽 11km 지역에서 규모 4.1 지진이 발생하여 중부 내륙에서 진동이 감지됨.",
@@ -1203,8 +1207,8 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "강원특별자치도 동해시 북동쪽 52km 해역"
     },
     archivalLexicon: [
-      { token: "동해시 북동쪽 52km 해역", category: "place", language: "ko-KR-official", translation: "52km NE offshore of Donghae" },
-      { token: "동해 연속 군발지진", category: "phenomenon", language: "ko-KR-official", translation: "Donghae Offshore Earthquake Swarm" }
+      { token: "강원 동해시 북동쪽 52km 해역에서 발생한 규모 4.5 지진으로", displayKo: "강원 동해시 북동쪽 52km 해역에서 발생한 규모 4.5 지진으로", category: "place", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "강원 동해시 북동쪽 52km 해역에서 발생한 규모 4.5 지진으로" },
+      { token: "2023년 봄 동해 연속 군발지진 중 최대 규모를 기록함", displayKo: "2023년 봄 동해 연속 군발지진 중 최대 규모를 기록함", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "2023년 봄 동해 연속 군발지진 중 최대 규모를 기록함" }
     ],
     text: "강원 동해시 북동쪽 52km 해역에서 발생한 규모 4.5 군발지진 본진.",
     originalText: "강원 동해시 북동쪽 52km 해역에서 발생한 규모 4.5 군발지진 본진.",
@@ -1294,10 +1298,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "전북특별자치도 부안군 남남서쪽 4km"
     },
     archivalLexicon: [
-      { token: "전북 부안군 남남서쪽 4km", category: "place", language: "ko-KR-official", translation: "4km SSW of Buan-gun, Jeonbuk" },
-      { token: "규모 4.8 지진", category: "phenomenon", language: "ko-KR-official", translation: "ML 4.8 Earthquake" },
-      { token: "최대 계기진도 V", category: "phenomenon", language: "ko-KR-official", translation: "Max Instrumental Intensity V" },
-      { token: "벽체 균열 피해", category: "structure", language: "ko-KR-official", translation: "Wall cracking damage reported" }
+      { token: "전북 부안군 남남서쪽 4km 지역에서", displayKo: "전북 부안군 남남서쪽 4km 지역에서", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "전북 부안군 남남서쪽 4km 지역에서" },
+      { token: "규모 4.8 지진이 발생하여", displayKo: "규모 4.8 지진이 발생하여", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN", language: "ko-KR-official", translation: "규모 4.8 지진이 발생하여" },
+      { token: "최대 계기진도 V의 진동과", displayKo: "최대 계기진도 V의 진동과", category: "structure", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-official", translation: "최대 계기진도 V의 진동과" },
+      { token: "벽체 균열 피해가 보고됨", displayKo: "벽체 균열 피해가 보고됨", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ko-KR-official", translation: "벽체 균열 피해가 보고됨" }
     ],
     text: "전북 부안군 남남서쪽 4km 지역에서 규모 4.8 지진이 발생하여 최대 계기진도 V의 진동과 벽체 균열 피해가 보고됨.",
     originalText: "전북 부안군 남남서쪽 4km 지역에서 규모 4.8 지진이 발생하여 최대 계기진도 V의 진동과 벽체 균열 피해가 보고됨.",
@@ -1374,6 +1378,12 @@ export const INSTRUMENTAL_EVENTS = [
       documentSource: "일본 기상청 지진화산부 공식 보고서 (2016)",
       sourceLocation: "일본 규슈 구마모토현 및 아소 칼데라 서익"
     },
+    archivalLexicon: [
+      { token: "구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생", displayKo: "구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생", nativeText: "熊本県熊本地方を震源とするM7.3の地震", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "2016년 4월 16일 구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생" },
+      { token: "후타가와 단층대를 따라", displayKo: "후타가와 단층대를 따라", nativeText: "布田川断層帯に沿って", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "후타가와 단층대를 따라" },
+      { token: "최대 진도 7을 관측하고", displayKo: "최대 진도 7을 관측하고", nativeText: "最大震度7を観測", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ja-JP", translation: "최대 진도 7을 관측하고" },
+      { token: "지표 지진단층이 노출됨", displayKo: "지표 지진단층이 노출됨", nativeText: "地表地震断層が出現", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "지표 지진단층이 노출됨" }
+    ],
     text: "구마모토 후타가와 단층대를 따라 M7.3 대지진 발생, 아소 화산 분지 지표 단층 파쇄.",
     originalText: "平成28年4月16日01時25分 熊本県熊本地方 M7.3 地震 布田川断層帯 震度7",
     uncertainty: "현대 정밀 디지털 관측망 (JMA/USGS); 진원 깊이 10km, 지표 단층 변위 최대 2m 실측",
@@ -1446,6 +1456,12 @@ export const INSTRUMENTAL_EVENTS = [
       documentSource: "AFAD 지진국 종합 분석 보고서 (2023)",
       sourceLocation: "튀르키예 카흐라만마라슈주 타우루스 산맥 및 동아나톨리아 단층 회랑"
     },
+    archivalLexicon: [
+      { token: "카흐라만마라슈 파자르즈크를 진앙으로", displayKo: "카흐라만마라슈 파자르즈크를 진앙으로", nativeText: "Kahramanmaraş Pazarcık merkezli", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "카흐라만마라슈 파자르즈크를 진앙으로" },
+      { token: "규모 7.8 대지진이 발생하여", displayKo: "규모 7.8 대지진이 발생하여", nativeText: "Mw 7.8 büyüklüğünde deprem meydana gelmiş", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "규모 7.8 대지진이 발생하여" },
+      { token: "동아나톨리아 단층대를 따라", displayKo: "동아나톨리아 단층대를 따라", nativeText: "Doğu Anadolu Fay Hattı boyunca", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "동아나톨리아 단층대를 따라" },
+      { token: "300km에 달하는 지표 파쇄면이 형성됨", displayKo: "300km에 달하는 지표 파쇄면이 형성됨", nativeText: "300 km'lik yüzey kırığı oluşmuştur", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "300km에 달하는 지표 파쇄면이 형성됨" }
+    ],
     text: "동아나톨리아 대단층을 따라 Mw 7.8 대지진 발생, 타우루스 산맥 협곡 300km 단층 파쇄.",
     originalText: "06 Şubat 2023 saat 04:17 Kahramanmaraş Pazarcık Mw 7.8 Depremi",
     uncertainty: "현대 전 지구 광대역 지진계 및 InSAR 위성 관측; 지표 변위 최대 7m 측정",
