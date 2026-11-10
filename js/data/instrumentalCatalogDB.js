@@ -1448,19 +1448,19 @@ export const INSTRUMENTAL_EVENTS = [
       }
     ],
     primaryText: {
-      originalScript: "06 Şubat 2023 saat 04:17'de Kahramanmaraş Pazarcık merkezli Mw 7.8 büyüklüğünde deprem meydana gelmiş, Doğu Anadolu Fay Hattı boyunca 300 km'lik yüzey kırığı oluşmuştur.",
+      originalScript: "06 Şubat 2023 saat 04:17 Kahramanmaraş Pazarcık Mw 7.8",
       scriptLanguage: "tr-TR",
-      translationKo: "2023년 2월 6일 카흐라만마라슈 파자르즈크를 진앙으로 규모 7.8 대지진이 발생하여 동아나톨리아 단층대를 따라 300km에 달하는 지표 파쇄면이 형성됨.",
-      editorialPhraseKo: "대륙의 단층이 솟구치다",
+      translationKo: "2023년 2월 6일 동아나톨리아 단층대 Mw 7.8 지진 · 단층 파쇄 길이 310km",
+      editorialPhraseKo: "동아나톨리아 대단층 파쇄",
       evidenceStatus: "VERIFIED_PRIMARY_INSTRUMENTAL",
       documentSource: "AFAD 지진국 종합 분석 보고서 (2023)",
       sourceLocation: "튀르키예 카흐라만마라슈주 타우루스 산맥 및 동아나톨리아 단층 회랑"
     },
     archivalLexicon: [
-      { token: "카흐라만마라슈 파자르즈크를 진앙으로", displayKo: "카흐라만마라슈 파자르즈크를 진앙으로", nativeText: "Kahramanmaraş Pazarcık merkezli", category: "place", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "카흐라만마라슈 파자르즈크를 진앙으로" },
-      { token: "규모 7.8 대지진이 발생하여", displayKo: "규모 7.8 대지진이 발생하여", nativeText: "Mw 7.8 büyüklüğünde deprem meydana gelmiş", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "규모 7.8 대지진이 발생하여" },
-      { token: "동아나톨리아 단층대를 따라", displayKo: "동아나톨리아 단층대를 따라", nativeText: "Doğu Anadolu Fay Hattı boyunca", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "동아나톨리아 단층대를 따라" },
-      { token: "300km에 달하는 지표 파쇄면이 형성됨", displayKo: "300km에 달하는 지표 파쇄면이 형성됨", nativeText: "300 km'lik yüzey kırığı oluşmuştur", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "300km에 달하는 지표 파쇄면이 형성됨" }
+      { token: "단층 파열 개시", displayKo: "단층 파열 개시", nativeText: "Fay Kırılması Başlangıcı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "단층 파열 개시" },
+      { token: "310km 주향이동 전파", displayKo: "310km 지표 파쇄 전파", nativeText: "310 km Yüzey Kırığı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "310km 주향이동 전파" },
+      { token: "최대 지반 변위 6.5m", displayKo: "최대 지반 변위 6.5m", nativeText: "Maksimum 6.5 m Kayma", category: "phenomenon", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "최대 지반 변위 6.5m" },
+      { token: "타우루스 산맥 여진", displayKo: "타우루스 산맥 여진 분기", nativeText: "Toros Dağları Artçı", category: "geology", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "타우루스 산맥 여진" }
     ],
     text: "동아나톨리아 대단층을 따라 Mw 7.8 대지진 발생, 타우루스 산맥 협곡 300km 단층 파쇄.",
     originalText: "06 Şubat 2023 saat 04:17 Kahramanmaraş Pazarcık Mw 7.8 Depremi",

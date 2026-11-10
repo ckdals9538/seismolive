@@ -119,12 +119,9 @@
       color: #EAE4D5; /* Hanji Ivory */
       letter-spacing: 0.08em;
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 14px rgba(2, 4, 8, 0.95), 0 0 32px rgba(2, 4, 8, 0.90);
-      background: rgba(2, 4, 8, 0.40);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 2px;
-      padding: 8px 24px;
+      background: transparent;
+      border: none;
+      padding: 6px 16px;
       transition: opacity 0.8s ease;
     }
 

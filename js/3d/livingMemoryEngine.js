@@ -732,19 +732,20 @@ export class ArchivalSemanticParser {
         : "ko";
 
     const candidateEntries = [];
-    if (Array.isArray(ev.archivalLexicon)) {
+    if (Array.isArray(ev.archivalLexicon) && ev.archivalLexicon.length > 0) {
       candidateEntries.push(...ev.archivalLexicon);
-    }
-    const rawChronicle = ev.primaryText?.translationKo || ev.primaryText?.originalScript || ev.text || "";
-    if (rawChronicle) {
-      const directClauses = extractVerbatimChronicleClauses(rawChronicle, false);
-      for (const cl of directClauses) {
-        candidateEntries.push({
-          token: cl,
-          displayKo: cl,
-          category: /해역|바다|해일|액상화/.test(cl) ? "water" : /무너|붕괴|균열|파손|낙석|단층/.test(cl) ? "structure" : "phenomenon",
-          translation: cl
-        });
+    } else {
+      const rawChronicle = ev.primaryText?.translationKo || ev.primaryText?.originalScript || ev.text || "";
+      if (rawChronicle) {
+        const directClauses = extractVerbatimChronicleClauses(rawChronicle, false);
+        for (const cl of directClauses) {
+          candidateEntries.push({
+            token: cl,
+            displayKo: cl,
+            category: /해역|바다|해일|액상화/.test(cl) ? "water" : /무너|붕괴|균열|파손|낙석|단층/.test(cl) ? "structure" : "phenomenon",
+            translation: cl
+          });
+        }
       }
     }
 
@@ -815,12 +816,13 @@ export class ArchivalSemanticParser {
           materialAdapter: archetype === "FRACTURE" ? "FRACTURED_DEBRIS_FALL" : archetype === "RECEDE" ? "WATER_SURFACE_SWELL" : archetype === "EXPOSE" ? "UPRIGHT_BATHYMETRIC_BILLBOARD" : "BEDROCK_VIBRATION"
         },
         timing: {
-          t_activation: Number((2.5 + idx * 5.2).toFixed(1)),
-          formationDuration: 0.9,
-          minLegibilityDuration: 1.6,
-          resonanceDuration: 1.6,
-          dissolutionDuration: 1.3,
-          residueDuration: 0.9
+          // Sequential non-overlapping activation: exactly one milestone active at any moment
+          t_activation: Number((2.0 + idx * 6.5).toFixed(1)),
+          formationDuration: 0.8,
+          minLegibilityDuration: 1.5,
+          resonanceDuration: 1.4,
+          dissolutionDuration: 1.2,
+          residueDuration: 0.6
         },
         visual: {
           archetype,
