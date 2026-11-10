@@ -777,6 +777,8 @@ const FLIGHT_STATES = {
           uniform float u_globalHMax;
           uniform float u_metersToUnits;
           uniform float u_verticalExag;
+          uniform vec2 u_regionHalfDeg;
+          uniform float u_regionActive;
 
           varying vec3 vWorldNormal;
           varying vec3 vViewPos;
@@ -794,7 +796,20 @@ const FLIGHT_STATES = {
             // Displace along normal: land (>0m) has full vertical exaggeration;
             // bathymetry is preserved at ellipsoidal sea level or subtle abyssal trench depth
             float dispMeters = (rawMeters > 0.0) ? rawMeters : (rawMeters * 0.15);
-            vec3 displacedPos = position + normal * (dispMeters * u_metersToUnits * u_verticalExag);
+
+            // Eradicate depth z-fighting inside regional DEM footprint:
+            // Depress globe vertex smoothly below regional terrain within the interior footprint
+            float depressionMeters = 0.0;
+            if (u_regionActive > 0.5) {
+              float xRel = abs(position.x) / max(0.001, u_regionHalfDeg.y);
+              float zRel = abs(position.z) / max(0.001, u_regionHalfDeg.x);
+              float rRegion = length(vec2(xRel, zRel));
+              float depressTaper = smoothstep(0.85, 0.40, rRegion);
+              depressionMeters = depressTaper * 1200.0;
+            }
+
+            float finalDisp = (dispMeters - depressionMeters) * u_metersToUnits * u_verticalExag;
+            vec3 displacedPos = position + normal * finalDisp;
 
             // In center-relative geodetic space (Identity modelMatrix), normal is world normal
             vWorldNormal = normalize(normal);
@@ -2225,6 +2240,9 @@ const FLIGHT_STATES = {
       }
       tier0GlobeMesh = stagingGlobeMesh;
       tier0GlobeMesh.renderOrder = 1;
+      if (tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms && tier0GlobeMesh.material.uniforms.u_regionActive) {
+        tier0GlobeMesh.material.uniforms.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
+      }
       scene.add(tier0GlobeMesh);
       window.tier0GlobeMesh = tier0GlobeMesh;
       window.archivalEntities = archivalEntities;
@@ -2625,6 +2643,7 @@ const FLIGHT_STATES = {
           if (gu.u_faultStrike) gu.u_faultStrike.value = terrainUniforms.u_faultStrike.value;
           if (gu.u_ruptureVelocity) gu.u_ruptureVelocity.value = terrainUniforms.u_ruptureVelocity.value;
           if (gu.u_isFiniteFault) gu.u_isFiniteFault.value = terrainUniforms.u_isFiniteFault.value;
+          if (gu.u_regionActive) gu.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
         }
         scene.remove(tier0GlobeMesh);
         if (tier0GlobeMesh.geometry) tier0GlobeMesh.geometry.dispose();

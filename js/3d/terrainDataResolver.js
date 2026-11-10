@@ -1135,7 +1135,7 @@ export class TerrainLifecycleManager {
         void main() {
           vec3 N = normalize(vWorldNormal);
           vec3 V = normalize(vViewPos);
-          vec3 L = normalize(u_lightDir);
+          vec3 L = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
           float NdotL = max(0.0, dot(N, L));
           float rim = pow(1.0 - max(0.0, dot(N, V)), 2.8);
           vec3 baseAlbedo = vec3(0.010, 0.020, 0.038);
@@ -1319,7 +1319,7 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
       void main() {
         vec3 N = normalize(vNormal);
         vec3 V = normalize(vViewPos);
-        vec3 L = normalize(u_lightDir);
+        vec3 L = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
         float NdotL = max(0.0, dot(N, L));
         float wrap = pow((NdotL + 0.32) / 1.32, 1.5);
         float rim = pow(1.0 - max(0.0, dot(N, V)), 3.0);
