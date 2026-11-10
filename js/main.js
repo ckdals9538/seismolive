@@ -2388,9 +2388,65 @@ const FLIGHT_STATES = {
         if (viewBadge) viewBadge.textContent = cp.name;
       }
 
-      // 5. Spawn new semantic units via TerrainAwareSpawner
-      currentParsedEvent.semanticUnits.forEach(unitDef => {
+      // 5. Spawn semantic units with physical S-wave wavefront synchronization
+      const spawnedCandidates = currentParsedEvent.semanticUnits.map(unitDef => {
         const cand = spawner.resolveCandidate(unitDef, currentParsedEvent);
+
+        // Physical coordinates relative to epicenter
+        const epiX = terrainUniforms.u_epiPos ? terrainUniforms.u_epiPos.value.x : 0.0;
+        const epiZ = terrainUniforms.u_epiPos ? terrainUniforms.u_epiPos.value.y : 0.0;
+        const dx = cand.worldX - epiX;
+        const dz = cand.worldZ - epiZ;
+
+        let t_slip = 0.0;
+        let effDist = Math.sqrt(dx * dx + dz * dz);
+
+        if (terrainUniforms.u_isFiniteFault && terrainUniforms.u_isFiniteFault.value > 0.5) {
+          const strike = terrainUniforms.u_faultStrike ? terrainUniforms.u_faultStrike.value : 0.0;
+          const uFaultX = Math.sin(strike);
+          const uFaultZ = -Math.cos(strike);
+          const nFaultX = Math.cos(strike);
+          const nFaultZ = Math.sin(strike);
+
+          const sFault = dx * uFaultX + dz * uFaultZ;
+          const dFault = dx * nFaultX + dz * nFaultZ;
+          const halfLen = 0.5 * (terrainUniforms.u_faultLength ? terrainUniforms.u_faultLength.value : 0.0);
+          const sClamped = Math.max(-halfLen, Math.min(halfLen, sFault));
+
+          const rupVel = terrainUniforms.u_ruptureVelocity ? terrainUniforms.u_ruptureVelocity.value : 0.045;
+          t_slip = Math.abs(sClamped) / Math.max(0.001, rupVel);
+          effDist = Math.sqrt(Math.pow(sFault - sClamped, 2) + Math.pow(dFault, 2));
+        }
+
+        const depthUnits = terrainUniforms.u_depthUnits ? terrainUniforms.u_depthUnits.value : 0.01;
+        const effHypoDist = Math.sqrt(effDist * effDist + depthUnits * depthUnits);
+        const vS = terrainUniforms.u_vS ? terrainUniforms.u_vS.value : 0.055;
+
+        // Exact physical arrival of S-wave at this geographical coordinate
+        const t_S_arrival = t_slip + (effHypoDist / Math.max(0.001, vS));
+
+        return { unitDef, cand, t_S_arrival };
+      });
+
+      // Sort chronologically by S-wave wavefront arrival
+      spawnedCandidates.sort((a, b) => a.t_S_arrival - b.t_S_arrival);
+
+      // Enforce sequential non-overlapping activation for gallery legibility
+      let nextAllowedActivation = 1.8;
+      spawnedCandidates.forEach(item => {
+        const { unitDef, cand, t_S_arrival } = item;
+        const totalDuration = (unitDef.timing.formationDuration || 0.8) +
+                              (unitDef.timing.minLegibilityDuration || 1.5) +
+                              (unitDef.timing.resonanceDuration || 1.4) +
+                              (unitDef.timing.dissolutionDuration || 1.2) +
+                              (unitDef.timing.residueDuration || 0.6);
+
+        // Ground activation in physical S-wave arrival, bounded by non-overlapping interval
+        const finalActivation = Math.max(nextAllowedActivation, t_S_arrival);
+        unitDef.timing.t_activation = Number(finalActivation.toFixed(2));
+        cand.t_activation = unitDef.timing.t_activation;
+        nextAllowedActivation = unitDef.timing.t_activation + totalDuration + 0.6;
+
         let entity;
         if (unitDef.kinetic.archetype === "RESONANCE") {
           entity = createResonanceEntity(unitDef, cand);

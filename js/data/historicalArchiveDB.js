@@ -387,7 +387,8 @@ export const SOURCE_RECORDS = [
     phenomenaTags: ["GROUND_SHAKING"],
     tectonicClassification: "CONFIRMED_TECTONIC",
     archivalLexicon: [
-      { token: "二十一年 秋八月 地震", displayKo: "유리명왕 21년 가을 8월에 지진이 일어났다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ko-KR-archival", translation: "유리명왕 21년(서기 2년) 가을 8월에 지진이 일어났다" }
+      { token: "秋八月", displayKo: "가을 8월에", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "유리명왕 21년 가을 8월에" },
+      { token: "地震", displayKo: "지진이 일어났다", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "hanja-archival", translation: "지진이 일어났다 (地震)" }
     ]
   },
   {
