@@ -638,64 +638,105 @@ export function resolveArbitraryCoordinate(lat, lon, options = {}) {
 /**
  * Load regional DEM texture from raw UNORM16 binary file
  */
+const demTextureCache = new Map();
+
+/**
+ * Robustly load a regional UNORM16 DEM texture with in-memory caching and timeout
+ */
 export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
-  const response = await fetch(binUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to load DEM binary from ${binUrl}: ${response.status} ${response.statusText}`);
+  if (demTextureCache.has(binUrl)) {
+    return demTextureCache.get(binUrl);
   }
-  const buffer = await response.arrayBuffer();
-  const uint16View = new Uint16Array(buffer);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6000);
+  try {
+    const response = await fetch(binUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`Failed to load DEM binary from ${binUrl}: ${response.status} ${response.statusText}`);
+    }
+    const buffer = await response.arrayBuffer();
+    const uint16View = new Uint16Array(buffer);
 
-  const floatArray = new Float32Array(width * height);
-  for (let i = 0; i < uint16View.length; i++) {
-    floatArray[i] = uint16View[i] / 65535.0;
+    const floatArray = new Float32Array(width * height);
+    for (let i = 0; i < uint16View.length; i++) {
+      floatArray[i] = uint16View[i] / 65535.0;
+    }
+
+    const texture = new THREE.DataTexture(
+      floatArray,
+      width,
+      height,
+      THREE.RedFormat,
+      THREE.FloatType
+    );
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    demTextureCache.set(binUrl, texture);
+    return texture;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn(`[Regional DEM Loader] Fetch warning for ${binUrl}:`, err.message);
+    throw err;
   }
-
-  const texture = new THREE.DataTexture(
-    floatArray,
-    width,
-    height,
-    THREE.RedFormat,
-    THREE.FloatType
-  );
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.ClampToEdgeWrapping;
-  texture.wrapT = THREE.ClampToEdgeWrapping;
-  texture.needsUpdate = true;
-  return texture;
 }
 
 /**
  * Load global elevation & bathymetry DataTexture from UNORM16 binary
  * Planetary ETOPO 2022 relief: -11,000m to +9,000m
  */
+let cachedGlobalTexture = null;
+
 export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain/bathymetry/global_etopo_elevation_2048_unorm16.bin', width = 2048, height = 1024) {
-  const response = await fetch(binUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to load global relief binary from ${binUrl}: ${response.status} ${response.statusText}`);
-  }
-  const buffer = await response.arrayBuffer();
-  const uint16View = new Uint16Array(buffer);
+  if (cachedGlobalTexture) return cachedGlobalTexture;
 
-  const floatArray = new Float32Array(width * height);
-  for (let i = 0; i < uint16View.length; i++) {
-    floatArray[i] = uint16View[i] / 65535.0;
-  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
+  try {
+    const response = await fetch(binUrl, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`Failed to load global relief binary: ${response.status}`);
+    }
+    const buffer = await response.arrayBuffer();
+    const uint16View = new Uint16Array(buffer);
 
-  const texture = new THREE.DataTexture(
-    floatArray,
-    width,
-    height,
-    THREE.RedFormat,
-    THREE.FloatType
-  );
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.wrapS = THREE.RepeatWrapping; // Longitude wraps seamlessly across antimeridian
-  texture.wrapT = THREE.ClampToEdgeWrapping; // Latitude clamps at poles
-  texture.needsUpdate = true;
-  return texture;
+    const floatArray = new Float32Array(width * height);
+    for (let i = 0; i < uint16View.length; i++) {
+      floatArray[i] = uint16View[i] / 65535.0;
+    }
+
+    const texture = new THREE.DataTexture(
+      floatArray,
+      width,
+      height,
+      THREE.RedFormat,
+      THREE.FloatType
+    );
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    cachedGlobalTexture = texture;
+    return texture;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn('[Global Relief] Fallback to procedural planetary texture:', err.message);
+    const fallbackArray = new Float32Array(width * height);
+    fallbackArray.fill(0.55); // Neutral ocean/sea level
+    const texture = new THREE.DataTexture(fallbackArray, width, height, THREE.RedFormat, THREE.FloatType);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.needsUpdate = true;
+    cachedGlobalTexture = texture;
+    return texture;
+  }
 }
 
 /**

@@ -891,32 +891,51 @@ const FLIGHT_STATES = {
     // -------------------------------------------------------------------------
     // 2. TEXTURE LOADER FOR UNORM16 TERRAIN BUFFER
     // -------------------------------------------------------------------------
+    let cachedFusedTexture = null;
     async function loadFusedElevationTexture() {
-      const response = await fetch(FUSED_BIN_URL);
-      if (!response.ok) {
-        throw new Error(`Failed to load fused terrain buffer: ${response.status} ${response.statusText}`);
-      }
-      const buffer = await response.arrayBuffer();
-      const uint16View = new Uint16Array(buffer);
+      if (cachedFusedTexture) return cachedFusedTexture;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      try {
+        const response = await fetch(FUSED_BIN_URL, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+          throw new Error(`Failed to load fused terrain buffer: ${response.status} ${response.statusText}`);
+        }
+        const buffer = await response.arrayBuffer();
+        const uint16View = new Uint16Array(buffer);
 
-      const floatArray = new Float32Array(BIN_WIDTH * BIN_HEIGHT);
-      for (let i = 0; i < uint16View.length; i++) {
-        floatArray[i] = uint16View[i] / 65535.0;
-      }
+        const floatArray = new Float32Array(BIN_WIDTH * BIN_HEIGHT);
+        for (let i = 0; i < uint16View.length; i++) {
+          floatArray[i] = uint16View[i] / 65535.0;
+        }
 
-      const texture = new THREE.DataTexture(
-        floatArray,
-        BIN_WIDTH,
-        BIN_HEIGHT,
-        THREE.RedFormat,
-        THREE.FloatType
-      );
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.needsUpdate = true;
-      return texture;
+        const texture = new THREE.DataTexture(
+          floatArray,
+          BIN_WIDTH,
+          BIN_HEIGHT,
+          THREE.RedFormat,
+          THREE.FloatType
+        );
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.wrapS = THREE.ClampToEdgeWrapping;
+        texture.wrapT = THREE.ClampToEdgeWrapping;
+        texture.needsUpdate = true;
+        cachedFusedTexture = texture;
+        return texture;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn("[Fused Elevation] Fallback to procedural terrain texture:", err.message);
+        const floatArray = new Float32Array(BIN_WIDTH * BIN_HEIGHT);
+        floatArray.fill(0.5);
+        const texture = new THREE.DataTexture(floatArray, BIN_WIDTH, BIN_HEIGHT, THREE.RedFormat, THREE.FloatType);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.needsUpdate = true;
+        cachedFusedTexture = texture;
+        return texture;
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -1832,14 +1851,14 @@ const FLIGHT_STATES = {
       });
 
       // Pairwise NDC De-Overlapping Pass: Guarantee zero screen-space collisions across co-visible semantic units
-      for (let pass = 0; pass < 3; pass++) {
+      for (let pass = 0; pass < 5; pass++) {
         for (let i = 0; i < entities.length; i++) {
           for (let j = i + 1; j < entities.length; j++) {
             const gA = entities[i];
             const gB = entities[j];
             const tA = gA.userData?.t_activation ?? 0;
             const tB = gB.userData?.t_activation ?? 0;
-            if (Math.abs(tA - tB) > 6.5) continue;
+            
             const wpA = new THREE.Vector3();
             const wpB = new THREE.Vector3();
             gA.getWorldPosition(wpA);
@@ -1849,13 +1868,14 @@ const FLIGHT_STATES = {
 
             const dx = Math.abs(ndcA.x - ndcB.x);
             const dy = Math.abs(ndcA.y - ndcB.y);
-            if (dx < 0.32 && dy < 0.10) {
+            // Generous bounding threshold for atmospheric typography readability
+            if (dx < 0.48 && dy < 0.18) {
               const dirX = (ndcA.x <= ndcB.x) ? -1.0 : 1.0;
               const dirY = (ndcA.y >= ndcB.y) ? 1.0 : -1.0;
-              gA.position.x += dirX * 0.035;
-              gB.position.x -= dirX * 0.035;
-              gA.position.y = Math.max(0.040, gA.position.y + dirY * 0.024);
-              gB.position.y = Math.max(0.040, gB.position.y - dirY * 0.024);
+              gA.position.x += dirX * 0.095;
+              gB.position.x -= dirX * 0.095;
+              gA.position.y = Math.max(0.060, gA.position.y + dirY * 0.055);
+              gB.position.y = Math.max(0.060, gB.position.y - dirY * 0.055);
               gA.updateMatrixWorld(true);
               gB.updateMatrixWorld(true);
               if (gA.userData) {
@@ -3147,6 +3167,10 @@ const FLIGHT_STATES = {
     let fpsHistory = [];
 
     async function init() {
+      const safetyHide = setTimeout(() => {
+        const ind = document.getElementById('loading-indicator');
+        if (ind) ind.style.display = 'none';
+      }, 2800);
       try {
         if (qualityMode === 'CLASSROOM') {
           const pill = document.getElementById('quality-mode-pill');
@@ -3269,18 +3293,22 @@ const FLIGHT_STATES = {
             const bData = hoveredBeacon.eventData;
             hideBeaconTooltip();
             if (controlSurface) {
-              await controlSurface.selectEvent(bData);
+              await controlSurface.openEventArchiveById(bData.id || bData.eventId);
             } else {
               await startDescentFlight(bData.id || bData.eventId);
             }
           }
         });
 
-        document.getElementById('loading-indicator').style.display = 'none';
+        clearTimeout(safetyHide);
+        const ind = document.getElementById('loading-indicator');
+        if (ind) ind.style.display = 'none';
         console.log("[Master Exhibition] Scene, Discovery Beacons & Global Earth initialized successfully.");
       } catch (err) {
+        clearTimeout(safetyHide);
         console.error("Initialization error:", err);
-        document.getElementById('loading-text').textContent = "Error: " + err.message;
+        const ind = document.getElementById('loading-indicator');
+        if (ind) ind.style.display = 'none';
       }
     }
 

@@ -7,6 +7,22 @@ import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../da
 import { renderGeophysicsFolioHTML } from '../geophysics/TravelTimeSolvers.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
 
+const BENCHMARK_CATALOGS = {
+  usgs: [
+    { id: 'global_2023_turkey', num: '1', name: '2023 튀르키예', mag: 'Mw 7.8', title: '2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)' },
+    { id: 'global_2011_tohoku', num: '2', name: '2011 동일본', mag: 'Mw 9.1', title: '2011 동일본 대지진 해구 섭입대 역단층 (Mw 9.1)' },
+    { id: 'global_2016_kumamoto', num: '3', name: '2016 구마모토', mag: 'Mw 7.0', title: '2016 일본 구마모토 지진 본진 (Mw 7.0)' },
+    { id: 'hist_2016_gyeongju', num: '4', name: '2016 경주', mag: 'ML 5.8', title: '2016 경주 지진 계측 최대 지진 (ML 5.8)' },
+    { id: 'hist_2017_pohang', num: '5', name: '2017 포항', mag: 'Mw 5.4', title: '2017 포항 유발지진 (Mw 5.4)' }
+  ],
+  historical: [
+    { id: 'hist_1681_0626', num: '1', name: '1681 양양 해일', mag: 'M 7.0~7.5', title: '1681년 6월 26일 강원도 양양 대지진·해일 (조선 숙종 7년)' },
+    { id: 'hist_1338_gaegyeong', num: '2', name: '1338 고려 개경', mag: 'M 5.5~6.0', title: '1338년 고려 충숙왕 대지진 (고려사 권36)' },
+    { id: 'hist_1518_seoul', num: '3', name: '1518 조선 한양', mag: 'M 5.0~5.5', title: '1518년 한양 대지진 (조선 중종 13년)' },
+    { id: 'hist_0002_goguryeo', num: '4', name: '0002 고구려 졸본', mag: '공인 최고(最古)', title: '기원후 2년 고구려 졸본·국내성 지진 (삼국사기)' }
+  ]
+};
+
 export class UnifiedControlSurface {
       constructor() {
         this.container = document.getElementById('unified-control-surface');
@@ -18,7 +34,7 @@ export class UnifiedControlSurface {
         this.searchQuery = '';
         this.autoContinue = false;
         this.isScrubbing = false;
-        this.activeDossierTab = 'corpus';
+        this.activeDossierTab = 'hist_corpus';
 
         window.controlSurface = this;
         this.bindEvents();
@@ -29,16 +45,20 @@ export class UnifiedControlSurface {
         this.exploreCategory = cat; // 'historical' | 'usgs' | null
         const tabHist = document.getElementById('tab-cat-historical');
         const tabUsgs = document.getElementById('tab-cat-usgs');
-        const grpHist = document.getElementById('benchmarks-historical');
-        const grpUsgs = document.getElementById('benchmarks-usgs');
+        const shelf = document.getElementById('contextual-benchmarks-shelf');
+        const shelfTitle = document.getElementById('shelf-category-title');
+        const shelfContainer = document.getElementById('shelf-items-container');
         const subCount = document.getElementById('brand-count-sub');
         const btnLabel = document.getElementById('discover-btn-label');
 
         if (cat === 'usgs') {
           if (tabHist) tabHist.classList.remove('active');
           if (tabUsgs) tabUsgs.classList.add('active');
-          if (grpHist) grpHist.style.display = 'none';
-          if (grpUsgs) grpUsgs.style.display = 'flex';
+          if (shelf && shelfContainer) {
+            shelf.style.display = 'block';
+            if (shelfTitle) shelfTitle.textContent = "현대 글로벌 정밀 계측 지진 (USGS / 국제 표준)";
+            this.renderShelfItems(shelfContainer, BENCHMARK_CATALOGS.usgs);
+          }
           const globalCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.id?.includes('global_') || e.id?.includes('usgs')).length || 727;
           if (subCount) subCount.textContent = `${globalCount} 글로벌 관측 노드`;
           if (btnLabel) btnLabel.textContent = "글로벌 관측 피드";
@@ -46,13 +66,16 @@ export class UnifiedControlSurface {
           
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "USGS 현대 정밀 계측 지진을 선택하거나, 탭을 다시 눌러 목록을 닫을 수 있습니다";
+            sub.textContent = "USGS 현대 정밀 계측 지진을 선택하여 사료 및 탐사 주시를 확인하십시오";
           }
         } else if (cat === 'historical') {
           if (tabHist) tabHist.classList.add('active');
           if (tabUsgs) tabUsgs.classList.remove('active');
-          if (grpHist) grpHist.style.display = 'flex';
-          if (grpUsgs) grpUsgs.style.display = 'none';
+          if (shelf && shelfContainer) {
+            shelf.style.display = 'block';
+            if (shelfTitle) shelfTitle.textContent = "한반도 2,000년 역사 문헌 대표 사료 (조선·고려·신라)";
+            this.renderShelfItems(shelfContainer, BENCHMARK_CATALOGS.historical);
+          }
           const histCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.country === 'KOREA' || (!e.id?.includes('global_') && !e.id?.includes('usgs') && e.catalogType !== 'INSTRUMENTAL_GLOBAL')).length || 48;
           if (subCount) subCount.textContent = `${histCount} 한반도 역사 사료`;
           if (btnLabel) btnLabel.textContent = "한반도 사료 목록";
@@ -60,14 +83,13 @@ export class UnifiedControlSurface {
 
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하거나, 탭을 다시 눌러 목록을 닫을 수 있습니다";
+            sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하여 원전 번역과 학술 역산을 확인하십시오";
           }
         } else {
-          // Pristine Default Exhibition State: Benchmarks hidden
+          // Pristine Default Exhibition State: Shelf hidden
           if (tabHist) tabHist.classList.remove('active');
           if (tabUsgs) tabUsgs.classList.remove('active');
-          if (grpHist) grpHist.style.display = 'none';
-          if (grpUsgs) grpUsgs.style.display = 'none';
+          if (shelf) shelf.style.display = 'none';
           if (btnLabel) btnLabel.textContent = "아카이브 탐색";
           this.activeFilter = 'all';
 
@@ -82,6 +104,34 @@ export class UnifiedControlSurface {
         filterChips.forEach(chip => {
           chip.classList.toggle('active', chip.getAttribute('data-filter') === this.activeFilter);
         });
+      }
+
+      renderShelfItems(container, items) {
+        container.innerHTML = '';
+        items.forEach(item => {
+          const btn = document.createElement('button');
+          btn.className = 'shelf-btn';
+          btn.setAttribute('data-id', item.id);
+          btn.setAttribute('title', item.title || item.name);
+          btn.innerHTML = `
+            <span class="s-idx">${item.num}</span>
+            <span class="s-name">${item.name}</span>
+            <span class="s-mag">${item.mag}</span>
+          `;
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            await this.openEventArchiveById(item.id);
+          });
+          container.appendChild(btn);
+        });
+      }
+
+      async openEventArchiveById(eventId) {
+        if (!eventId) return;
+        const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
+        const ev = allEvents.find(e => (e.id === eventId || e.eventId === eventId)) || { id: eventId, eventId: eventId };
+        this.previousState = (this.currentState === 'PERFORMANCE') ? 'PERFORMANCE' : 'EXPLORE';
+        this.setState('SELECTED', ev);
       }
 
       get isPlaying() {
@@ -111,15 +161,18 @@ export class UnifiedControlSurface {
 
       async selectEventById(eventId) {
         if (!eventId) return;
-        const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
-        const ev = allEvents.find(e => (e.id === eventId || e.eventId === eventId)) || { id: eventId, eventId: eventId };
-        await this.selectEvent(ev);
+        await this.openEventArchiveById(eventId);
       }
 
       setState(state, eventData = null) {
         this.currentState = state;
         if (eventData) {
           this.selectedEvent = eventData;
+        }
+
+        const shelf = document.getElementById('contextual-benchmarks-shelf');
+        if (shelf && state !== 'EXPLORE') {
+          shelf.style.display = 'none';
         }
 
         if (!this.container) return;
@@ -166,7 +219,16 @@ export class UnifiedControlSurface {
           });
         }
 
-        // Benchmark quick-selectors (Historical indexed + USGS global)
+        // Contextual shelf close button
+        const btnCloseShelf = document.getElementById('btn-close-shelf');
+        if (btnCloseShelf) {
+          btnCloseShelf.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.setExploreCategory(null);
+          });
+        }
+
+        // Benchmark quick-selectors (if present in DOM)
         ['1681', '1338', '1518', '0002', 'turkey', 'tohoku', 'kumamoto', 'gyeongju', 'pohang'].forEach(key => {
           const btn = document.getElementById(`btn-ev-${key}`);
           if (btn) {

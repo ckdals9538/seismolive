@@ -44,7 +44,22 @@
     <div class="tooltip-title" id="tt-title">강원도 양양 인근 해역 대지진</div>
     <div class="tooltip-meta" id="tt-meta">추정 규모 ~7.5 · MMI IX · 연안/해역</div>
     <div class="tooltip-quote" id="tt-quote">"산이 울고 땅이 진동하였으며 거암이 붕괴되고 바닷물이 조수가 밀려가는 듯하더니..."</div>
-    <div class="tooltip-cta">클릭하여 현장으로 비행 →</div>
+    <div class="tooltip-cta">클릭하여 사료 및 계측 상세 보기 →</div>
+  </div>
+
+  <!-- =========================================================================
+       CONTEXTUAL BENCHMARK SHELF (Floats Above Dock on Demand)
+       ========================================================================= -->
+  <div id="contextual-benchmarks-shelf" class="contextual-benchmarks-shelf" style="display:none;">
+    <div class="shelf-inner">
+      <div class="shelf-header">
+        <span class="shelf-title" id="shelf-category-title">대표 관측 지진</span>
+        <button id="btn-close-shelf" class="shelf-close-btn" title="선반 접기">&times;</button>
+      </div>
+      <div class="shelf-items" id="shelf-items-container">
+        <!-- Dynamically populated or switched -->
+      </div>
+    </div>
   </div>
 
   <!-- =========================================================================
@@ -52,12 +67,12 @@
        ========================================================================= -->
   <div id="unified-control-surface" class="state-explore">
     
-    <!-- 1. EXPLORE STATE: Minimal Dock Bar -->
+    <!-- 1. EXPLORE STATE: Minimal Dock Bar (Always Calm & Un-overflowable) -->
     <div class="surface-view view-explore" id="view-explore">
       <div class="explore-brand">
         <span class="beacon-pulse"></span>
         <span class="brand-title">SEISMOLIVE</span>
-        <span class="brand-sub" id="brand-count-sub">전 지구 지진계 관측망</span>
+        <span class="brand-sub" id="brand-count-sub">전 지구 관측망</span>
       </div>
 
       <!-- Segmented Mode Tabs: [글로벌 계측 관측] vs [한반도 역사 사료] -->
@@ -67,41 +82,6 @@
         </button>
         <button id="tab-cat-historical" class="cat-tab" data-cat="historical" title="한반도 2,000년 역사 문헌 사료 아카이브 (기원후 2년~1904년)">
           <span class="tab-bullet"></span>한반도 역사 사료
-        </button>
-      </div>
-
-      <!-- Curated USGS Global Instrumental Benchmarks (Reveals on demand) -->
-      <div class="explore-benchmarks" id="benchmarks-usgs" style="display:none;">
-        <button id="btn-ev-turkey" class="surface-btn pill indexed usgs-idx" data-id="global_2023_turkey" title="2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)">
-          <span class="idx-num">1</span> 2023 튀르키예
-        </button>
-        <button id="btn-ev-tohoku" class="surface-btn pill indexed usgs-idx" data-id="global_2011_tohoku" title="2011 동일본 대지진 해구 섭입대 역단층 (Mw 9.1)">
-          <span class="idx-num">2</span> 2011 동일본
-        </button>
-        <button id="btn-ev-kumamoto" class="surface-btn pill indexed usgs-idx" data-id="global_2016_kumamoto" title="2016 일본 구마모토 지진 본진 (Mw 7.0)">
-          <span class="idx-num">3</span> 2016 구마모토
-        </button>
-        <button id="btn-ev-gyeongju" class="surface-btn pill indexed usgs-idx" data-id="hist_2016_gyeongju" title="2016 경주 지진 계측 최대 지진 (ML 5.8)">
-          <span class="idx-num">4</span> 2016 경주
-        </button>
-        <button id="btn-ev-pohang" class="surface-btn pill indexed usgs-idx" data-id="hist_2017_pohang" title="2017 포항 유발지진 (Mw 5.4)">
-          <span class="idx-num">5</span> 2017 포항
-        </button>
-      </div>
-
-      <!-- Curated Korean Historical Chronicle Benchmarks -->
-      <div class="explore-benchmarks" id="benchmarks-historical" style="display:none;">
-        <button id="btn-ev-1681" class="surface-btn pill indexed" data-id="hist_1681_0626" title="1681년 6월 26일 강원도 양양 대지진·해일 (조선 숙종 7년)">
-          <span class="idx-num">1</span> 1681 양양 해일
-        </button>
-        <button id="btn-ev-1338" class="surface-btn pill indexed" data-id="hist_1338_gaegyeong" title="1338년 고려 충숙왕 대지진 (고려사 권36)">
-          <span class="idx-num">2</span> 1338 고려 개경
-        </button>
-        <button id="btn-ev-1518" class="surface-btn pill indexed" data-id="hist_1518_seoul" title="1518년 한양 대지진 (조선 중종 13년)">
-          <span class="idx-num">3</span> 1518 조선 한양
-        </button>
-        <button id="btn-ev-0002" class="surface-btn pill indexed" data-id="hist_0002_goguryeo" title="기원후 2년 고구려 졸본·국내성 지진 (삼국사기)">
-          <span class="idx-num">4</span> 0002 고구려 졸본
         </button>
       </div>
 
