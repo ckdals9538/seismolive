@@ -629,33 +629,34 @@
       text-overflow: ellipsis;
     }
 
-    /* 3. SELECTED EVENT VIEW (Museum Inscription & Spec Ledger) */
+    /* 3. SELECTED EVENT VIEW (Editorial Knowledge Folio) */
     .view-selected {
       flex-direction: column;
-      padding: 16px 22px;
+      padding: 16px 24px;
       justify-content: space-between;
       height: 100%;
+      background: rgba(10, 14, 22, 0.96);
     }
     .selected-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.07);
       padding-bottom: 8px;
       flex-shrink: 0;
     }
     .selected-era-badge {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #C89D54;
-      letter-spacing: 0.08em;
+      color: #BAC3CE;
+      letter-spacing: 0.06em;
       text-transform: uppercase;
     }
     .selected-body {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      margin: 8px 0;
+      gap: 12px;
+      margin: 10px 0;
       overflow-y: auto;
       padding-right: 6px;
       flex-grow: 1;
@@ -664,7 +665,7 @@
       width: 4px;
     }
     .selected-body::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.12);
       border-radius: 2px;
     }
     .selected-title-row {
@@ -676,88 +677,61 @@
     }
     .selected-title {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 19px;
+      font-size: 21px;
       font-weight: 500;
-      color: #EAE4D5;
-      letter-spacing: 0.02em;
+      color: #EAE6DF;
+      letter-spacing: 0.01em;
       line-height: 1.35;
     }
     .selected-provenance-tag {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 9.5px;
-      padding: 2px 7px;
+      padding: 2px 8px;
       border-radius: 2px;
-      background: rgba(200, 157, 84, 0.08);
-      border: 1px solid rgba(200, 157, 84, 0.3);
-      color: #C89D54;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #8B99A8;
       letter-spacing: 0.04em;
     }
-    /* Monolithic Spec Ledger Grid */
-    .selected-grid-telemetry {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      background: rgba(8, 14, 22, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 2px;
-      overflow: hidden;
-      padding: 0;
-    }
-    @media (max-width: 768px) {
-      .selected-grid-telemetry {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-    .telemetry-cell {
-      padding: 10px 14px;
-      border-right: 1px solid rgba(255, 255, 255, 0.06);
+    /* Horizontal Geodetic Spec Strip (Airy & Legible) */
+    .selected-geodetic-strip {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-    }
-    .telemetry-cell:last-child {
-      border-right: none;
-    }
-    @media (max-width: 768px) {
-      .telemetry-cell:nth-child(2) {
-        border-right: none;
-      }
-      .telemetry-cell:nth-child(1),
-      .telemetry-cell:nth-child(2) {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      }
-    }
-    .cell-label {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 9px;
-      color: #6482a0;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .cell-value {
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 18px;
+      padding: 6px 0 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       font-family: "SF Mono", Menlo, monospace;
       font-size: 11px;
-      color: #EAE4D5;
-      font-weight: 500;
-      display: flex;
+      color: #8B99A8;
+    }
+    .meta-block {
+      display: inline-flex;
       align-items: baseline;
-      flex-wrap: wrap;
-      gap: 4px;
-      line-height: 1.45;
+      gap: 5px;
+    }
+    .meta-lbl {
+      font-size: 9px;
+      color: #5C6B7B;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .meta-val {
+      color: #EAE6DF;
+      font-weight: 500;
     }
     /* Museum Archival Folio Inscription */
     .selected-quote-card {
-      background: rgba(200, 157, 84, 0.025);
+      background: rgba(255, 255, 255, 0.018);
       border: none;
-      border-top: 1px solid rgba(200, 157, 84, 0.3);
-      border-bottom: 1px solid rgba(200, 157, 84, 0.3);
-      padding: 13px 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 16px 20px;
       border-radius: 0;
       display: flex;
       flex-direction: column;
-      gap: 7px;
-      margin: 3px 0 5px 0;
+      gap: 8px;
+      margin: 4px 0 6px 0;
     }
     .quote-header {
       display: flex;
@@ -768,36 +742,36 @@
     .quote-source-label {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #C89D54;
+      color: #C2A882;
       font-weight: 500;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.04em;
     }
     .quote-confidence-badge {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 9.5px;
-      color: #6482a0;
+      color: #687787;
     }
     .quote-text {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 13.5px;
-      line-height: 1.85;
-      color: #EAE4D5;
+      font-size: 15px;
+      line-height: 2.0;
+      color: #EAE6DF;
       font-style: normal;
       letter-spacing: 0.01em;
     }
     .quote-hanja-row {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 11px;
-      color: rgba(234, 228, 213, 0.55);
-      line-height: 1.6;
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding-top: 6px;
+      font-size: 11.5px;
+      color: #7A8999;
+      line-height: 1.7;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 8px;
     }
 
-    /* Dossier Sub-Tabs Bar (Museum Catalog Tabs) */
+    /* Dossier Sub-Tabs Bar */
     .dossier-tab-bar {
       display: flex;
-      gap: 2px;
+      gap: 4px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       margin-top: 4px;
       margin-bottom: 8px;
@@ -807,7 +781,7 @@
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
-      color: #6482a0;
+      color: #687787;
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10.5px;
       font-weight: 500;
@@ -821,29 +795,29 @@
       border-radius: 0;
     }
     .dossier-tab-btn:hover {
-      color: #adc6df;
+      color: #BAC3CE;
       background: rgba(255, 255, 255, 0.02);
     }
     .dossier-tab-btn.active {
-      color: #EAE4D5;
-      border-bottom-color: #C89D54;
-      background: rgba(200, 157, 84, 0.03);
+      color: #EAE6DF;
+      border-bottom-color: rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.03);
     }
     .dossier-tab-dot {
       width: 4px;
       height: 4px;
       border-radius: 50%;
-      background: #6482a0;
+      background: #687787;
       transition: background 0.18s ease;
     }
     .dossier-tab-btn.active .dossier-tab-dot {
-      background: #C89D54;
+      background: #EAE6DF;
       box-shadow: none;
     }
     .dossier-tab-content {
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
       animation: fadeInPane 0.2s ease forwards;
     }
     @keyframes fadeInPane {
@@ -853,10 +827,10 @@
 
     /* Archival Provenance Box */
     .archival-provenance-box {
-      background: rgba(8, 14, 22, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 2px;
-      padding: 9px 14px;
+      padding: 10px 16px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -870,70 +844,91 @@
       font-size: 10px;
     }
     .p-label {
-      color: #6482a0;
+      color: #5C6B7B;
       flex-shrink: 0;
     }
     .p-val {
-      color: #adc6df;
+      color: #BAC3CE;
       text-align: right;
     }
 
-    /* T-X Travel-Time Equations & Plot */
-    .tx-graph-wrapper {
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    /* Seismic Exploration Grid (Refraction & Reflection) */
+    .exploration-section-header {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10px;
+      color: #8FAEC8;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-top: 4px;
+      margin-bottom: 2px;
+      font-weight: 600;
     }
-    .tx-equations-grid {
+    .exploration-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
     }
     @media (max-width: 680px) {
-      .tx-equations-grid {
+      .exploration-grid {
         grid-template-columns: 1fr;
       }
     }
-    .tx-eq-card {
-      background: rgba(8, 14, 22, 0.55);
+    .exploration-card {
+      background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.07);
       border-radius: 2px;
-      padding: 8px 10px;
+      padding: 10px 14px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 5px;
     }
-    .eq-title {
+    .exploration-card-title {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 9.5px;
-      color: #C89D54;
+      color: #BAC3CE;
       font-weight: 600;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
-    .eq-formula {
+    .exploration-formula {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 11px;
-      color: #8ec5fc;
-      font-weight: 500;
+      color: #EAE6DF;
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 2px solid rgba(255, 255, 255, 0.2);
+      padding: 4px 8px;
+      border-radius: 2px;
+      line-height: 1.45;
     }
-    .eq-desc {
+    .exploration-desc {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 10px;
-      color: #7b9bbd;
-      line-height: 1.4;
+      font-size: 11px;
+      color: #8B99A8;
+      line-height: 1.6;
     }
 
-    /* Tab 3: Station Network & Tectonic Dynamics */
+    /* Wavefield & S-P Grid */
+    .wavefield-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 680px) {
+      .wavefield-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Station list and source dynamics */
     .network-dynamics-container {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
     .network-section-title {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #C89D54;
+      color: #8FAEC8;
       letter-spacing: 0.05em;
       text-transform: uppercase;
       margin-bottom: 2px;
@@ -948,66 +943,64 @@
       grid-template-columns: 100px 1fr 65px 75px;
       align-items: center;
       gap: 10px;
-      background: rgba(8, 14, 22, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 2px;
-      padding: 6px 10px;
+      padding: 6px 12px;
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
     }
     .stn-name {
-      color: #EAE4D5;
+      color: #EAE6DF;
       font-weight: 600;
     }
     .pga-bar-track {
       width: 100%;
       height: 4px;
-      background: rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.06);
       border-radius: 2px;
       overflow: hidden;
     }
     .pga-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, #8ec5fc, #dca858);
+      background: rgba(255, 255, 255, 0.4);
       border-radius: 2px;
     }
     .stn-pga-val {
-      color: #dca858;
+      color: #BAC3CE;
       text-align: right;
       font-weight: 500;
     }
     .stn-sp-val {
-      color: #8ec5fc;
+      color: #7A8999;
       text-align: right;
     }
     .tectonic-theory-card {
-      background: rgba(8, 14, 22, 0.55);
+      background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.07);
-      border-top: 2px solid rgba(142, 197, 252, 0.45);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 2px;
-      padding: 11px 14px;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
-      gap: 5px;
-    }
-    .tectonic-theory-card.gold {
-      border-top-color: rgba(200, 157, 84, 0.6);
+      gap: 6px;
     }
     .tectonic-title {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #C89D54;
+      color: #EAE6DF;
       font-weight: 600;
       letter-spacing: 0.04em;
+      text-transform: uppercase;
     }
     .tectonic-desc {
       font-family: "Noto Serif KR", Batang, serif;
       font-size: 11.5px;
-      color: #dceaf8;
-      line-height: 1.65;
+      color: #BAC3CE;
+      line-height: 1.7;
     }
     .tsunami-calc-box {
-      background: rgba(8, 14, 22, 0.55);
+      background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.07);
       border-radius: 2px;
       padding: 10px 14px;
@@ -1028,14 +1021,14 @@
     .tsunami-m-label {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 9px;
-      color: #6482a0;
+      color: #5C6B7B;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .tsunami-m-val {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 12px;
-      color: #EAE4D5;
+      color: #EAE6DF;
       font-weight: 500;
     }
 
@@ -1045,47 +1038,20 @@
       flex-wrap: wrap;
       font-family: "SF Mono", Menlo, monospace;
       font-size: 9.5px;
-      color: #6482a0;
+      color: #687787;
     }
     .meta-item {
-      background: rgba(8, 14, 22, 0.45);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       padding: 3px 8px;
       border-radius: 2px;
-    }
-    .tag-provenance,
-    .selected-provenance-tag {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 9.5px;
-      padding: 2px 7px;
-      border-radius: 2px;
-      letter-spacing: 0.04em;
-    }
-    .tag-usgs {
-      background: rgba(142, 197, 252, 0.08);
-      border: 1px solid rgba(142, 197, 252, 0.28);
-      color: #8ec5fc;
-    }
-    .tag-global {
-      background: rgba(164, 194, 244, 0.08);
-      border: 1px solid rgba(164, 194, 244, 0.28);
-      color: #a4c2f4;
-    }
-    .tag-hist {
-      background: rgba(200, 157, 84, 0.08);
-      border: 1px solid rgba(200, 157, 84, 0.3);
-      color: #C89D54;
-    }
-    .tag-kma {
-      background: rgba(124, 224, 168, 0.08);
-      border: 1px solid rgba(124, 224, 168, 0.28);
-      color: #7ce0a8;
+      color: #7A8999;
     }
     .selected-action-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
       padding-top: 10px;
     }
     .auto-play-checkbox {
@@ -1093,12 +1059,11 @@
       align-items: center;
       gap: 6px;
       font-size: 11px;
-      color: #7a9ec2;
+      color: #7A8999;
       cursor: pointer;
     }
     .auto-play-checkbox input {
-      accent-color: #8ec5fc;
-      cursor: pointer;
+      accent-color: #8FAEC8;
     }
 
     /* 4. PERFORMANCE VIEW (Slim Media Transport Bar) */
@@ -1242,30 +1207,31 @@
     .epistemic-badge {
       display: inline-block;
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 9.5px;
+      font-size: 9px;
       font-weight: 400;
       letter-spacing: 0.02em;
-      margin-left: 6px;
+      margin-left: 5px;
       vertical-align: baseline;
       padding: 0;
       background: transparent;
       border: none;
+      color: #687787;
     }
     .epistemic-badge.obs {
-      color: #7ce0a8;
+      color: #8FAEC8;
     }
     .epistemic-badge.est {
-      color: #dca858;
+      color: #A0ACB8;
     }
     .epistemic-badge.mod {
-      color: #8ec5fc;
+      color: #7A8999;
     }
     /* Sequence Chain & Scholar Comparison in Dossier */
     .sequence-chain-box {
       margin-top: 6px;
       padding: 10px 14px;
-      background: rgba(8, 14, 22, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 2px;
       display: none;
       flex-direction: column;
@@ -1274,8 +1240,8 @@
     .sequence-chain-title {
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
-      color: #dca858;
-      font-weight: 600;
+      color: #BAC3CE;
+      font-weight: 500;
       letter-spacing: 0.05em;
     }
     .sequence-chain-steps {
@@ -1284,9 +1250,9 @@
       gap: 6px;
     }
     .seq-step-btn {
-      background: rgba(14, 22, 34, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #adc6df;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #BAC3CE;
       font-family: "SF Mono", Menlo, monospace;
       font-size: 10px;
       padding: 4px 10px;
@@ -1296,23 +1262,23 @@
     }
     .seq-step-btn:hover {
       background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.22);
+      color: #EAE6DF;
+      border-color: rgba(255, 255, 255, 0.18);
     }
     .seq-step-btn.active {
-      background: rgba(200, 157, 84, 0.12);
-      border-color: #C89D54;
-      color: #EAE4D5;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #EAE6DF;
       font-weight: 600;
     }
     .scholar-compare-box {
       margin-top: 6px;
       padding: 10px 14px;
-      background: rgba(8, 14, 22, 0.55);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 2px;
       font-size: 11px;
-      color: #adc6df;
+      color: #BAC3CE;
       line-height: 1.65;
     }
     /* Quality & Immersive Restore Pill */
@@ -1559,54 +1525,39 @@
           <span class="selected-provenance-tag" id="selected-provenance-tag">공인 1차 사료 확인</span>
         </div>
         
-        <div class="selected-grid-telemetry">
-          <div class="telemetry-cell">
-            <span class="cell-label">발생 일시 (Origin Time)</span>
-            <span class="cell-value" id="selected-origin-time">1681-06-26 <span class="epistemic-badge obs">[사료 기록]</span></span>
-          </div>
-          <div class="telemetry-cell">
-            <span class="cell-label">진앙 위치 (Epicenter)</span>
-            <span class="cell-value" id="selected-coords">37.90°N, 129.10°E (±45km) <span class="epistemic-badge est">[학술 역산]</span></span>
-          </div>
-          <div class="telemetry-cell">
-            <span class="cell-label">지진 규모 (Magnitude)</span>
-            <span class="cell-value" id="selected-mag">M 6.5~7.5 (MMI IX) <span class="epistemic-badge est">[감진역 추정]</span></span>
-          </div>
-          <div class="telemetry-cell">
-            <span class="cell-label">진원 깊이 (Focal Depth)</span>
-            <span class="cell-value" id="selected-depth">미상 · 모델 12.0 km <span class="epistemic-badge mod">[참조 모델]</span></span>
-          </div>
+        <!-- Horizontal Geodetic Spec Strip (Airy & Legible) -->
+        <div class="selected-geodetic-strip" id="selected-geodetic-strip">
+          <!-- Populated dynamically: serene single-line or airy horizontal spec -->
         </div>
 
         <!-- Sequence Chain Bar (Foreshock - Mainshock - Aftershock) -->
-        <div class="sequence-chain-box" id="dossier-sequence-chain">
+        <div class="sequence-chain-box" id="dossier-sequence-chain" style="display:none;">
           <div class="sequence-chain-title" id="dossier-sequence-title">연속 지진 시퀀스 (전진 · 본진 · 여진 기록 연결)</div>
           <div class="sequence-chain-steps" id="dossier-sequence-steps"></div>
         </div>
 
-        <!-- Dossier Sub-Tabs Bar -->
-        <div class="dossier-tab-bar" role="tablist">
-          <button class="dossier-tab-btn active" data-dossier-tab="corpus">
-            <span class="dossier-tab-dot"></span> 사료 원전 및 문헌
+        <!-- Dossier Sub-Tabs Bar (Hidden for Historical, Visible for Modern/USGS) -->
+        <div class="dossier-tab-bar" id="dossier-tab-bar" role="tablist" style="display:none;">
+          <button class="dossier-tab-btn active" data-dossier-tab="source">
+            <span class="dossier-tab-dot"></span> 단층 파쇄 & 진원해
           </button>
-          <button class="dossier-tab-btn" data-dossier-tab="tx">
-            <span class="dossier-tab-dot"></span> 파동 주시(T-X) 역학
+          <button class="dossier-tab-btn" data-dossier-tab="exploration">
+            <span class="dossier-tab-dot"></span> 굴절법 & 반사법 탐사
           </button>
-          <button class="dossier-tab-btn" data-dossier-tab="network">
-            <span class="dossier-tab-dot"></span> 관측망 & 단층 역학
+          <button class="dossier-tab-btn" data-dossier-tab="wavefield">
+            <span class="dossier-tab-dot"></span> 파동 주시 & S-P 역학
           </button>
         </div>
 
-        <!-- Tab 1: Historical Corpus & Provenance -->
+        <!-- 1. Historical Corpus Folio (Exclusive for Historical Earthquakes) -->
         <div class="dossier-tab-content" id="tab-pane-corpus">
           <div class="selected-quote-card">
             <div class="quote-header">
-              <span class="quote-source-label" id="selected-quote-source">승정원일기 284책 70권 · 조선왕조실록 숙종 11권</span>
-              <span class="quote-confidence-badge" id="selected-confidence">신뢰도: HIGH (당대 교차실증)</span>
+              <span class="quote-source-label" id="selected-quote-source">삼국사기 · 조선왕조실록</span>
+              <span class="quote-confidence-badge" id="selected-confidence">1차 사료 공인 기록</span>
             </div>
-            <p class="quote-text" id="selected-quote-text">"강원도 도신이 아뢰기를, 산이 울고 땅이 진동하였으며 거암이 붕괴되고 바닷물이 조수가 밀려가는 듯하더니 갑자기 언덕을 넘어왔다."</p>
+            <p class="quote-text" id="selected-quote-text">"사료 원문 번역이 이곳에 표시됩니다."</p>
             <div class="quote-hanja-row" id="selected-hanja-row" style="display:none;">
-              <span class="hanja-label">사료 원문: </span>
               <span class="hanja-text" id="selected-quote-hanja"></span>
             </div>
           </div>
@@ -1625,34 +1576,29 @@
           </div>
         </div>
 
-        <!-- Tab 2: Travel-Time / T-X Curve Analysis -->
-        <div class="dossier-tab-content" id="tab-pane-tx" style="display:none;">
-          <div class="tx-graph-wrapper" id="tx-graph-container">
-            <!-- Dynamic SVG injected here -->
-          </div>
-          <div class="tx-equations-grid">
-            <div class="tx-eq-card">
-              <div class="eq-title">S-P 주시차 (Omori 공식)</div>
-              <div class="eq-formula">Δ ≈ 8.0 × (t<sub>S</sub> - t<sub>P</sub>) km</div>
-              <div class="eq-desc" id="tx-omori-desc">포아송비 ν=0.25 (Vp/Vs=√3) 기준 진앙거리 산정</div>
-            </div>
-            <div class="tx-eq-card">
-              <div class="eq-title">Tsuboi 규모 (M<sub>L</sub>)</div>
-              <div class="eq-formula">M<sub>L</sub> = 1.73 log D + log A - 0.83</div>
-              <div class="eq-desc">국소 지진 규모 산출 표준 공식 (기상청/JMA)</div>
-            </div>
-            <div class="tx-eq-card">
-              <div class="eq-title">모호면 굴절 임계거리</div>
-              <div class="eq-formula">X<sub>cross</sub> ≈ 145 km · z<sub>Moho</sub> ≈ 32 km</div>
-              <div class="eq-desc" id="tx-moho-desc">상부지각(5.8 km/s)과 상부맨틀(7.8 km/s) 경계면</div>
-            </div>
+        <!-- 2. Instrumental Tab 1: Source Dynamics & Fault Rupture -->
+        <div class="dossier-tab-content" id="tab-pane-source" style="display:none;">
+          <div class="network-dynamics-container" id="network-dynamics-container">
+            <!-- Dynamically populated: station network PGA response & fault mechanism -->
           </div>
         </div>
 
-        <!-- Tab 3: Station Network & Tectonic Dynamics -->
-        <div class="dossier-tab-content" id="tab-pane-network" style="display:none;">
-          <div class="network-dynamics-container" id="network-dynamics-container">
-            <!-- Dynamically populated based on event type -->
+        <!-- 3. Instrumental Tab 2: Seismic Exploration (Refraction & Reflection) -->
+        <div class="dossier-tab-content" id="tab-pane-exploration" style="display:none;">
+          <div class="exploration-section-header">탄성파탐사 주시곡선 (T-X) 및 지하 층서 속도 역산</div>
+          <div class="tx-graph-wrapper" id="tx-graph-container">
+            <!-- Dynamic Monochromatic T-X SVG -->
+          </div>
+          <div class="exploration-grid" id="exploration-grid-container">
+            <!-- Refraction & Reflection cards -->
+          </div>
+        </div>
+
+        <!-- 4. Instrumental Tab 3: Wavefield Travel-Time & S-P Differential -->
+        <div class="dossier-tab-content" id="tab-pane-wavefield" style="display:none;">
+          <div class="exploration-section-header">지진파 도달 주시(Travel-Time) 및 S-P 시차 진원 결정</div>
+          <div class="wavefield-grid" id="wavefield-grid-container">
+            <!-- P/S travel-time, Omori S-P formula, triangulation, 3-component first motion polarity -->
           </div>
         </div>
 
@@ -2812,26 +2758,22 @@
           const { lat, lon } = getEventCoords(ev);
           const quoteText = ev.translationKo || ev.primaryText?.originalScript || ev.text || "";
 
-          let provTagClass = "tag-hist";
-          let provTagText = "역사 사료";
+          let provTagText = "공인 사료";
           if (ev.recordType === 'usgs-live') {
-            provTagClass = "tag-usgs";
             provTagText = "USGS 실시간";
           } else if (ev.catalogType === 'INSTRUMENTAL_GLOBAL' || ev.country !== 'KOREA') {
-            provTagClass = "tag-global";
             provTagText = "국제 계측";
           } else if (ev.country === 'KOREA' && (ev.century >= 20 || ev.catalogType?.includes('INSTRUMENTAL'))) {
-            provTagClass = "tag-kma";
             provTagText = "기상청 계측";
           }
 
           const hasCoords = lat != null && lon != null;
           const coordsHtml = hasCoords
             ? `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E`
-            : `<span style="color:#dca858; font-size:10px;">[좌표 미상 / 사료 원문]</span>`;
+            : `<span style="color:#687787; font-size:9.5px;">[좌표 미상 / 문헌 보존]</span>`;
 
           const magVal = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.mag?.v ?? ev.mag;
-          const magBadgeHtml = magVal ? `<span class="card-mag-badge" style="font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; color:#EAE4D5; margin-left:6px;">M ${Number(magVal).toFixed(1)}</span>` : '';
+          const magBadgeHtml = magVal ? `<span class="card-mag-badge" style="font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:500; color:#EAE6DF; margin-left:6px;">M ${Number(magVal).toFixed(1)}</span>` : '';
 
           card.innerHTML = `
             <div class="ledger-row-header">
@@ -2839,7 +2781,7 @@
                 <span class="card-era">${eraText}</span>
                 ${magBadgeHtml}
               </div>
-              <span class="selected-provenance-tag ${provTagClass}">${provTagText}</span>
+              <span class="selected-provenance-tag">${provTagText}</span>
             </div>
             <div class="ledger-title-line">
               <span class="card-title">${titleText}</span>
@@ -2862,11 +2804,7 @@
         const titleEl = document.getElementById('selected-title');
         const provTagEl = document.getElementById('selected-provenance-tag');
         const eraEl = document.getElementById('selected-era-badge');
-        
-        const originTimeEl = document.getElementById('selected-origin-time');
-        const coordsEl = document.getElementById('selected-coords');
-        const magEl = document.getElementById('selected-mag');
-        const depthEl = document.getElementById('selected-depth');
+        const geodeticStripEl = document.getElementById('selected-geodetic-strip');
 
         const quoteSourceEl = document.getElementById('selected-quote-source');
         const quoteConfEl = document.getElementById('selected-confidence');
@@ -2887,21 +2825,17 @@
         const dateStr = (ev.dateText || ev.dateConversion?.gregorianDateISO || ev.temporal?.gregorianDate || (ev.year ? `${ev.year}년` : "연대 미상")).replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
         const { lat, lon } = getEventCoords(ev);
 
-        // Provenance classification
-        let provTagClass = "tag-hist";
-        let provTagText = "역사 사료 (국사편찬위)";
+        // Quiet, subtle provenance tags (no rainbow tags)
+        let provTagText = "공인 1차 사료";
         let confText = "1차 사료 공인 기록";
 
         if (ev.recordType === 'usgs-live') {
-          provTagClass = "tag-usgs";
           provTagText = "USGS Global Real-time";
           confText = "USGS 실시간 지진계 네트워크";
         } else if (ev.catalogType === 'INSTRUMENTAL_GLOBAL' || (ev.country && ev.country !== 'KOREA')) {
-          provTagClass = "tag-global";
           provTagText = "국제 표준 계측 (ISC/USGS)";
           confText = "국제 지진 센터(ISC) 공인 관측";
         } else if (!isHist) {
-          provTagClass = "tag-kma";
           provTagText = "대한민국 기상청 (KMA)";
           confText = ev.verification === 'kma-verified' ? "기상청 지진관측보고 공인 검증" : "기상청 지진연보 및 학술 논문 교차 검증";
         } else {
@@ -2915,29 +2849,13 @@
         if (titleEl) titleEl.textContent = cleanTitle;
         if (eraEl) eraEl.textContent = eraText;
         if (provTagEl) {
-          provTagEl.className = `selected-provenance-tag ${provTagClass}`;
+          provTagEl.className = "selected-provenance-tag";
           provTagEl.textContent = provTagText;
-        }
-
-        // Telemetry grid with 3-tier epistemic notations ([사료 기록] / [계측 실측] / [학술 추정] / [참조 모델])
-        if (originTimeEl) {
-          const timeBadge = isHist ? `<span class="epistemic-badge obs">[사료 기록]</span>` : `<span class="epistemic-badge obs">[계측 시각]</span>`;
-          originTimeEl.innerHTML = `${dateStr} ${timeBadge}`;
         }
 
         const rawHist = (window.HISTORICAL_EVENTS || []).find(h => h.id === (ev.id || ev.eventId)) || ev;
         const hasCoords = lat != null && lon != null;
         const errRad = rawHist.interpretations?.[0]?.epicenter?.errorRadiusKm ?? rawHist.placeMappings?.[0]?.representativeCoords?.errorRadiusKm ?? (isHist ? 35 : null);
-        if (coordsEl) {
-          if (hasCoords) {
-            const coordBadge = isHist
-              ? `<span class="epistemic-badge est">[감진역 역산${errRad ? ` ±${errRad}km` : ''}]</span>`
-              : `<span class="epistemic-badge obs">[계측 실측]</span>`;
-            coordsEl.innerHTML = `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E ${coordBadge}`;
-          } else {
-            coordsEl.innerHTML = `정밀 좌표 미상 <span class="epistemic-badge obs">[문헌 원전 보존]</span>`;
-          }
-        }
 
         const rawMagNum = (typeof ev.mag === 'number') ? ev.mag : (typeof ev.mag?.v === 'number' ? ev.mag.v : null);
         const estMagObj = rawHist.interpretations?.[0]?.estimatedMagnitude;
@@ -2946,31 +2864,67 @@
         const magMax = estMagObj?.max ?? (Array.isArray(estMagObj?.range) ? estMagObj.range[1] : null);
         const mmiRaw = rawHist.macroseismic?.maxIntensityMMI?.rawRoman || rawHist.interpretations?.[0]?.maxIntensityMMI?.roman || ev.macroseismic?.maxIntensityMMI?.rawRoman;
         const mmiText = mmiRaw ? ` (MMI ${mmiRaw})` : "";
-        if (magEl) {
-          if (isHist) {
-            const rangeStr = (magMin != null && magMax != null)
-              ? `M ${Number(magMin).toFixed(1)}~${Number(magMax).toFixed(1)}`
-              : (magVal != null && !isNaN(Number(magVal)) ? `추정 M ~${Number(magVal).toFixed(1)}` : "규모 미상");
-            magEl.innerHTML = `${rangeStr}${mmiText} <span class="epistemic-badge est">[학술 추정]</span>`;
-          } else {
-            magEl.innerHTML = (magVal != null && !isNaN(Number(magVal)))
-              ? `M ${Number(magVal).toFixed(1)}${mmiText} <span class="epistemic-badge obs">[계측 실측]</span>`
-              : `미확인`;
-          }
-        }
 
         const depthKmRaw = !isHist
           ? (ev.depth?.valKm ?? ev.depth?.v ?? ev.spatial?.focalDepth?.valKm ?? (typeof ev.depth === 'number' ? ev.depth : (ev.focalDepthKm ?? null)))
           : (ev.spatial?.focalDepth?.valKm ?? null);
-        if (depthEl) {
-          if (depthKmRaw != null && !isHist) {
-            depthEl.innerHTML = `${Number(depthKmRaw).toFixed(1)} km <span class="epistemic-badge obs">[계측 실측]</span>`;
+
+        // Airy horizontal geodetic strip
+        if (geodeticStripEl) {
+          if (isHist) {
+            const rangeStr = (magMin != null && magMax != null)
+              ? `M ${Number(magMin).toFixed(1)}~${Number(magMax).toFixed(1)}`
+              : (magVal != null && !isNaN(Number(magVal)) ? `추정 M ~${Number(magVal).toFixed(1)}` : "규모 미상");
+            const coordStr = hasCoords ? `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E (±${errRad}km)` : "정밀 좌표 미상 (문헌 보존)";
+
+            geodeticStripEl.innerHTML = `
+              <div class="meta-block">
+                <span class="meta-lbl">사료 연대</span>
+                <span class="meta-val">${dateStr}</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">사료 진앙</span>
+                <span class="meta-val">${coordStr}</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">추정 규모</span>
+                <span class="meta-val">${rangeStr}${mmiText}</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">물리 제원</span>
+                <span class="meta-val" style="color:#7A8999;">진원심도 미상(null) · 단층 미상(null)</span>
+              </div>
+            `;
           } else {
-            depthEl.innerHTML = `미상 (파동 모델 12.0 km) <span class="epistemic-badge mod">[참조 모델]</span>`;
+            const magStr = (magVal != null && !isNaN(Number(magVal))) ? `M ${Number(magVal).toFixed(1)}${mmiText}` : 'M 미확인';
+            const depthStr = depthKmRaw != null ? `${Number(depthKmRaw).toFixed(1)} km` : '10.0 km';
+
+            geodeticStripEl.innerHTML = `
+              <div class="meta-block">
+                <span class="meta-lbl">계측 시각</span>
+                <span class="meta-val">${dateStr}</span>
+                <span class="epistemic-badge obs">[실측]</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">진앙 좌표</span>
+                <span class="meta-val">${hasCoords ? `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E` : '좌표 계측중'}</span>
+                <span class="epistemic-badge obs">[실측]</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">지진 규모</span>
+                <span class="meta-val">${magStr}</span>
+                <span class="epistemic-badge obs">[실측]</span>
+              </div>
+              <div class="meta-block">
+                <span class="meta-lbl">진원 심도</span>
+                <span class="meta-val">${depthStr}</span>
+                <span class="epistemic-badge obs">[실측]</span>
+              </div>
+            `;
           }
         }
 
-        // Document / Quote section
+        // Document / Quote section (for Historical Folio)
         const quoteSource = ev.primaryText?.documentSource || ev.sourceName || (ev.records?.[0]?.corpusId ? "조선왕조실록 · 승정원일기" : "공인 역사지진 사료집");
         const quote = ev.translationKo || ev.originalTranslationKo || ev.translation || ev.koreanTranslation || ev.primaryText?.originalScript || ev.text || "지진 진동 및 지형 변동 기록";
         const hanja = ev.primaryText?.originalScript || ev.hanja || "";
@@ -2992,30 +2946,49 @@
         const regMeta = getUniversalEventMetadata(ev.id || ev.eventId, lat, lon);
         if (regionEl) regionEl.textContent = regMeta.geographicType || (regMeta.isGlobalPlanetaryRelief ? "글로벌 연속 지구 지형" : "연안·대륙붕");
         if (velEl) velEl.textContent = (ev.country === 'KOREA' || regMeta.country === 'KOREA') ? "한반도 지각속도 모델 (KIGAM)" : "IASPEI 글로벌 지각속도 모델";
-        if (catalogIdEl) catalogIdEl.textContent = `ID: ${ev.id || ev.eventId || "UNREGISTERED"}`;
+        if (catalogIdEl) catalogIdEl.textContent = `사건 식별자: ${ev.id || ev.eventId || "UNREGISTERED"}`;
 
         // Launch & Back Buttons
         if (btnLaunch) {
           if (hasCoords) {
-            btnLaunch.textContent = "3D 현장 강하 및 시각화 시작 →";
+            btnLaunch.textContent = isHist ? "3D 사료 현장 조망 시작 →" : "3D 현장 강하 및 시각화 재생 시작 →";
           } else {
             btnLaunch.textContent = "사료 궤도 조망 시작 →";
           }
         }
 
         if (btnBackDiscover) {
-          if (this.previousState === 'PERFORMANCE') {
-            btnBackDiscover.textContent = "← 3D 현장으로 복귀";
-          } else {
-            btnBackDiscover.textContent = "← 목록으로 복귀";
-          }
+          btnBackDiscover.textContent = (this.previousState === 'PERFORMANCE') ? "← 3D 현장으로 복귀" : "← 목록으로 복귀";
         }
 
-        // Render 3 Academic Enhancement Dossier Tabs
-        this.renderArchivalProvenance(ev);
-        this.renderTxCurve(depthKmRaw, magVal, ev);
-        this.renderNetworkDynamics(ev, lat, lon, depthKmRaw, magVal);
-        this.setDossierTab(this.activeDossierTab || 'corpus');
+        // STRICT EPISTEMIC SEPARATION:
+        // Historical earthquakes -> calm archival folio mode (hide tabs!)
+        // Instrumental/USGS earthquakes -> academic geophysics exploration mode (show tabs!)
+        const tabBar = document.getElementById('dossier-tab-bar');
+        const corpusPane = document.getElementById('tab-pane-corpus');
+        const sourcePane = document.getElementById('tab-pane-source');
+        const explorationPane = document.getElementById('tab-pane-exploration');
+        const wavefieldPane = document.getElementById('tab-pane-wavefield');
+
+        if (isHist) {
+          if (tabBar) tabBar.style.display = 'none';
+          if (corpusPane) corpusPane.style.display = 'flex';
+          if (sourcePane) sourcePane.style.display = 'none';
+          if (explorationPane) explorationPane.style.display = 'none';
+          if (wavefieldPane) wavefieldPane.style.display = 'none';
+
+          this.renderArchivalProvenance(ev);
+        } else {
+          if (tabBar) tabBar.style.display = 'flex';
+          if (corpusPane) corpusPane.style.display = 'none';
+
+          this.renderNetworkDynamics(ev, lat, lon, depthKmRaw, magVal);
+          this.renderExplorationGeophysics(ev, depthKmRaw);
+          this.renderWavefieldDynamics(ev, depthKmRaw, magVal);
+
+          const defaultTab = (this.activeDossierTab && this.activeDossierTab !== 'corpus') ? this.activeDossierTab : 'source';
+          this.setDossierTab(defaultTab);
+        }
       }
 
       setDossierTab(tabName) {
@@ -3024,9 +2997,9 @@
           btn.classList.toggle('active', btn.getAttribute('data-dossier-tab') === tabName);
         });
         const panes = {
-          corpus: document.getElementById('tab-pane-corpus'),
-          tx: document.getElementById('tab-pane-tx'),
-          network: document.getElementById('tab-pane-network')
+          source: document.getElementById('tab-pane-source'),
+          exploration: document.getElementById('tab-pane-exploration'),
+          wavefield: document.getElementById('tab-pane-wavefield')
         };
         Object.entries(panes).forEach(([k, el]) => {
           if (el) el.style.display = (k === tabName) ? 'flex' : 'none';
@@ -3064,9 +3037,9 @@
           let sequenceItems = [];
           if (evId.includes('1681')) {
             sequenceItems = [
-              { id: 'hist_1681_0612', label: '① [전진] 1681.06.12 양양·삼척 전진 (진앙 미확정)' },
-              { id: 'hist_1681_0626', label: '② [본진·해일] 1681.06.26 양양 해역 대지진·퇴조 (MMI IX)' },
-              { id: 'hist_1681_0702', label: '③ [여진·붕락] 1681.07.02 삼척 능파대·설악산 여진' }
+              { id: 'hist_1681_0612', label: '① [전진] 1681.06.12 양양·삼척 전진' },
+              { id: 'hist_1681_0626', label: '② [본진·해일] 1681.06.26 양양 해역 대지진·퇴조' },
+              { id: 'hist_1681_0702', label: '③ [여진·붕락] 1681.07.02 삼척 능파대 여진' }
             ];
           } else if (evId.includes('2016') && evId.includes('gyeongju')) {
             sequenceItems = [
@@ -3096,13 +3069,13 @@
           }
         }
 
-        // 2. Multi-Scholar Interpretation & Epistemic Separation Box
+        // 2. Multi-Scholar Interpretation & Epistemic Separation Box (Calm Tone-on-Tone)
         if (scholarBox) {
           if (isHist) {
             const interps = rawHist.interpretations || rawHist.scientificEstimates || [];
-            let interpHtml = `<div style="color:#dca858; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:5px;">과학적 인식론 구분 및 복수 연구자 추정 비교</div>`;
+            let interpHtml = `<div style="color:#C2A882; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:6px;">역사 사료 학술 역산 및 복수 연구자 비교</div>`;
             if (Array.isArray(interps) && interps.length > 0 && (interps[0].authorOrInstitution || interps[0].author)) {
-              interpHtml += `<div style="display:flex; flex-direction:column; gap:3px; margin-bottom:5px;">`;
+              interpHtml += `<div style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;">`;
               interps.forEach(it => {
                 const authorName = it.authorOrInstitution
                   ? `${it.authorOrInstitution}${it.publicationYear ? ` (${it.publicationYear})` : ''}`
@@ -3115,118 +3088,241 @@
                 const mmiRoman = it.maxIntensityMMI?.roman || it.maxIntensityMMI;
                 const mmiStr = (typeof mmiRoman === 'string') ? ` · MMI ${mmiRoman}` : '';
                 const basisStr = it.epicenter?.basis || it.maxIntensityMMI?.intensityBasis || it.methodology || '감진지역 기반 역산';
-                interpHtml += `<div>• <strong>${authorName}:</strong> ${mBest}${mRange}${mmiStr} — <span style="color:#8ea8c3;">${basisStr}</span></div>`;
+                interpHtml += `<div>• <strong style="color:#EAE6DF;">${authorName}:</strong> <span style="color:#BAC3CE;">${mBest}${mRange}${mmiStr}</span> — <span style="color:#7A8999;">${basisStr}</span></div>`;
               });
               interpHtml += `</div>`;
             }
-            interpHtml += `<div style="font-size:10px; color:#86a4c4; border-top:1px solid rgba(142,197,252,0.14); padding-top:4px;">` +
-              `[인식론적 원칙] 역사 사료에는 지진계 계측값이 없으므로 진원 깊이(null)와 단층면해(null)를 허위로 확정하지 않으며, 3D 파동 시연 시에만 상부지각 표준 참조 깊이(12km)와 방위각 중립(등방성) 모델을 적용합니다.</div>`;
+            interpHtml += `<div style="font-size:10px; color:#8B99A8; border-top:1px solid rgba(255,255,255,0.06); padding-top:6px; line-height:1.65;">` +
+              `[인식론적 원칙] 역사 사료에는 지진계 계측 기록이 존재하지 않으므로 진원 깊이(null)와 단층면해(null)를 인위적으로 확정하지 않으며, 3D 파동 시연 시에만 상부지각 표준 참조 깊이(12.0km)와 방위각 중립(등방성) 모델을 적용합니다.</div>`;
             scholarBox.innerHTML = interpHtml;
             scholarBox.style.display = 'block';
           } else {
-            scholarBox.innerHTML = `<div style="color:#7ce0a8; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">계측 지진 실측 데이터</div>` +
-              `<div style="font-size:10.5px; color:#9cb8d4;">3성분(동서·남북·상하) 광대역 속도 지진계 및 가속도계(PGA) 파형 역산을 통해 진원 깊이, 지진 모멘트(Mw), Double-Couple 단층면해(주향·경사·면선각)가 실측 검증된 사건입니다.</div>`;
+            scholarBox.innerHTML = `<div style="color:#8FAEC8; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">정밀 계측 지진 실측 검증</div>` +
+              `<div style="font-size:10.5px; color:#BAC3CE; line-height:1.65;">3성분(Z·N·E) 광대역 속도 지진계 및 가속도계(PGA) 파형 역산을 통해 진원 깊이, 지진 모멘트(Mw), Double-Couple 단층면해(주향·경사·면선각)가 실측 검증된 사건입니다.</div>`;
             scholarBox.style.display = 'block';
           }
         }
       }
 
-      renderTxCurve(depthKm, magVal, ev) {
+      renderExplorationGeophysics(ev, depthKm) {
         const container = document.getElementById('tx-graph-container');
+        const cardsContainer = document.getElementById('exploration-grid-container');
+        if (!container && !cardsContainer) return;
+
+        const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 10.0;
+        const V1 = 5.8;  // Upper crust P-wave velocity (km/s)
+        const V2 = 7.8;  // Moho / Upper mantle P-wave velocity (km/s)
+        const VS = 3.35; // Upper crust S-wave velocity (km/s)
+
+        // Critical refraction angle
+        const sinIc = V1 / V2;
+        const icDeg = (Math.asin(sinIc) * 180 / Math.PI).toFixed(1);
+
+        // Intercept time: ti = 2*h*sqrt(V2^2 - V1^2) / (V1 * V2)
+        const ti = (2 * depth * Math.sqrt(V2 * V2 - V1 * V1)) / (V1 * V2);
+
+        // Critical distance: X_crit = 2*h*tan(ic) = 2*h*V1 / sqrt(V2^2 - V1^2)
+        const xCrit = (2 * depth * V1) / Math.sqrt(V2 * V2 - V1 * V1);
+
+        // Crossover distance: X_cross = 2*h*sqrt((V2+V1)/(V2-V1))
+        const xCross = 2 * depth * Math.sqrt((V2 + V1) / (V2 - V1));
+
+        // Two-way vertical reflection zero-offset time
+        const t0 = (2 * depth) / V1;
+
+        // 1. Render Monochromatic T-X Graph SVG
+        if (container) {
+          const width = 560;
+          const height = 145;
+          const padL = 45;
+          const padR = 25;
+          const padT = 20;
+          const padB = 25;
+          const plotW = width - padL - padR;
+          const plotH = height - padT - padB;
+
+          const maxDist = Math.max(300, Math.ceil(xCross * 1.5 / 50) * 50);
+          const maxTime = Math.max(50, Math.ceil((ti + maxDist / V2) * 1.15 / 10) * 10);
+
+          const x = (d) => (padL + (d / maxDist) * plotW).toFixed(1);
+          const y = (t) => (padT + plotH - (t / maxTime) * plotH).toFixed(1);
+
+          let gridSvg = "";
+          const distStep = maxDist > 300 ? 100 : 50;
+          for (let d = distStep; d <= maxDist; d += distStep) {
+            gridSvg += `<line x1="${x(d)}" y1="${padT}" x2="${x(d)}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+            gridSvg += `<text x="${x(d)}" y="${padT + plotH + 14}" fill="#687787" font-size="8.5" text-anchor="middle" font-family="'SF Mono', monospace">${d}</text>`;
+          }
+          const timeStep = maxTime > 60 ? 20 : 10;
+          for (let t = timeStep; t <= maxTime; t += timeStep) {
+            gridSvg += `<line x1="${padL}" y1="${y(t)}" x2="${padL + plotW}" y2="${y(t)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+            gridSvg += `<text x="${padL - 6}" y="${Number(y(t)) + 3}" fill="#687787" font-size="8.5" text-anchor="end" font-family="'SF Mono', monospace">${t}s</text>`;
+          }
+
+          // Direct wave path: t = d / V1
+          let dirPath = `M ${x(0)} ${y(0)}`;
+          for (let d = 5; d <= maxDist; d += 5) {
+            const t = d / V1;
+            if (t <= maxTime) dirPath += ` L ${x(d)} ${y(t)}`;
+          }
+
+          // Head wave path: t = ti + d / V2 (only valid for d >= xCrit)
+          let headPath = `M ${x(xCrit)} ${y(ti + xCrit / V2)}`;
+          for (let d = xCrit + 5; d <= maxDist; d += 5) {
+            const t = ti + d / V2;
+            if (t <= maxTime) headPath += ` L ${x(d)} ${y(t)}`;
+          }
+
+          // Reflected wave path: t = sqrt(t0^2 + d^2 / V1^2)
+          let reflPath = `M ${x(0)} ${y(t0)}`;
+          for (let d = 5; d <= maxDist; d += 5) {
+            const t = Math.sqrt(t0 * t0 + (d * d) / (V1 * V1));
+            if (t <= maxTime) reflPath += ` L ${x(d)} ${y(t)}`;
+          }
+
+          container.innerHTML = `
+            <svg viewBox="0 0 ${width} ${height}" class="tx-curve-svg" style="width:100%; height:auto; background:rgba(0,0,0,0.3); border-radius:2px; border:1px solid rgba(255,255,255,0.07);">
+              <!-- Axes -->
+              <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+              <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+              ${gridSvg}
+
+              <!-- Critical & Crossover Annotations -->
+              <line x1="${x(xCross)}" y1="${padT}" x2="${x(xCross)}" y2="${padT + plotH}" stroke="#8FAEC8" stroke-dasharray="3 3" stroke-width="1" opacity="0.45"/>
+              <text x="${x(xCross)}" y="${padT + plotH - 6}" fill="#8FAEC8" font-size="8" text-anchor="middle" font-family="'SF Mono', monospace">Xcross (${xCross.toFixed(0)}km)</text>
+
+              <line x1="${x(xCrit)}" y1="${padT}" x2="${x(xCrit)}" y2="${padT + plotH}" stroke="#BAC3CE" stroke-dasharray="2 2" stroke-width="1" opacity="0.35"/>
+              <text x="${x(xCrit)}" y="${padT + 12}" fill="#BAC3CE" font-size="8" text-anchor="middle" font-family="'SF Mono', monospace">Xcrit (${xCrit.toFixed(0)}km)</text>
+
+              <!-- Wavefield Curves -->
+              <path d="${reflPath}" fill="none" stroke="#7A8999" stroke-dasharray="4 2" stroke-width="1.3"/>
+              <path d="${dirPath}" fill="none" stroke="#EAE6DF" stroke-width="1.6"/>
+              <path d="${headPath}" fill="none" stroke="#8FAEC8" stroke-width="1.6"/>
+
+              <!-- Legend (Crisp & Restrained) -->
+              <g transform="translate(${padL + 10}, 12)">
+                <line x1="0" y1="0" x2="14" y2="0" stroke="#EAE6DF" stroke-width="1.8"/>
+                <text x="18" y="3" fill="#EAE6DF" font-size="8.5" font-family="'SF Mono', monospace">직접파 (V₁=${V1}km/s)</text>
+
+                <line x1="130" y1="0" x2="144" y2="0" stroke="#8FAEC8" stroke-width="1.8"/>
+                <text x="148" y="3" fill="#8FAEC8" font-size="8.5" font-family="'SF Mono', monospace">모호면 두부파 (V₂=${V2}km/s)</text>
+
+                <line x1="285" y1="0" x2="299" y2="0" stroke="#7A8999" stroke-dasharray="3 2" stroke-width="1.5"/>
+                <text x="303" y="3" fill="#7A8999" font-size="8.5" font-family="'SF Mono', monospace">반사파 쌍곡선 (t₀=${t0.toFixed(1)}s)</text>
+              </g>
+
+              <!-- Axis Titles -->
+              <text x="${width - padR}" y="${padT + plotH + 18}" fill="#687787" font-size="8.5" text-anchor="end" font-family="'SF Mono', monospace">오프셋 x (km) →</text>
+              <text x="${padL - 4}" y="${padT - 6}" fill="#687787" font-size="8.5" text-anchor="start" font-family="'SF Mono', monospace">도달 주시 t (초)</text>
+            </svg>
+          `;
+        }
+
+        // 2. Render Exploration Cards
+        if (cardsContainer) {
+          cardsContainer.innerHTML = `
+            <div class="exploration-card">
+              <div class="exploration-card-title">굴절법 탐사 (Refraction) — 스넬의 법칙 & 임계굴절</div>
+              <div class="exploration-formula">
+                sin i<sub>c</sub> = V₁ / V₂ = ${(V1 / V2).toFixed(3)} (i<sub>c</sub> ≈ ${icDeg}°)<br/>
+                t<sub>head</sub> = x / V₂ + t<sub>i</sub> (t<sub>i</sub> = 2h√(V₂² - V₁²) / (V₁V₂))
+              </div>
+              <div class="exploration-desc">
+                상부층(${V1} km/s)에서 하부 고속층(${V2} km/s) 경계면으로 입사 시, 임계각(i<sub>c</sub>)에 도달하면 경계면을 따라 전파되는 두부파(Head Wave)가 발생합니다. 주시곡선의 기울기(1/V₂)와 절편시간(t<sub>i</sub>)으로 층서 두께를 산출합니다.
+              </div>
+            </div>
+
+            <div class="exploration-card">
+              <div class="exploration-card-title">굴절법 층서 심도 역산 & 교차거리</div>
+              <div class="exploration-formula">
+                h = (t<sub>i</sub> / 2) · (V₁V₂ / √(V₂² - V₁²)) ≈ ${depth.toFixed(1)} km<br/>
+                X<sub>crit</sub> ≈ ${xCrit.toFixed(1)} km · X<sub>cross</sub> ≈ ${xCross.toFixed(1)} km · t<sub>i</sub> = ${ti.toFixed(2)} s
+              </div>
+              <div class="exploration-desc">
+                오프셋 거리 X<sub>cross</sub>(${xCross.toFixed(1)} km) 이전에는 직접파가 먼저 도달하지만, 그 이후에는 고속 매질(V₂)을 통과한 굴절파가 직접파를 추월하여 지진계에 최초 도달파(First Arrival)로 기록됩니다.
+              </div>
+            </div>
+
+            <div class="exploration-card">
+              <div class="exploration-card-title">반사법 탐사 (Reflection) — 주시 쌍곡선 & NMO</div>
+              <div class="exploration-formula">
+                t² = t₀² + x² / V<sub>rms</sub>² (t₀ = 2h / V₁ = ${t0.toFixed(2)} s)<br/>
+                Δt<sub>NMO</sub> = t(x) - t₀ ≈ x² / (2 V<sub>rms</sub>² t₀)
+              </div>
+              <div class="exploration-desc">
+                송신원과 수신점 사이의 수평거리(Offset x)가 증가함에 따라 반사파의 주시는 쌍곡선 형태로 지연됩니다. 수직주시차(Normal Moveout) 보정을 통해 오프셋에 의한 주시 지연을 제거하고 수평 반사면을 평탄화합니다.
+              </div>
+            </div>
+
+            <div class="exploration-card">
+              <div class="exploration-card-title">CMP 중합 & Dix 속도 역산 (Common Midpoint)</div>
+              <div class="exploration-formula">
+                V<sub>int, n</sub> = √[(V<sub>rms, n</sub>² t<sub>n</sub> - V<sub>rms, n-1</sub>² t<sub>n-1</sub>) / (t<sub>n</sub> - t<sub>n-1</sub>)]<br/>
+                중합 주름비: S/N 개선비 ∝ √N (CMP Fold 수)
+              </div>
+              <div class="exploration-desc">
+                동일한 지하 반사점을 공유하는 공통중간점(CMP) 트레이스들을 수집하여 중합함으로써 랜덤 잡음을 소거하고, Dix 역산 공식으로 각 층의 구간속도(Interval Velocity)와 지질 단면을 복원합니다.
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      renderWavefieldDynamics(ev, depthKm, magVal) {
+        const container = document.getElementById('wavefield-grid-container');
         if (!container) return;
 
-        const isHist = !ev?.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL' && ev.recordType !== 'usgs-live' && ev.era !== 'ERA_2_INSTRUMENTAL');
-        const depth = (depthKm != null && !isNaN(depthKm) && !isHist) ? Math.max(1, depthKm) : 12.0;
-        const depthNote = (!isHist && depthKm != null)
-          ? `실측 진원깊이 h = ${depth.toFixed(1)} km 반영`
-          : `역사지진 상부지각 참조 깊이 h = 12.0 km (교육용 모델)`;
-        const width = 560;
-        const height = 138;
-        const padL = 45;
-        const padR = 25;
-        const padT = 18;
-        const padB = 25;
-        const plotW = width - padL - padR;
-        const plotH = height - padT - padB;
-
-        const maxDist = 300;
-        const maxTime = 60;
-
-        const x = (d) => (padL + (d / maxDist) * plotW).toFixed(1);
-        const y = (t) => (padT + plotH - (t / maxTime) * plotH).toFixed(1);
-
-        let gridSvg = "";
-        for (let d = 50; d <= maxDist; d += 50) {
-          gridSvg += `<line x1="${x(d)}" y1="${padT}" x2="${x(d)}" y2="${padT + plotH}" stroke="rgba(142,197,252,0.08)" stroke-width="1"/>`;
-          gridSvg += `<text x="${x(d)}" y="${padT + plotH + 14}" fill="#6482a0" font-size="8.5" text-anchor="middle" font-family="'SF Mono', monospace">${d}</text>`;
-        }
-        for (let t = 10; t <= maxTime; t += 10) {
-          gridSvg += `<line x1="${padL}" y1="${y(t)}" x2="${padL + plotW}" y2="${y(t)}" stroke="rgba(142,197,252,0.08)" stroke-width="1"/>`;
-          gridSvg += `<text x="${padL - 6}" y="${Number(y(t)) + 3}" fill="#6482a0" font-size="8.5" text-anchor="end" font-family="'SF Mono', monospace">${t}s</text>`;
-        }
-
+        const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 10.0;
         const Vp = 5.8;
         const Vs = 3.35;
-        let pgPath = `M ${x(0)} ${y(depth / Vp)}`;
-        let sgPath = `M ${x(0)} ${y(depth / Vs)}`;
-        for (let d = 5; d <= maxDist; d += 5) {
-          const tPg = Math.sqrt(d * d + depth * depth) / Vp;
-          if (tPg <= maxTime) pgPath += ` L ${x(d)} ${y(tPg)}`;
-          const tSg = Math.sqrt(d * d + depth * depth) / Vs;
-          if (tSg <= maxTime) sgPath += ` L ${x(d)} ${y(tSg)}`;
-        }
-
-        const V2 = 7.8;
-        const ti = 7.2;
-        const xCrit = 70;
-        let pnPath = `M ${x(xCrit)} ${y(ti + xCrit / V2)}`;
-        for (let d = xCrit + 10; d <= maxDist; d += 10) {
-          const tPn = ti + d / V2;
-          if (tPn <= maxTime) pnPath += ` L ${x(d)} ${y(tPn)}`;
-        }
-
-        const xCross = 145;
+        const vpVsRatio = (Vp / Vs).toFixed(2);
+        const kOmori = ((Vp * Vs) / (Vp - Vs)).toFixed(2);
 
         container.innerHTML = `
-          <svg viewBox="0 0 ${width} ${height}" class="tx-curve-svg" style="width:100%; height:auto; background:rgba(8,14,24,0.75); border-radius:6px; border:1px solid rgba(142,197,252,0.12);">
-            <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="rgba(142,197,252,0.3)" stroke-width="1.2"/>
-            <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="rgba(142,197,252,0.3)" stroke-width="1.2"/>
-            ${gridSvg}
-            
-            <line x1="${x(xCross)}" y1="${padT}" x2="${x(xCross)}" y2="${padT + plotH}" stroke="#dca858" stroke-dasharray="3 3" stroke-width="1" opacity="0.6"/>
-            <text x="${x(xCross)}" y="${padT + plotH - 5}" fill="#dca858" font-size="8.5" text-anchor="middle" font-family="'SF Mono', monospace">Xcross (145km)</text>
+          <div class="exploration-card">
+            <div class="exploration-card-title">P파 · S파 전파속도 및 매질 탄성계수</div>
+            <div class="exploration-formula">
+              V<sub>P</sub> = √[(K + 4/3 μ) / ρ] ≈ ${Vp} km/s · V<sub>S</sub> = √(μ / ρ) ≈ ${Vs} km/s<br/>
+              V<sub>P</sub> / V<sub>S</sub> = √[2(1 - ν) / (1 - 2ν)] ≈ ${vpVsRatio} (포아송 고체 ν=0.25)
+            </div>
+            <div class="exploration-desc">
+              체적파 중 종파인 P파(압축파)는 체적탄성률(K)과 전단탄성률(μ)에 비례하며, 횡파인 S파(전단파)는 전단복원력(μ)에 의해서만 전파됩니다. 전단응력이 0인 액체(외핵·해수)에서는 S파가 전파되지 않습니다.
+            </div>
+          </div>
 
-            <path d="${sgPath}" fill="none" stroke="#a78bfa" stroke-dasharray="4 2" stroke-width="1.5"/>
-            <path d="${pgPath}" fill="none" stroke="#8ec5fc" stroke-width="1.8"/>
-            <path d="${pnPath}" fill="none" stroke="#dca858" stroke-width="1.8"/>
+          <div class="exploration-card">
+            <div class="exploration-card-title">오모리 공식 (Omori) & S-P 주시차 진앙거리</div>
+            <div class="exploration-formula">
+              d = k · (t<sub>S</sub> - t<sub>P</sub>) (k = V<sub>P</sub>V<sub>S</sub> / (V<sub>P</sub> - V<sub>S</sub>) ≈ ${kOmori} km/s)<br/>
+              Δ = √(d² - h²) (진원심도 h = ${depth.toFixed(1)} km 보정)
+            </div>
+            <div class="exploration-desc">
+              관측소 지진계에 기록된 P파 초동과 S파 초동의 도달 시간차(t<sub>S</sub> - t<sub>P</sub>)에 오모리 계수(k≈8.0)를 곱하면 진원거리(d)가 즉시 산출됩니다. 진원심도(h)를 피타고라스 정리로 보정하여 수평 진앙거리(Δ)를 확정합니다.
+            </div>
+          </div>
 
-            <g transform="translate(108, 11)">
-              <line x1="0" y1="0" x2="14" y2="0" stroke="#8ec5fc" stroke-width="2"/>
-              <text x="18" y="3" fill="#8ec5fc" font-size="8.5" font-family="'SF Mono', monospace">Pg 직접 P파 (5.8 km/s)</text>
-              
-              <line x1="125" y1="0" x2="139" y2="0" stroke="#dca858" stroke-width="2"/>
-              <text x="143" y="3" fill="#dca858" font-size="8.5" font-family="'SF Mono', monospace">Pn 모호면 굴절파 (7.8 km/s)</text>
+          <div class="exploration-card">
+            <div class="exploration-card-title">3개 관측소 삼각측량 (Triangulation) 진앙 결정</div>
+            <div class="exploration-formula">
+              (x - x<sub>i</sub>)² + (y - y<sub>i</sub>)² = Δ<sub>i</sub>² (i = 1, 2, 3 관측소)<br/>
+              진앙 결정: 3개 원의 단일 교점 (오차 타원 최소제곱법 역산)
+            </div>
+            <div class="exploration-desc">
+              독립된 3곳 이상의 지진관측소에서 도출된 진앙거리(Δ₁, Δ₂, Δ₃)를 반지름으로 하는 동심원을 작도하면, 3개 원이 중첩되는 교점에서 진앙의 지리적 좌표가 유일하게 결정됩니다.
+            </div>
+          </div>
 
-              <line x1="280" y1="0" x2="294" y2="0" stroke="#a78bfa" stroke-dasharray="3 2" stroke-width="2"/>
-              <text x="298" y="3" fill="#a78bfa" font-size="8.5" font-family="'SF Mono', monospace">Sg 직접 S파 (3.4 km/s)</text>
-            </g>
-
-            <text x="${width - padR}" y="${padT + plotH + 20}" fill="#6482a0" font-size="8.5" text-anchor="end" font-family="'SF Mono', monospace">진앙거리 Δ (km) →</text>
-            <text x="${padL - 4}" y="${padT - 6}" fill="#6482a0" font-size="8.5" text-anchor="start" font-family="'SF Mono', monospace">주시 t (초)</text>
-          </svg>
+          <div class="exploration-card">
+            <div class="exploration-card-title">3성분 지진계 초동 극성 & 진원구(Beachball) 결정</div>
+            <div class="exploration-formula">
+              초동 극성: 상향(Up, Compression 밀림) vs 하향(Down, Dilatation 당김)<br/>
+              이중우력(Double-Couple) 사분면 음영 ⟹ 주향(Strike) · 경사(Dip) · 면선각(Rake)
+            </div>
+            <div class="exploration-desc">
+              수직성분(Z) 지진계의 최초 P파 굴절 방향이 지표 밀림이면 압축(+), 지표 당김이면 인장(-)입니다. 전 세계 관측망의 초동 극성을 등면적 투영(진원구)하여 4분면 패턴을 도출하고 단층면해(Focal Mechanism)를 역산합니다.
+            </div>
+          </div>
         `;
-
-        const omoriDesc = document.getElementById('tx-omori-desc');
-        if (omoriDesc) {
-          const sampleDist = 100;
-          const spTime = (sampleDist / 8.0).toFixed(1);
-          omoriDesc.textContent = `포아송비 ν=0.25 (Vp/Vs=√3) 기준 · 100km 지점 S-P 주시차 약 ${spTime}초`;
-        }
-
-        const mohoDesc = document.getElementById('tx-moho-desc');
-        if (mohoDesc) {
-          mohoDesc.textContent = `한반도 모호면 심도 ~32km · ${depthNote}`;
-        }
       }
 
       renderNetworkDynamics(ev, lat, lon, depthKm, magVal) {
@@ -3261,7 +3357,7 @@
                 <span class="tsunami-m-val">15 ~ 25 min</span>
               </div>
             </div>
-            <div class="tectonic-theory-card gold">
+            <div class="tectonic-theory-card">
               <div class="tectonic-title">해저 단층 수직 변위 및 파고 증폭 기전 (Green의 법칙)</div>
               <div class="tectonic-desc">
                 동해 대륙붕-울릉분지 경계면의 고경사 역단층(Reverse fault) 운동에 의해 해수면 수직 변위가 유발되었습니다. 
@@ -3322,7 +3418,7 @@
                 <span class="stn-sp-val">S-P 26.2s</span>
               </div>
             </div>
-            <div class="tectonic-theory-card gold">
+            <div class="tectonic-theory-card">
               <div class="tectonic-title">양산단층 분기단층(내남단층) 우수향 주향이동 단층 운동</div>
               <div class="tectonic-desc">
                 진원깊이 15.0km에서 주향 210°, 경사 70°의 단층면을 따라 발생한 우수향 주향이동(Right-lateral Strike-Slip) 지진입니다. 원주 KSAR 37개 관측망 어레이의 빔포밍 분석(방위각 168°, 슬로우니스 0.125 s/km)을 통해 파쇄 전파 방향이 입증되었습니다.
@@ -3394,7 +3490,7 @@
                 <span class="tsunami-m-val">조선왕조실록·고려사</span>
               </div>
             </div>
-            <div class="tectonic-theory-card gold">
+            <div class="tectonic-theory-card">
               <div class="tectonic-title">경기육괴 및 추가령 단층대 역사 지구조 응력 방출</div>
               <div class="tectonic-desc">
                 사료에 기록된 '담벽과 가옥이 무너지고 인마(人馬)가 놀라 쓰러졌다'는 기록을 감진도로 환산(MMI VII 이상)하여 진앙을 복원하였습니다. 선캠브리아기 편마암 복합체로 구성된 경기육괴 내부의 고단층대 활성화 또는 추가령 구조선의 간헐적 지진성 단층 미끄러짐으로 해석됩니다.
