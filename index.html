@@ -3381,7 +3381,24 @@
         let invSource = "USGS W-phase 모멘트 텐서 역산 단층면해";
         let modSource = "Eurocode 8 표준 지반 분류 체계 (Vs30)";
 
-        if (evId.includes("kumamoto")) {
+        if (evId.includes("turkey") || evId.includes("kahramanmaras")) {
+          // Explicitly matched: 2023 Turkey Earthquake
+          ruptureLen = "350 km";
+          maxSlip = "8.6 m";
+          focalMech = "주향 228° / 경사 89° / 면선각 8° (좌수향 주향이동)";
+          momentStr = "5.4 × 10²⁰ N·m (Mw 7.8)";
+          eventNarrative = "2023년 2월 6일 04:17(TRT), 아나톨리아판과 아라비아판의 경계인 동아나톨리아 단층대(EAFZ)를 따라 본진 파쇄가 시작되었습니다. 약 350 km에 걸쳐 최대 8.6 m의 좌수향 주향이동 단층 파쇄가 진행되었으며, 진앙 직근접 관측소에서는 파쇄 지향성 효과(Directivity Effect)로 인해 2g(중력가속도의 2배)를 상회하는 극단적 지반 충격이 계측되었습니다.";
+          noteNarrative = "진앙에서 138 km 떨어진 Antakya(하타이주)는 거리상 감쇠되어야 함에도 불구하고, 호소성 연약 퇴적층에 의한 부지 증폭 현상(Site Amplification)으로 인해 1.32g의 파괴적 진동이 발생하여 대규모 건물 붕괴를 초래했습니다.";
+          stations = [
+            { code: "AFAD 4615 (Pazarcık)", dist: "14 km", pga: "2.01 g", pgaCms: "1,971 cm/s²", comps: "EW 1.84g / NS 1.56g / UD 1.12g", site: "자갈 충적층 (Vs30 ≈ 380 m/s)" },
+            { code: "AFAD 3123 (Antakya)", dist: "138 km", pga: "1.32 g", pgaCms: "1,294 cm/s²", comps: "EW 1.25g / NS 1.18g / UD 0.72g", site: "연약 점토분지 (Vs30 ≈ 220 m/s, 부지증폭)" },
+            { code: "KOERI GZT (Gaziantep)", dist: "45 km", pga: "0.78 g", pgaCms: "765 cm/s²", comps: "EW 0.72g / NS 0.69g / UD 0.45g", site: "석회암 기반암 (Vs30 ≈ 760 m/s)" },
+            { code: "AFAD 0101 (Adana)", dist: "185 km", pga: "0.24 g", pgaCms: "235 cm/s²", comps: "EW 0.21g / NS 0.24g / UD 0.12g", site: "충적 평야 (Vs30 ≈ 410 m/s)" }
+          ];
+          obsSource = "AFAD · KOERI 3성분 가속도계 실측 파형 (PGA)";
+          invSource = "USGS W-phase 모멘트 텐서 역산 단층면해";
+          modSource = "Eurocode 8 표준 지반 분류 체계 (Vs30)";
+        } else if (evId.includes("kumamoto")) {
           ruptureLen = "40 km";
           maxSlip = "4.2 m";
           focalMech = "주향 225° / 경사 65° / 면선각 -140° (우수향 정단층 복합)";
@@ -3554,10 +3571,10 @@
 
         // Generate Monochromatic High-Legibility T-X Graph SVG
         const width = 580;
-        const height = 150;
+        const height = 155;
         const padL = 45;
         const padR = 25;
-        const padT = 24;
+        const padT = 28;
         const padB = 25;
         const plotW = width - padL - padR;
         const plotH = height - padT - padB;
@@ -3620,21 +3637,21 @@
             <path d="${dirPath}" fill="none" stroke="#EAE4D5" stroke-width="1.6"/>
             <path d="${headPath}" fill="none" stroke="#D94E34" stroke-width="1.6"/>
 
-            <!-- Legend -->
-            <g transform="translate(${padL + 10}, 12)">
+            <!-- Legend (Offset to the right so it never overlaps the Y-axis label) -->
+            <g transform="translate(${padL + 80}, 13)">
               <line x1="0" y1="0" x2="14" y2="0" stroke="#EAE4D5" stroke-width="1.8"/>
               <text x="18" y="3" fill="#EAE4D5" font-size="8.5" font-family="'SF Mono', Menlo, monospace">직접파 (V₁=${V1}km/s)</text>
 
-              <line x1="130" y1="0" x2="144" y2="0" stroke="#D94E34" stroke-width="1.8"/>
-              <text x="148" y="3" fill="#D94E34" font-size="8.5" font-family="'SF Mono', Menlo, monospace">모호면 두부파 (V₂=${V2}km/s)</text>
+              <line x1="125" y1="0" x2="139" y2="0" stroke="#D94E34" stroke-width="1.8"/>
+              <text x="143" y="3" fill="#D94E34" font-size="8.5" font-family="'SF Mono', Menlo, monospace">두부파 (V₂=${V2}km/s)</text>
 
-              <line x1="285" y1="0" x2="299" y2="0" stroke="#5EA8FF" stroke-dasharray="3 2" stroke-width="1.5"/>
-              <text x="303" y="3" fill="#5EA8FF" font-size="8.5" font-family="'SF Mono', Menlo, monospace">반사파 쌍곡선 (t₀=${t0.toFixed(1)}s)</text>
+              <line x1="250" y1="0" x2="264" y2="0" stroke="#5EA8FF" stroke-dasharray="3 2" stroke-width="1.5"/>
+              <text x="268" y="3" fill="#5EA8FF" font-size="8.5" font-family="'SF Mono', Menlo, monospace">반사파 쌍곡선 (t₀=${t0.toFixed(1)}s)</text>
             </g>
 
             <!-- Axis Titles -->
             <text x="${width - padR}" y="${padT + plotH + 18}" fill="#8797AC" font-size="8.5" text-anchor="end" font-family="'SF Mono', Menlo, monospace">오프셋 x (km) →</text>
-            <text x="${padL - 4}" y="${padT - 7}" fill="#8797AC" font-size="8.5" text-anchor="start" font-family="'SF Mono', Menlo, monospace">도달 주시 t (초)</text>
+            <text x="${padL - 4}" y="14" fill="#8797AC" font-size="8.5" text-anchor="start" font-family="'SF Mono', Menlo, monospace">도달 주시 t (초)</text>
           </svg>
         `;
 
