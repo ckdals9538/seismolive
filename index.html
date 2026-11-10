@@ -5,14 +5,32 @@
   <title>SEISMOLIVE v4.0 — G2 Phase 6: Generic Archival Living Typography Engine</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <style>
+    :root {
+      --void: #020408;
+      --basalt: #161A22;
+      --basalt-surface: rgba(22, 26, 34, 0.88);
+      --basalt-elevated: rgba(28, 34, 46, 0.96);
+      --hanji: #EAE4D5;
+      --hanji-muted: rgba(234, 228, 213, 0.72);
+      --cinnabar: #D94E34;
+      --brass: #C89D54;
+      --brass-dim: rgba(200, 157, 84, 0.35);
+      --mist: #8797AC;
+      --mist-dim: rgba(135, 151, 172, 0.28);
+      --hairline: rgba(255, 255, 255, 0.08);
+      --hairline-strong: rgba(255, 255, 255, 0.16);
+      --font-serif: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
+      --font-mono: "SF Mono", Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body, html {
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background-color: #020408;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      color: #dceaf8;
+      background-color: var(--void);
+      font-family: var(--font-sans);
+      color: var(--hanji);
       -webkit-font-smoothing: antialiased;
     }
     #canvas-container {
@@ -904,37 +922,75 @@
       }
     }
     .exploration-card {
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(255, 255, 255, 0.015);
+      border: 1px solid var(--hairline);
       border-radius: 2px;
-      padding: 10px 14px;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
     }
     .exploration-card-title {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 9.5px;
-      color: #BAC3CE;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--hanji);
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
     }
     .exploration-formula {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 11px;
-      color: #EAE6DF;
-      background: rgba(0, 0, 0, 0.25);
-      border-left: 2px solid rgba(255, 255, 255, 0.2);
-      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--hanji);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--hairline);
+      padding: 7px 11px;
       border-radius: 2px;
-      line-height: 1.45;
+      line-height: 1.55;
+      letter-spacing: 0.02em;
     }
     .exploration-desc {
-      font-family: "Noto Serif KR", Batang, serif;
+      font-family: var(--font-serif);
       font-size: 11px;
-      color: #8B99A8;
-      line-height: 1.6;
+      color: var(--mist);
+      line-height: 1.65;
+      margin-top: 2px;
+    }
+    .exploration-grounding {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px solid var(--hairline);
+    }
+    .grounding-col {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .grounding-tag {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .grounding-tag.obs {
+      color: var(--brass);
+    }
+    .grounding-tag.inv {
+      color: var(--mist);
+    }
+    .grounding-tag.mod {
+      color: var(--hanji-muted);
+    }
+    .grounding-val {
+      font-family: var(--font-sans);
+      font-size: 9.5px;
+      color: var(--hanji);
+      line-height: 1.4;
+      word-break: keep-all;
     }
 
     /* Wavefield & S-P Grid */
@@ -1101,38 +1157,50 @@
       flex-direction: row;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 16px;
-      gap: 12px;
+      padding: 6px 14px;
+      gap: 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .view-performance::-webkit-scrollbar {
+      display: none;
     }
     .transport-event-info {
       display: flex;
       align-items: center;
       gap: 8px;
-      min-width: 170px;
-      flex-shrink: 0;
+      min-width: 0;
+      flex-shrink: 1;
     }
     .transport-beacon-dot {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
-      background: #8ec5fc;
-      box-shadow: 0 0 8px #8ec5fc;
-      animation: pulseGlow 1.8s infinite ease-in-out;
+      background: var(--brass);
+      box-shadow: 0 0 6px var(--brass);
+      animation: pulseGlow 2.2s infinite ease-in-out;
+      flex-shrink: 0;
     }
     .transport-event-name {
-      font-family: "Noto Serif KR", Batang, serif;
-      font-size: 12.5px;
+      font-family: var(--font-serif);
+      font-size: 12px;
       font-weight: 500;
-      color: #EAE4D5;
+      color: var(--hanji);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: clamp(100px, 16vw, 190px);
     }
     .transport-phase-badge {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 9px;
-      color: #7a9ec2;
-      background: rgba(142, 197, 252, 0.12);
-      padding: 2px 5px;
-      border-radius: 3px;
+      color: var(--mist);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--hairline);
+      padding: 1px 5px;
+      border-radius: 2px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .transport-controls {
       display: flex;
@@ -1241,12 +1309,10 @@
       text-align: right;
     }
     .surface-btn.compact {
-      font-size: 10.5px;
-      padding: 5px 8px;
+      font-size: 11px;
+      padding: 4px 8px;
       white-space: nowrap;
       flex-shrink: 0;
-    }
-      padding: 5px 10px;
     }
     /* Epistemic Provenance Notations (Observed vs Estimated vs Reference Model) */
     .epistemic-badge {
@@ -2607,8 +2673,10 @@
             e.stopPropagation();
             if (this.previousState === 'PERFORMANCE') {
               this.setState('PERFORMANCE');
-            } else {
+            } else if (this.previousState === 'DISCOVER') {
               this.setState('DISCOVER');
+            } else {
+              this.setState('EXPLORE');
             }
           });
         }
@@ -3135,7 +3203,11 @@
         }
 
         if (btnBackDiscover) {
-          btnBackDiscover.innerHTML = (this.previousState === 'PERFORMANCE') ? "&lsaquo; 3D 현장 복귀" : "&lsaquo; 목록으로 복귀";
+          if (this.previousState === 'PERFORMANCE' || this.previousState === 'EXPLORE') {
+            btnBackDiscover.innerHTML = "&lsaquo; 3D 현장 복귀";
+          } else {
+            btnBackDiscover.innerHTML = "&lsaquo; 목록으로 복귀";
+          }
         }
 
         // STRICT EPISTEMIC & DOMAIN SEPARATION:
@@ -3390,50 +3462,106 @@
           `;
         }
 
-        // 2. Render Exploration Cards
+        // 2. Render Exploration Cards with 3-Column Epistemic Grounding Grid
         if (cardsContainer) {
           cardsContainer.innerHTML = `
             <div class="exploration-card">
               <div class="exploration-card-title">굴절법 탐사 (Refraction) — 스넬의 법칙 & 임계굴절</div>
               <div class="exploration-formula">
-                sin i<sub>c</sub> = V₁ / V₂ = ${(V1 / V2).toFixed(3)} (i<sub>c</sub> ≈ ${icDeg}°)<br/>
-                t<sub>head</sub> = x / V₂ + t<sub>i</sub> (t<sub>i</sub> = 2h√(V₂² - V₁²) / (V₁V₂))
+                sin i<sub>c</sub> = V₁ / V₂ = ${(V1 / V2).toFixed(3)} &emsp; (i<sub>c</sub> &approx; ${icDeg}&deg;)<br/>
+                t<sub>head</sub>(x) = x / V₂ + t<sub>i</sub> &emsp; [t<sub>i</sub> = 2h&radic;(V₂² - V₁²) / (V₁V₂)]
               </div>
               <div class="exploration-desc">
-                상부층(${V1} km/s)에서 하부 고속층(${V2} km/s) 경계면으로 입사 시, 임계각(i<sub>c</sub>)에 도달하면 경계면을 따라 전파되는 두부파(Head Wave)가 발생합니다. 주시곡선의 기울기(1/V₂)와 절편시간(t<sub>i</sub>)으로 층서 두께를 산출합니다.
+                상부 지각(${V1} km/s)에서 하부 고속층(${V2} km/s) 경계면으로 입사 시, 임계각(i<sub>c</sub>&approx;${icDeg}&deg;)에 도달하면 경계면을 따라 전파되는 두부파(Head Wave)가 발생합니다. 주시곡선의 역기울기(1/V₂)와 절편시간(t<sub>i</sub>)으로 모호면 층서 두께를 산출합니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">오프셋 x별 관측소 초동 주시 T<sub>first</sub></span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">절편 t<sub>i</sub> = ${ti.toFixed(2)}s · 임계각 ${icDeg}&deg;</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">1D 수평 등방성 (V₁=5.8, V₂=7.8)</span>
+                </div>
               </div>
             </div>
 
             <div class="exploration-card">
               <div class="exploration-card-title">굴절법 층서 심도 역산 & 교차거리</div>
               <div class="exploration-formula">
-                h = (t<sub>i</sub> / 2) · (V₁V₂ / √(V₂² - V₁²)) ≈ ${depth.toFixed(1)} km<br/>
-                X<sub>crit</sub> ≈ ${xCrit.toFixed(1)} km · X<sub>cross</sub> ≈ ${xCross.toFixed(1)} km · t<sub>i</sub> = ${ti.toFixed(2)} s
+                h = (t<sub>i</sub> / 2) &middot; (V₁V₂ / &radic;(V₂² - V₁²)) &approx; ${depth.toFixed(1)} km<br/>
+                X<sub>crit</sub> &approx; ${xCrit.toFixed(1)} km &middot; X<sub>cross</sub> &approx; ${xCross.toFixed(1)} km &middot; t<sub>i</sub> = ${ti.toFixed(2)} s
               </div>
               <div class="exploration-desc">
-                오프셋 거리 X<sub>cross</sub>(${xCross.toFixed(1)} km) 이전에는 직접파가 먼저 도달하지만, 그 이후에는 고속 매질(V₂)을 통과한 굴절파가 직접파를 추월하여 지진계에 최초 도달파(First Arrival)로 기록됩니다.
+                오프셋 거리 X<sub>cross</sub>(${xCross.toFixed(1)} km) 이전에는 직접파가 먼저 도달하지만, 그 이후에는 고속 매질(V₂)을 통과한 굴절 두부파가 직접파를 추월하여 지진계에 최초 도달파(First Arrival)로 기록됩니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">직접파-두부파 초동 추월 교차점</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">모호면 심도 h = ${depth.toFixed(1)} km 역산</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">수평 평탄 경계면 (경사각 0&deg;)</span>
+                </div>
               </div>
             </div>
 
             <div class="exploration-card">
               <div class="exploration-card-title">반사법 탐사 (Reflection) — 주시 쌍곡선 & NMO</div>
               <div class="exploration-formula">
-                t² = t₀² + x² / V<sub>rms</sub>² (t₀ = 2h / V₁ = ${t0.toFixed(2)} s)<br/>
-                Δt<sub>NMO</sub> = t(x) - t₀ ≈ x² / (2 V<sub>rms</sub>² t₀)
+                t&sup2; = t₀&sup2; + x&sup2; / V<sub>rms</sub>&sup2; &emsp; (t₀ = 2h / V₁ = ${t0.toFixed(2)} s)<br/>
+                &Delta;t<sub>NMO</sub> = t(x) - t₀ &approx; x&sup2; / (2 V<sub>rms</sub>&sup2; t₀)
               </div>
               <div class="exploration-desc">
-                송신원과 수신점 사이의 수평거리(Offset x)가 증가함에 따라 반사파의 주시는 쌍곡선 형태로 지연됩니다. 수직주시차(Normal Moveout) 보정을 통해 오프셋에 의한 주시 지연을 제거하고 수평 반사면을 평탄화합니다.
+                송신원과 수신점 사이의 수평거리(Offset x)가 증가함에 따라 반사파의 주시는 쌍곡선 형태로 지연됩니다. 수직주시차(Normal Moveout) 보정을 통해 오프셋에 의한 주시 지연을 제거하고 수평 반사면을 평탄화(Flat Gathering)합니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">오프셋 채널별 반사 도달 트레이스</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">수직 왕복주시 t₀ = ${t0.toFixed(2)}s · V<sub>rms</sub></span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">음향 임피던스(Z = &rho;V) 불연속 반사면</span>
+                </div>
               </div>
             </div>
 
             <div class="exploration-card">
               <div class="exploration-card-title">CMP 중합 & Dix 속도 역산 (Common Midpoint)</div>
               <div class="exploration-formula">
-                V<sub>int, n</sub> = √[(V<sub>rms, n</sub>² t<sub>n</sub> - V<sub>rms, n-1</sub>² t<sub>n-1</sub>) / (t<sub>n</sub> - t<sub>n-1</sub>)]<br/>
-                중합 주름비: S/N 개선비 ∝ √N (CMP Fold 수)
+                V<sub>int, n</sub> = &radic;[(V<sub>rms, n</sub>&sup2; t<sub>n</sub> - V<sub>rms, n-1</sub>&sup2; t<sub>n-1</sub>) / (t<sub>n</sub> - t<sub>n-1</sub>)]<br/>
+                S/N 개선비 &prop; &radic;N &emsp; (N = CMP Fold 중합수)
               </div>
               <div class="exploration-desc">
-                동일한 지하 반사점을 공유하는 공통중간점(CMP) 트레이스들을 수집하여 중합함으로써 랜덤 잡음을 소거하고, Dix 역산 공식으로 각 층의 구간속도(Interval Velocity)와 지질 단면을 복원합니다.
+                동일한 지하 반사점을 공유하는 공통중간점(CMP) 트레이스들을 수집하여 중합함으로써 무작위 잡음을 소거하고, Dix 역산 공식으로 각 층의 구간속도(Interval Velocity)와 지질 단면 경계면을 복원합니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">CMP 지오메트리 다중 트레이스 신호</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">지층 구간속도 V<sub>int</sub> · 반사계수 R</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">소 오프셋 수평 성층 음향 매질</span>
+                </div>
               </div>
             </div>
           `;
@@ -3454,44 +3582,100 @@
           <div class="exploration-card">
             <div class="exploration-card-title">P파 · S파 전파속도 및 매질 탄성계수</div>
             <div class="exploration-formula">
-              V<sub>P</sub> = √[(K + 4/3 μ) / ρ] ≈ ${Vp} km/s · V<sub>S</sub> = √(μ / ρ) ≈ ${Vs} km/s<br/>
-              V<sub>P</sub> / V<sub>S</sub> = √[2(1 - ν) / (1 - 2ν)] ≈ ${vpVsRatio} (포아송 고체 ν=0.25)
+              V<sub>P</sub> = &radic;[(K + 4/3 &mu;) / &rho;] &approx; ${Vp} km/s &emsp; V<sub>S</sub> = &radic;(&mu; / &rho;) &approx; ${Vs} km/s<br/>
+              V<sub>P</sub> / V<sub>S</sub> = &radic;[2(1 - &nu;) / (1 - 2&nu;)] &approx; ${vpVsRatio} &emsp; (포아송 고체 &nu;=0.25)
             </div>
             <div class="exploration-desc">
-              체적파 중 종파인 P파(압축파)는 체적탄성률(K)과 전단탄성률(μ)에 비례하며, 횡파인 S파(전단파)는 전단복원력(μ)에 의해서만 전파됩니다. 전단응력이 0인 액체(외핵·해수)에서는 S파가 전파되지 않습니다.
+              체적파 중 종파인 P파(압축파)는 체적탄성률(K)과 전단탄성률(&mu;)에 비례하며, 횡파인 S파(전단파)는 전단복원력(&mu;)에 의해서만 전파됩니다. 전단응력이 0인 액체(외핵·해수)에서는 S파가 전파되지 않습니다.
+            </div>
+            <div class="exploration-grounding">
+              <div class="grounding-col">
+                <span class="grounding-tag obs">[실측값]</span>
+                <span class="grounding-val">Z성분 P초동 및 수평성분 S초동</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag inv">[역산값]</span>
+                <span class="grounding-val">지각 탄성파 속도비 V<sub>P</sub>/V<sub>S</sub> &approx; ${vpVsRatio}</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag mod">[모델 가정]</span>
+                <span class="grounding-val">등방 탄성체 (&lambda;=&mu;, &nu;=0.25)</span>
+              </div>
             </div>
           </div>
 
           <div class="exploration-card">
             <div class="exploration-card-title">오모리 공식 (Omori) & S-P 주시차 진앙거리</div>
             <div class="exploration-formula">
-              d = k · (t<sub>S</sub> - t<sub>P</sub>) (k = V<sub>P</sub>V<sub>S</sub> / (V<sub>P</sub> - V<sub>S</sub>) ≈ ${kOmori} km/s)<br/>
-              Δ = √(d² - h²) (진원심도 h = ${depth.toFixed(1)} km 보정)
+              d = k &middot; (t<sub>S</sub> - t<sub>P</sub>) &emsp; [k = V<sub>P</sub>V<sub>S</sub> / (V<sub>P</sub> - V<sub>S</sub>) &approx; ${kOmori} km/s]<br/>
+              &Delta; = &radic;(d&sup2; - h&sup2;) &emsp; (진원심도 h = ${depth.toFixed(1)} km 보정)
             </div>
             <div class="exploration-desc">
-              관측소 지진계에 기록된 P파 초동과 S파 초동의 도달 시간차(t<sub>S</sub> - t<sub>P</sub>)에 오모리 계수(k≈8.0)를 곱하면 진원거리(d)가 즉시 산출됩니다. 진원심도(h)를 피타고라스 정리로 보정하여 수평 진앙거리(Δ)를 확정합니다.
+              관측소 지진계에 기록된 P파 초동과 S파 초동의 도달 시간차(t<sub>S</sub> - t<sub>P</sub>)에 오모리 계수(k&approx;${kOmori})를 곱하면 진원거리(d)가 산출됩니다. 진원심도(h)를 피타고라스 정리로 보정하여 수평 진앙거리(&Delta;)를 확정합니다.
+            </div>
+            <div class="exploration-grounding">
+              <div class="grounding-col">
+                <span class="grounding-tag obs">[실측값]</span>
+                <span class="grounding-val">관측소별 S-P 도달시차 (t<sub>S</sub> - t<sub>P</sub>)</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag inv">[역산값]</span>
+                <span class="grounding-val">진원거리 d 및 지표 진앙거리 &Delta;</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag mod">[모델 가정]</span>
+                <span class="grounding-val">선형 직선 전파 및 균질 지각 속도</span>
+              </div>
             </div>
           </div>
 
           <div class="exploration-card">
             <div class="exploration-card-title">3개 관측소 삼각측량 (Triangulation) 진앙 결정</div>
             <div class="exploration-formula">
-              (x - x<sub>i</sub>)² + (y - y<sub>i</sub>)² = Δ<sub>i</sub>² (i = 1, 2, 3 관측소)<br/>
-              진앙 결정: 3개 원의 단일 교점 (오차 타원 최소제곱법 역산)
+              (x - x<sub>i</sub>)&sup2; + (y - y<sub>i</sub>)&sup2; = &Delta;<sub>i</sub>&sup2; &emsp; (i = 1, 2, 3 관측소)<br/>
+              진앙 결정: 3개 원의 단일 교점 &emsp; (오차 타원 최소제곱법 역산)
             </div>
             <div class="exploration-desc">
-              독립된 3곳 이상의 지진관측소에서 도출된 진앙거리(Δ₁, Δ₂, Δ₃)를 반지름으로 하는 동심원을 작도하면, 3개 원이 중첩되는 교점에서 진앙의 지리적 좌표가 유일하게 결정됩니다.
+              독립된 3곳 이상의 지진관측소에서 도출된 진앙거리(&Delta;₁, &Delta;₂, &Delta;₃)를 반지름으로 하는 동심원을 작도하면, 3개 원이 중첩되는 교점에서 진앙의 지리적 좌표가 유일하게 결정됩니다.
+            </div>
+            <div class="exploration-grounding">
+              <div class="grounding-col">
+                <span class="grounding-tag obs">[실측값]</span>
+                <span class="grounding-val">관측망 3점 이상 S-P 도달시각</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag inv">[역산값]</span>
+                <span class="grounding-val">진앙 위경도 좌표 및 오차 타원</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag mod">[모델 가정]</span>
+                <span class="grounding-val">국소 WGS84 접평면 등각 투영</span>
+              </div>
             </div>
           </div>
 
           <div class="exploration-card">
             <div class="exploration-card-title">3성분 지진계 초동 극성 & 진원구(Beachball) 결정</div>
             <div class="exploration-formula">
-              초동 극성: 상향(Up, Compression 밀림) vs 하향(Down, Dilatation 당김)<br/>
-              이중우력(Double-Couple) 사분면 음영 ⟹ 주향(Strike) · 경사(Dip) · 면선각(Rake)
+              초동 극성: 상향(Up, Compression 밀림 +) vs 하향(Down, Dilatation 당김 -)<br/>
+              이중우력(Double-Couple) 사분면 음영 &rArr; 주향(Strike) &middot; 경사(Dip) &middot; 면선각(Rake)
             </div>
             <div class="exploration-desc">
               수직성분(Z) 지진계의 최초 P파 굴절 방향이 지표 밀림이면 압축(+), 지표 당김이면 인장(-)입니다. 전 세계 관측망의 초동 극성을 등면적 투영(진원구)하여 4분면 패턴을 도출하고 단층면해(Focal Mechanism)를 역산합니다.
+            </div>
+            <div class="exploration-grounding">
+              <div class="grounding-col">
+                <span class="grounding-tag obs">[실측값]</span>
+                <span class="grounding-val">관측망 Z성분 최초 파두 부호 (+/-)</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag inv">[역산값]</span>
+                <span class="grounding-val">단층 주향/경사/면선각 및 모멘트 텐서</span>
+              </div>
+              <div class="grounding-col">
+                <span class="grounding-tag mod">[모델 가정]</span>
+                <span class="grounding-val">점지진원 이중우력(Double-Couple) 모델</span>
+              </div>
             </div>
           </div>
         `;
@@ -3532,7 +3716,21 @@
             <div class="tectonic-theory-card">
               <div class="tectonic-title">동아나톨리아 단층대 좌수향 주향이동 (Left-lateral Strike-Slip) 기전</div>
               <div class="tectonic-desc">
-                아나톨리아 판과 아라비아 판의 경계 단층면(주향 65°, 경사 89°, 면선각 5°)을 따라 길이 310km에 걸쳐 파쇄가 진행되었습니다. 파쇄 속도는 초당 3.2km에 달했으며, 인공위성 InSAR 레이더 관측 결과 최대 7.2m의 지표 수평 변위가 실측되었습니다.
+                아나톨리아 판과 아라비아 판의 경계 단층면(주향 65&deg;, 경사 89&deg;, 면선각 5&deg;)을 따라 길이 310km에 걸쳐 파쇄가 진행되었습니다. 파쇄 속도는 초당 3.2km에 달했으며, 인공위성 InSAR 레이더 관측 결과 최대 7.2m의 지표 수평 변위가 실측되었습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">AFAD NAR 최대 가속도 0.68g · InSAR 지표 변위 7.2m</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">W-phase 모멘트 규모 Mw 7.8 (M₀=5.4&times;10²⁰ N&middot;m)</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">아나톨리아 지각속도 모델 (Vp=6.0, Vs=3.45 km/s)</span>
+                </div>
               </div>
             </div>
           `;
@@ -3562,7 +3760,21 @@
             <div class="tectonic-theory-card">
               <div class="tectonic-title">일본해구 메가스러스트 저경사 역단층 (Megathrust Subduction) 기전</div>
               <div class="tectonic-desc">
-                태평양판이 북미판 아래로 침강하는 섭입대 단층면(주향 203°, 경사 12°, 면선각 88°)을 따라 500km × 200km 면적이 일시에 파쇄(Mw 9.1)되었습니다. 해저면이 최대 50m 융기하며 최대 파고 40.5m의 초대형 지진해일이 발생하였습니다.
+                태평양판이 북미판 아래로 침강하는 섭입대 단층면(주향 203&deg;, 경사 12&deg;, 면선각 88&deg;)을 따라 500km &times; 200km 면적이 일시에 파쇄(Mw 9.1)되었습니다. 해저면이 최대 50m 융기하며 최대 파고 40.5m의 초대형 지진해일이 발생하였습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">NIED K-NET 최대 2.75g · GPS 해저 융기 50m</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">모멘트 규모 Mw 9.1 · 단층 미끄러짐량 60m</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">태평양 섭입 판경계 저경사 메가스러스트 모델</span>
+                </div>
               </div>
             </div>
           `;
@@ -3592,7 +3804,21 @@
             <div class="tectonic-theory-card">
               <div class="tectonic-title">후타가와-히나구 단층대 우수향 주향이동 (Right-lateral Strike-Slip) 기전</div>
               <div class="tectonic-desc">
-                단층면(주향 220°, 경사 65°, 면선각 -150°)을 따라 34km에 걸쳐 지표 파열이 도달한 내륙 직하형 지진입니다. 4월 14일 전진(M6.5) 후 28시간 만에 본진(M7.3)이 연쇄 촉발되었으며, 단층선이 아소 칼데라 서측까지 도달하였습니다.
+                단층면(주향 220&deg;, 경사 65&deg;, 면선각 -150&deg;)을 따라 34km에 걸쳐 지표 파열이 도달한 내륙 직하형 지진입니다. 4월 14일 전진(M6.5) 후 28시간 만에 본진(M7.3)이 연쇄 촉발되었으며, 단층선이 아소 칼데라 서측까지 도달하였습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">KMM006 마시키 PGA 1.34g · 지표 파쇄 34km</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">본진 모멘트 규모 Mw 7.0 (Mj 7.3) · 심도 12km</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">규슈 내륙 화산성 지구대 속도구조 모델</span>
+                </div>
               </div>
             </div>
           `;
@@ -3622,7 +3848,21 @@
             <div class="tectonic-theory-card">
               <div class="tectonic-title">유발지진 공극수압 파괴 역학 (Coulomb Failure Criterion)</div>
               <div class="tectonic-desc">
-                지열발전(EGS) 고압 수압파쇄에 따른 공극수압(P<sub>pore</sub>) 급증으로 유효수직응력(σ<sub>eff</sub> = σ<sub>n</sub> - P<sub>pore</sub>)이 임계치 이하로 감소하여 지하 4.3km 미소단층면(주향 214°, 경사 43°, 면선각 98°)의 역단층성 미끄러짐이 촉발되었습니다.
+                지열발전(EGS) 고압 수압파쇄에 따른 공극수압(P<sub>pore</sub>) 급증으로 유효수직응력(&sigma;<sub>eff</sub> = &sigma;<sub>n</sub> - P<sub>pore</sub>)이 임계치 이하로 감소하여 지하 4.3km 미소단층면(주향 214&deg;, 경사 43&deg;, 면선각 98&deg;)의 역단층성 미끄러짐이 촉발되었습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">PHA2 관측소 PGA 0.58g · 흥해읍 지표 액상화</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">모멘트 규모 Mw 5.4 · 천발 진원 심도 4.3 km</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">쿨롱 파괴 기준식 및 포항분지 3차원 단층 모델</span>
+                </div>
               </div>
             </div>
           `;
@@ -3652,7 +3892,21 @@
             <div class="tectonic-theory-card">
               <div class="tectonic-title">양산단층 분기단층(곡사단층) 우수향 주향이동 단층 운동</div>
               <div class="tectonic-desc">
-                진원깊이 15.0km에서 주향 210°, 경사 70°, 면선각 10°의 단층면을 따라 발생한 우수향 주향이동(Right-lateral Strike-Slip) 지진입니다. 원주 KSAR 37개 관측망 어레이의 빔포밍 분석(방위각 168°, 슬로우니스 0.125 s/km)을 통해 파쇄 전파 방향이 정밀 역산되었습니다.
+                진원깊이 15.0km에서 주향 210&deg;, 경사 70&deg;, 면선각 10&deg;의 단층면을 따라 발생한 우수향 주향이동(Right-lateral Strike-Slip) 지진입니다. 원주 KSAR 37개 관측망 어레이의 빔포밍 분석(방위각 168&deg;, 슬로우니스 0.125 s/km)을 통해 파쇄 전파 방향이 정밀 역산되었습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">USN 울산 PGA 0.42g · KSRS 빔포밍 파형</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">기상청 규모 ML 5.8 (Mw 5.5) · 심도 15.0 km</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">한반도 남동부 지각속도 모델 (Vp=5.95 km/s)</span>
+                </div>
               </div>
             </div>
           `;
@@ -3678,6 +3932,20 @@
               <div class="tectonic-title">글로벌 지진계 네트워크(GSN) 파형 역산 및 단층면해</div>
               <div class="tectonic-desc">
                 광대역 지진계에 기록된 3성분 파형의 초동 위상(P, S, Pn, Sn)과 W-phase 모멘트 텐서 역산을 통해 진원 깊이, 방출 에너지, 단층 파쇄 메커니즘이 확정되었습니다.
+              </div>
+              <div class="exploration-grounding">
+                <div class="grounding-col">
+                  <span class="grounding-tag obs">[실측값]</span>
+                  <span class="grounding-val">GSN 3성분 광대역 지진계 텔레세이스믹 파형</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag inv">[역산값]</span>
+                  <span class="grounding-val">CMT 단층면해 및 지진 모멘트 M₀ 역산</span>
+                </div>
+                <div class="grounding-col">
+                  <span class="grounding-tag mod">[모델 가정]</span>
+                  <span class="grounding-val">IASPEI91 / AK135 글로벌 1D 지구 모델</span>
+                </div>
               </div>
             </div>
           `;
