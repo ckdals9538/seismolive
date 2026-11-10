@@ -1,0 +1,145 @@
+/* SEISMOLIVE v4.0 — Theme, Design Tokens & Viewport */
+    :root {
+      --void: #020408;
+      --basalt: #161A22;
+      --basalt-surface: rgba(22, 26, 34, 0.88);
+      --basalt-elevated: rgba(28, 34, 46, 0.96);
+      --hanji: #EAE4D5;
+      --hanji-muted: rgba(234, 228, 213, 0.72);
+      --cinnabar: #D94E34;
+      --brass: #C89D54;
+      --brass-dim: rgba(200, 157, 84, 0.35);
+      --mist: #8797AC;
+      --mist-dim: rgba(135, 151, 172, 0.28);
+      --hairline: rgba(255, 255, 255, 0.08);
+      --hairline-strong: rgba(255, 255, 255, 0.16);
+      --font-serif: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
+      --font-mono: "SF Mono", Menlo, Consolas, monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--void);
+      font-family: var(--font-sans);
+      color: var(--hanji);
+      -webkit-font-smoothing: antialiased;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Minimal Whispering Gallery Brand (Top-Left) */
+    #gallery-header {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+      user-select: none;
+    }
+    .gallery-title {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--hanji);
+      margin-bottom: 3px;
+    }
+    .gallery-sub {
+      font-size: 10.5px;
+      font-family: var(--font-serif);
+      color: var(--mist);
+      letter-spacing: 0.04em;
+    }
+
+
+
+    /* Loading Indicator */
+    #loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 12px;
+      color: var(--hanji);
+      letter-spacing: 0.08em;
+      text-align: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 26px;
+      height: 26px;
+      border: 1px solid var(--hairline);
+      border-top-color: var(--brass);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 10px auto;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Floating Archival Subtitle (Hanji Ivory, Floating, No Box) */
+    #chronicle-subtitle-container {
+      position: absolute;
+      bottom: 92px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      pointer-events: none;
+      max-width: 900px;
+      width: 90%;
+      text-align: center;
+      transition: all 0.5s ease;
+    }
+    #chronicle-subtitle-text {
+      font-family: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
+      font-size: 16px;
+      font-weight: 300;
+      line-height: 1.8;
+      color: #EAE4D5; /* Hanji Ivory */
+      letter-spacing: 0.08em;
+      text-shadow: 0 2px 16px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.85);
+      background: transparent;
+      border: none;
+      padding: 6px 16px;
+      transition: opacity 0.8s ease;
+    }
+
+    /* Interactive Discovery Beacon Tooltip */
+    #beacon-tooltip {
+      position: absolute;
+      pointer-events: none;
+      z-index: 50;
+      background: rgba(10, 16, 26, 0.94);
+      border: 1px solid rgba(200, 157, 84, 0.45);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(200, 157, 84, 0.2);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 12px 16px;
+      border-radius: 6px;
+      width: 320px;
+      transform: translate(16px, -50%);
+      transition: opacity 0.2s ease;
+      display: none;
+    }
+    .tooltip-era {
+      font-family: "SF Mono", Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: #C89D54; /* Brass */
+      margin-bottom: 2px;
+    }
+    .tooltip-title {
+      font-family: "Noto Serif KR", Batang, serif;
