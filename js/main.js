@@ -3,9 +3,9 @@
     // Unified Architecture · Figure-Ground Contrast · Editorial Serif · Negative Space
     // =========================================================================
 
-    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.7';
-    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.7';
-    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.7';
+    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.9';
+    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.9';
+    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.9';
     import {
       WGS84,
       DATUM_STATUS,
@@ -14,7 +14,7 @@
       computeEllipsoidalHeight,
       threeToECEF,
       ecefToThree
-    } from './3d/geodeticEllipsoidCoord.js?v=4.7';
+    } from './3d/geodeticEllipsoidCoord.js?v=4.9';
     import {
       SURFACE_CLASSIFICATION,
       RASTER_PIXEL_TYPE,
@@ -26,16 +26,16 @@
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
       loadGlobalElevationTexture
-    } from './3d/terrainDataResolver.js?v=4.7';
+    } from './3d/terrainDataResolver.js?v=4.9';
     import {
       SeismicSourceModel,
       VelocityModelStatus,
       REFERENCE_CRUSTAL_VELOCITY,
       REGIONAL_VELOCITY_MODELS
-    } from './3d/seismicSourceModel.js?v=4.7';
-    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.7';
-    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.7';
-    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.7';
+    } from './3d/seismicSourceModel.js?v=4.9';
+    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.9';
+    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.9';
+    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.9';
     import {
       ArchivalSemanticParser,
       renderEditorialTypography,
@@ -44,7 +44,7 @@
       createFractureEntity,
       createRecedeEntity,
       createExposeEntity
-    } from './3d/livingMemoryEngine.js?v=4.7';
+    } from './3d/livingMemoryEngine.js?v=4.9';
 
     let orchestrator = null;
     window.orchestrator = null;
@@ -69,10 +69,10 @@
     // MASTER EXHIBITION ARCHITECTURE: STATE MACHINE, FLIGHT & DISCOVERY
     // =========================================================================
 
-import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=4.7';
-import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=4.7';
-import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=4.7';
-import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js?v=4.7';
+import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=4.9';
+import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=4.9';
+import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=4.9';
+import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js?v=4.9';
 
 const FLIGHT_STATES = {
       ORBIT: 'STATE_ORBIT',
@@ -378,41 +378,11 @@ const FLIGHT_STATES = {
     }
 
     function createAtmosphereGlowShell(lat0, lon0) {
-      const globeParams = computeGlobeCenterAndPolarAxis(lat0, lon0);
-      const geo = new THREE.SphereGeometry(globeParams.semiMajorUnits * 1.015, 64, 48);
-      geo.translate(globeParams.centerThree[0], globeParams.centerThree[1], globeParams.centerThree[2]);
-
-      const mat = new THREE.ShaderMaterial({
-        vertexShader: `
-          varying vec3 vWorldNormal;
-          varying vec3 vViewPos;
-          void main() {
-            vWorldNormal = normalize(normalMatrix * normal);
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            vViewPos = -mvPosition.xyz;
-            gl_Position = projectionMatrix * mvPosition;
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vWorldNormal;
-          varying vec3 vViewPos;
-          void main() {
-            vec3 N = normalize(vWorldNormal);
-            vec3 V = normalize(vViewPos);
-            float rim = pow(1.0 - max(0.0, dot(N, V)), 3.2);
-            gl_FragColor = vec4(0.35, 0.58, 0.88, rim * 0.42);
-          }
-        `,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.BackSide
-      });
-
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.name = 'AtmosphereGlowShell';
-      mesh.renderOrder = 5;
-      return mesh;
+      // Strict Anti-Game-VFX (GEMINI.md Rule 2): Ban transparent glowing spherical domes.
+      // Limb scattering is handled natively by the Tier 0 WGS84 globe shader.
+      const group = new THREE.Group();
+      group.name = 'AtmosphereGlowShell';
+      return group;
     }
 
     // -------------------------------------------------------------------------
@@ -765,9 +735,9 @@ const FLIGHT_STATES = {
           u_faultStrike: { value: 0.0 },
           u_ruptureVelocity: { value: 2.8 * 1000.0 * WGS84.METERS_TO_UNITS },
           u_isFiniteFault: { value: 0.0 },
-          // Regional DEM footprint half-extent in scene units (x: north-south half H, y: east-west half W)
+          // Regional DEM footprint half-extent in scene units
           u_regionCenter: { value: new THREE.Vector2(lat0, lon0) },
-          u_regionHalfDeg: { value: new THREE.Vector2(PHYSICAL_H_UNITS * 0.5, PHYSICAL_W_UNITS * 0.5) },
+          u_regionHalfSize: { value: new THREE.Vector2(PHYSICAL_W_UNITS * 0.5, PHYSICAL_H_UNITS * 0.5) },
           u_regionActive: { value: 0.0 }
         },
         vertexShader: `
@@ -777,8 +747,6 @@ const FLIGHT_STATES = {
           uniform float u_globalHMax;
           uniform float u_metersToUnits;
           uniform float u_verticalExag;
-          uniform vec2 u_regionHalfDeg;
-          uniform float u_regionActive;
 
           varying vec3 vWorldNormal;
           varying vec3 vViewPos;
@@ -793,22 +761,9 @@ const FLIGHT_STATES = {
             float rawMeters = u_globalHMin + normElev * (u_globalHMax - u_globalHMin);
             vElevation = rawMeters;
 
-            // Displace along normal: land (>0m) has full vertical exaggeration;
-            // bathymetry is preserved at ellipsoidal sea level or subtle abyssal trench depth
+            // Displace along normal: authentic continuous planetary elevation (NO artificial depression crater)
             float dispMeters = (rawMeters > 0.0) ? rawMeters : (rawMeters * 0.15);
-
-            // Eradicate depth z-fighting inside regional DEM footprint:
-            // Depress globe vertex smoothly below regional terrain within the interior footprint
-            float depressionMeters = 0.0;
-            if (u_regionActive > 0.5) {
-              float xRel = abs(position.x) / max(0.001, u_regionHalfDeg.y);
-              float zRel = abs(position.z) / max(0.001, u_regionHalfDeg.x);
-              float rRegion = length(vec2(xRel, zRel));
-              float depressTaper = smoothstep(0.85, 0.40, rRegion);
-              depressionMeters = depressTaper * 1200.0;
-            }
-
-            float finalDisp = (dispMeters - depressionMeters) * u_metersToUnits * u_verticalExag;
+            float finalDisp = dispMeters * u_metersToUnits * u_verticalExag;
             vec3 displacedPos = position + normal * finalDisp;
 
             // In center-relative geodetic space (Identity modelMatrix), normal is world normal
@@ -835,7 +790,7 @@ const FLIGHT_STATES = {
           uniform float u_ruptureVelocity;
           uniform float u_isFiniteFault;
           uniform vec2 u_regionCenter;
-          uniform vec2 u_regionHalfDeg;
+          uniform vec2 u_regionHalfSize;
           uniform float u_regionActive;
 
           varying vec3 vWorldNormal;
@@ -846,9 +801,18 @@ const FLIGHT_STATES = {
           ${MONOLITH_SURFACE_GLSL}
 
           void main() {
+            // Seamless Regional DEM Integration:
+            // Overlap band (0.88 ~ 0.96) guarantees continuous elevation and gradient without seams or z-fighting
+            if (u_regionActive > 0.5) {
+              float rRegion = length(vec2(vLocalPos.x / u_regionHalfSize.x, vLocalPos.z / u_regionHalfSize.y));
+              if (rRegion < 0.88) {
+                discard;
+              }
+            }
+
             vec3 N = normalize(vWorldNormal);
             vec3 V = normalize(vViewPos);
-            // Transform world light direction and surface normal into view space
+            // Transform world light direction into view space
             vec3 L_view = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
 
             // 4-point central difference surface slope gradient
@@ -865,7 +829,42 @@ const FLIGHT_STATES = {
             vec3 upRef = abs(N.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
             vec3 tangent = normalize(cross(upRef, N));
             vec3 bitangent = normalize(cross(N, tangent));
-            vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * 2.2) - bitangent * (dh_dy * 2.2));
+
+            // Dynamic normal wave slope modulation (Physical Shifting Moonlight Shadows - Anti-Game-VFX)
+            float waveSlopeX = 0.0;
+            float waveSlopeY = 0.0;
+            float fissureGlobe = 0.0;
+
+            if (u_simTime > 0.0) {
+              vec2 dEpiG = vLocalPos.xz;
+              vec2 uFaultG = vec2(sin(u_faultStrike), -cos(u_faultStrike));
+              vec2 nFaultG = vec2(cos(u_faultStrike), sin(u_faultStrike));
+              float sFaultG = dot(dEpiG, uFaultG);
+              float dFaultG = dot(dEpiG, nFaultG);
+              float sRupG = min(0.5 * u_faultLength, max(0.0, u_ruptureVelocity * u_simTime)) * u_isFiniteFault;
+              float sClampedG = clamp(sFaultG, -sRupG, sRupG);
+              float tSlipG = abs(sClampedG) / max(0.001, u_ruptureVelocity);
+              float effDistG = sqrt(pow(sFaultG - sClampedG, 2.0) + pow(dFaultG, 2.0));
+
+              float tArrivalG = tSlipG + effDistG / u_vS;
+              float dtG = u_simTime - tArrivalG;
+              if (dtG > -0.05) {
+                float waveEnvG = exp(-pow(dtG / 1.1, 2.0)) * smoothstep(-0.02, 0.12, dtG);
+                float attenG = 1.0 / sqrt(max(0.15, effDistG * 4.0));
+                vec2 dirWave = (effDistG > 0.001) ? normalize(vec2(sFaultG - sClampedG, dFaultG)) : vec2(1.0, 0.0);
+                float waveAmp = sin(6.2831853 * u_dominantFreq * dtG) * waveEnvG * attenG * 0.006;
+                waveSlopeX = dirWave.x * waveAmp;
+                waveSlopeY = dirWave.y * waveAmp;
+              }
+
+              // Planetary permanent fault trace for massive ruptures (e.g. 310km East Anatolian Fault)
+              if (u_isFiniteFault > 0.5 && sRupG > 0.001) {
+                fissureGlobe = exp(-pow(dFaultG / 0.0018, 2.0)) * step(abs(sFaultG), sRupG + 0.004);
+              }
+            }
+
+            // Perturb true normal with slope and wave motion
+            vec3 perturbedWorldN = normalize(N - tangent * ((dh_dx + waveSlopeX) * 2.2) - bitangent * ((dh_dy + waveSlopeY) * 2.2));
             vec3 perturbedN_view = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
 
             float NdotL = dot(perturbedN_view, L_view);
@@ -899,51 +898,10 @@ const FLIGHT_STATES = {
             vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
             lit += atmosphereColor * (rim * 0.48);
 
-            // Continuous Planetary Wavefield Propagation (Seamless Finite Fault & Point Source)
-            if (u_simTime > 0.0) {
-              vec2 dEpiG = vLocalPos.xz;
-              float rFromEpi = length(dEpiG);
-              // Yield smoothly inside regional DEM footprint to prevent duplicate wave overlay
-              float regionFade = (u_regionActive > 0.5) ? smoothstep(0.38, 0.56, rFromEpi) : 1.0;
-
-              if (regionFade > 0.001) {
-                vec2 uFaultG = vec2(sin(u_faultStrike), -cos(u_faultStrike));
-                vec2 nFaultG = vec2(cos(u_faultStrike), sin(u_faultStrike));
-                float sFaultG = dot(dEpiG, uFaultG);
-                float dFaultG = dot(dEpiG, nFaultG);
-                float sRupG = min(0.5 * u_faultLength, max(0.0, u_ruptureVelocity * u_simTime)) * u_isFiniteFault;
-                float sClampedG = clamp(sFaultG, -sRupG, sRupG);
-                float tSlipG = abs(sClampedG) / max(0.001, u_ruptureVelocity);
-                float effDistG = sqrt(pow(sFaultG - sClampedG, 2.0) + pow(dFaultG, 2.0));
-
-                float tArrivalG = tSlipG + effDistG / u_vS;
-                float dtG = u_simTime - tArrivalG;
-                if (dtG > -0.05) {
-                  float waveEnvG = exp(-pow(dtG / 0.85, 2.0)) * smoothstep(-0.02, 0.12, dtG);
-                  float attenG = 1.0 / sqrt(max(0.10, effDistG * 5.0));
-                  float waveSignalG = waveEnvG * attenG * regionFade;
-
-                  // Wave dynamically enhances surface relief and mountain grazing light across the globe
-                  // Pure physical relief grazing light only: ZERO flat ambient VFX to prevent glowing rectangular slabs
-                  float globeReliefG = smoothstep(0.04, 0.25, length(vec2(dh_dx, dh_dy)) * 80.0);
-                  float waveHighlight = waveSignalG * globeReliefG;
-                  vec3 silverGleamG = vec3(0.65, 0.78, 0.92);
-                  lit += silverGleamG * (waveHighlight * 0.35);
-
-                  // Ocean acoustic specular glint only where specular reflection hits camera
-                  if (isOcean > 0.5) {
-                    float oceanWaveGlint = waveSignalG * pow(NdotH, 24.0) * 0.25;
-                    lit += vec3(0.40, 0.65, 0.95) * oceanWaveGlint;
-                  }
-                }
-
-                // Planetary permanent fault trace for massive ruptures (e.g. 310km East Anatolian Fault)
-                if (u_isFiniteFault > 0.5 && sRupG > 0.001) {
-                  float fissureGlobe = exp(-pow(dFaultG / 0.0018, 2.0)) * step(abs(sFaultG), sRupG + 0.004);
-                  vec3 earthBronzeG = vec3(0.84, 0.70, 0.46);
-                  lit += earthBronzeG * (fissureGlobe * 0.16 * regionFade);
-                }
-              }
+            // Planetary permanent fault trace for massive ruptures (earthen bronze)
+            if (fissureGlobe > 0.001) {
+              vec3 earthBronzeG = vec3(0.84, 0.70, 0.46);
+              lit += earthBronzeG * (fissureGlobe * 0.22);
             }
 
             gl_FragColor = vec4(lit, 1.0);
@@ -1071,7 +1029,7 @@ const FLIGHT_STATES = {
 
     const integratedTerrainMat = new THREE.ShaderMaterial({
       uniforms: terrainUniforms,
-      transparent: true,
+      transparent: false,
       depthWrite: true,
       polygonOffset: true,
       polygonOffsetFactor: -2,
@@ -1106,9 +1064,6 @@ const FLIGHT_STATES = {
         uniform float u_vS;
         uniform float u_vR;
         uniform float u_simTime;
-        uniform float u_enableStratum1;
-        uniform float u_enableStratum2;
-        uniform float u_purePhysicalMode;
         uniform float u_faultLength;
         uniform float u_ruptureVelocity;
         uniform float u_isFiniteFault;
@@ -1121,13 +1076,10 @@ const FLIGHT_STATES = {
         varying float vSlope;
         varying float vRidgeConvexity;
         varying float vIsUnderwater;
-        varying float vWavePhaseP;
-        varying float vWavePhaseS;
-        varying float vWaveEnergy;
-        varying float vDistHypo;
         varying vec2 vPhysicalCoords;
         varying float vDisplacementMag;
         varying float vEdgeTaper;
+        varying float vRRegion;
 
         void main() {
           vUv = uv;
@@ -1143,43 +1095,50 @@ const FLIGHT_STATES = {
           // Smooth radial boundary reconciliation into Tier 0 Ellipsoid (Continuous Earth)
           vec2 normUv = (uv - vec2(0.5)) * 2.0;
           float rNorm = length(normUv);
-          float edgeTaper = smoothstep(0.88, 0.40, rNorm);
+          vRRegion = rNorm;
+          float edgeTaper = smoothstep(0.96, 0.55, rNorm);
           float reconciledElevation = mix(hGlobal, rawMeters, edgeTaper);
           vEdgeTaper = edgeTaper;
 
           vElevation = reconciledElevation;
           vIsUnderwater = (reconciledElevation < 0.0) ? 1.0 : 0.0;
 
-          // Static 4-point central difference surface normal and Laplacian
-          float h_C = (u_hMin + normH * (u_hMax - u_hMin)) * u_verticalExag;
-          float h_L = (u_hMin + texture2D(u_demTexture, demUv - vec2(u_texelSize.x, 0.0)).r * (u_hMax - u_hMin)) * u_verticalExag;
-          float h_R = (u_hMin + texture2D(u_demTexture, demUv + vec2(u_texelSize.x, 0.0)).r * (u_hMax - u_hMin)) * u_verticalExag;
-          float h_D = (u_hMin + texture2D(u_demTexture, demUv - vec2(0.0, u_texelSize.y)).r * (u_hMax - u_hMin)) * u_verticalExag;
-          float h_U = (u_hMin + texture2D(u_demTexture, demUv + vec2(0.0, u_texelSize.y)).r * (u_hMax - u_hMin)) * u_verticalExag;
+          // 4-point central difference surface gradients for regional DEM
+          float h_C = (u_hMin + normH * (u_hMax - u_hMin));
+          float h_L = (u_hMin + texture2D(u_demTexture, demUv - vec2(u_texelSize.x, 0.0)).r * (u_hMax - u_hMin));
+          float h_R = (u_hMin + texture2D(u_demTexture, demUv + vec2(u_texelSize.x, 0.0)).r * (u_hMax - u_hMin));
+          float h_D = (u_hMin + texture2D(u_demTexture, demUv - vec2(0.0, u_texelSize.y)).r * (u_hMax - u_hMin));
+          float h_U = (u_hMin + texture2D(u_demTexture, demUv + vec2(0.0, u_texelSize.y)).r * (u_hMax - u_hMin));
 
-          // Taper gradients to zero at boundary so regional normal seamlessly fuses with horizontal globe normal
-          float dh_dx = ((h_R - h_L) / (2.0 * u_metricSpacing.x)) * edgeTaper;
-          float dh_dy = ((h_D - h_U) / (2.0 * u_metricSpacing.y)) * edgeTaper;
+          float dh_dx_dem = ((h_R - h_L) / (2.0 * u_metricSpacing.x));
+          float dh_dy_dem = ((h_D - h_U) / (2.0 * u_metricSpacing.y));
 
-          vec3 localNormal = normalize(vec3(-dh_dx, 1.0, -dh_dy));
-          float slopeRad = acos(clamp(localNormal.y, 0.0, 1.0));
-          vSlope = slopeRad * (180.0 / 3.14159265) * edgeTaper;
+          // 4-point central difference surface gradients for Tier 0 Global ETOPO
+          vec2 gTexel = vec2(1.0 / 2048.0, 1.0 / 1024.0);
+          float hL_g = u_globalHMin + texture2D(u_globalElevation, a_uvGlobal - vec2(gTexel.x, 0.0)).r * (u_globalHMax - u_globalHMin);
+          float hR_g = u_globalHMin + texture2D(u_globalElevation, a_uvGlobal + vec2(gTexel.x, 0.0)).r * (u_globalHMax - u_globalHMin);
+          float hD_g = u_globalHMin + texture2D(u_globalElevation, a_uvGlobal - vec2(0.0, gTexel.y)).r * (u_globalHMax - u_globalHMin);
+          float hU_g = u_globalHMin + texture2D(u_globalElevation, a_uvGlobal + vec2(0.0, gTexel.y)).r * (u_globalHMax - u_globalHMin);
 
-          // Topographic convexity (Laplacian): negative on convex ridge crests, positive in valley troughs
+          float dh_dx_global = (hR_g - hL_g) / 38000.0;
+          float dh_dy_global = (hD_g - hU_g) / 38000.0;
+
+          // Seamless gradient blending: high-detail DEM smoothly transitions to global ETOPO gradient
+          float dh_dx = mix(dh_dx_global, dh_dx_dem, edgeTaper);
+          float dh_dy = mix(dh_dy_global, dh_dy_dem, edgeTaper);
+
+          // Convexity for sculptural crest definition
           float laplacian = (h_R + h_L + h_U + h_D - 4.0 * h_C);
           vRidgeConvexity = clamp(-laplacian * 0.22, 0.0, 1.0) * edgeTaper;
 
-          // Physical coordinate system (Direct 3D tangent coordinates matching globe vLocalPos)
+          // Physical coordinate system
           float x_units = position.x;
           float z_units = position.z;
           vPhysicalCoords = vec2(x_units, z_units);
 
-          // -------------------------------------------------------------------
-          // DYNAMIC SEISMIC KINEMATICS & 3D GROUND DEFORMATION
-          // -------------------------------------------------------------------
+          // Dynamic Seismic Kinematics & 3D Wavefield Propagation
           vec2 dEpi = vec2(x_units - u_epiPos.x, z_units - u_epiPos.y);
 
-          // Finite fault line rupture vs point source formulation
           vec2 uFault = vec2(sin(u_faultStrike), -cos(u_faultStrike));
           vec2 nFault = vec2(cos(u_faultStrike), sin(u_faultStrike));
           float sFault = dot(dEpi, uFault);
@@ -1191,21 +1150,17 @@ const FLIGHT_STATES = {
 
           float effEpicentralDist = sqrt(pow(sFault - sClamped, 2.0) + pow(dFault, 2.0));
           float effHypoDist = sqrt(effEpicentralDist * effEpicentralDist + u_depthUnits * u_depthUnits);
-          vDistHypo = effHypoDist;
 
-          // Unit propagation vectors from active rupture point
           vec2 dEff = (u_isFiniteFault > 0.5) ? (dEpi - sClamped * uFault) : dEpi;
           vec2 dirRadial = (effEpicentralDist > 0.0001) ? normalize(dEff) : vec2(1.0, 0.0);
           vec2 dirTransverse = vec2(-dirRadial.y, dirRadial.x);
 
-          // Fault radiation directivity (Double-couple 4-lobed pattern)
           float angleEpi = atan(dEff.y, dEff.x);
           float radP = abs(sin(2.0 * (angleEpi - u_faultStrike)));
           float radS = abs(cos(2.0 * (angleEpi - u_faultStrike)));
           float fRadP = mix(1.0, radP, u_radiationDirectivity);
           float fRadS = mix(1.0, radS, u_radiationDirectivity);
 
-          // Continental shelf refraction proxy
           float bathyDepth = max(0.0, -rawMeters);
           float shelfFactor = smoothstep(60.0, 380.0, bathyDepth);
           float localVelP = u_vP * mix(0.80, 1.0, shelfFactor);
@@ -1216,55 +1171,40 @@ const FLIGHT_STATES = {
           float dt_P = u_simTime - t_P;
           float dt_S = u_simTime - t_S;
 
-          // Frequency-dependent wave packet parameters
           float omega = 6.2831853 * u_dominantFreq;
           float packetDurP = 1.6 / max(0.4, u_dominantFreq);
           float packetDurS = 2.2 / max(0.4, u_dominantFreq);
 
-          // Quality factor crustal anelastic attenuation
           float gammaP = (3.14159 * u_dominantFreq) / (max(40.0, u_attenuationQ) * localVelP);
           float gammaS = (3.14159 * u_dominantFreq) / (max(40.0, u_attenuationQ) * localVelS);
           float geomAtten = 1.0 / sqrt(max(0.06, effHypoDist * 4.5));
           float attenP = geomAtten * exp(-gammaP * effHypoDist * 0.16);
           float attenS = geomAtten * exp(-gammaS * effHypoDist * 0.16);
 
-          // Emergence angle: cos(theta) = depth / R
           float cosEmergence = clamp(u_depthUnits / effHypoDist, 0.12, 1.0);
           float sinEmergence = sqrt(max(0.0, 1.0 - cosEmergence * cosEmergence));
 
-          // P & S Wave Packets
           float pEnv = exp(-dt_P * dt_P / (2.0 * packetDurP * packetDurP * 0.25)) * step(0.0, dt_P);
           float pPhase = sin(omega * dt_P) * pEnv * fRadP * u_modeP;
 
           float sEnv = exp(-dt_S * dt_S / (2.0 * packetDurS * packetDurS * 0.25)) * step(0.0, dt_S);
           float sPhase = sin(omega * dt_S) * sEnv * fRadS * u_modeS;
 
-          vWavePhaseP = pPhase * attenP;
-          vWavePhaseS = sPhase * attenS;
-          vWaveEnergy = (pEnv * 0.35 + sEnv * 1.1) * attenS;
+          float topoAmp = 1.0 + 0.65 * smoothstep(0.10, 0.35, length(vec2(dh_dx, dh_dy))) * step(0.0, rawMeters);
 
-          // Topographic site response amplification on steep ridges & summits (controlled)
-          float topoAmp = 1.0 + 0.65 * smoothstep(14.0, 40.0, vSlope) * step(0.0, rawMeters);
+          // Spherical Tangent Frame based on true curved surface normal
+          vec3 N = normalize(normal);
+          vec3 upRef = abs(N.y) < 0.99 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
+          vec3 tangent = normalize(cross(upRef, N));
+          vec3 bitangent = normalize(cross(N, tangent));
 
-          // Prolonged Coda ground tremor
-          float t_coda = max(0.0, u_simTime - t_S);
-          float codaDecayRate = 18.0 / max(60.0, u_attenuationQ);
-          float codaEnv = exp(-t_coda * codaDecayRate) * step(0.0, t_coda);
-          float codaHarmonic = sin(omega * 0.72 * t_coda + vElevation * 0.0015);
-          float codaTremor = codaHarmonic * codaEnv * attenS * 0.35 * topoAmp * fRadS * u_modeS;
-
-          // 3D Physical Ground Displacement (Refined Mountain Micro-motion)
-          // Granitic bedrock stiffness dampens extreme displacement while preserving crisp transmission
-          float bedrockDamping = mix(1.0, 0.68, smoothstep(250.0, 1500.0, rawMeters));
+          // Physical 3D Ground Displacement Field (Authentic 1 ~ 4 meter seismic motions)
           float depthAmpScale = clamp(15.0 / max(5.0, u_focalDepthKm), 0.55, 1.8);
-          float baseAmpP = 0.00008 * depthAmpScale * u_physicalDisplacement;
-          float baseAmpS = 0.00022 * depthAmpScale * u_physicalDisplacement * bedrockDamping;
+          float baseAmpP = 0.000015 * depthAmpScale * u_physicalDisplacement;
+          float baseAmpS = 0.000035 * depthAmpScale * u_physicalDisplacement;
 
-          // Longitudinal P-wave 3D vector (push-pull)
-          vec3 vecP = vec3(dirRadial.x * sinEmergence, 0.40 * cosEmergence, dirRadial.y * sinEmergence) * (vWavePhaseP * baseAmpP);
-
-          // Transverse S-wave 3D vector (shear & vertical heave)
-          vec3 vecS = vec3(dirTransverse.x * cosEmergence, 0.60 * sinEmergence, dirTransverse.y * cosEmergence) * ((vWavePhaseS + codaTremor) * baseAmpS * topoAmp);
+          vec3 vecP = (tangent * (dirRadial.x * sinEmergence) + N * (0.40 * cosEmergence) + bitangent * (dirRadial.y * sinEmergence)) * (pPhase * attenP * baseAmpP);
+          vec3 vecS = (tangent * (dirTransverse.x * cosEmergence) + N * (0.60 * sinEmergence) + bitangent * (dirTransverse.y * cosEmergence)) * (sPhase * attenS * baseAmpS * topoAmp);
 
           // 3D Retrograde Elliptical Rayleigh Surface Wave
           float t_R = tSlip + (u_depthUnits / max(0.001, localVelS)) + (effEpicentralDist / max(0.001, u_vR));
@@ -1276,28 +1216,29 @@ const FLIGHT_STATES = {
           float attenR = geomAttenSurf * exp(-gammaR * effEpicentralDist * 0.12);
           float rRadOsc = cos(omega * 0.45 * dt_R) * rEnv * attenR;
           float rVertOsc = +sin(omega * 0.45 * dt_R) * rEnv * attenR;
-          float baseAmpR = 0.00030 * depthAmpScale * u_physicalDisplacement;
-          vec3 vecR = vec3(dirRadial.x * rRadOsc, 0.65 * rVertOsc, dirRadial.y * rRadOsc) * baseAmpR;
+          float baseAmpR = 0.000045 * depthAmpScale * u_physicalDisplacement;
+          vec3 vecR = (tangent * (dirRadial.x * rRadOsc) + N * (0.65 * rVertOsc) + bitangent * (dirRadial.y * rRadOsc)) * baseAmpR;
 
-          // 3D Vector Displacement Field u(x,t) = uP(x,t) + uS(x,t) + uR(x,t)
           vec3 disp3D = vecP + vecS + vecR;
           vDisplacementMag = length(disp3D);
 
-          // Dynamic normal perturbation with guaranteed non-inverting zenith bias
+          // Dynamic slope perturbation for shifting shadow cast and grazing moonlight (Anti-Game-VFX)
           float k_P = omega / max(0.001, localVelP);
           float k_S = omega / max(0.001, localVelS);
           float waveSlopeP = cos(omega * dt_P) * pEnv * attenP * fRadP * u_modeP * baseAmpP * k_P;
           float waveSlopeS = cos(omega * dt_S) * sEnv * attenS * fRadS * u_modeS * baseAmpS * k_S;
-          vec2 waveSlopeHoriz = dirRadial * (waveSlopeP + waveSlopeS * 0.30) + dirTransverse * (waveSlopeS * 0.45);
+          float waveSlopeR = -sin(omega * 0.45 * dt_R) * rEnv * attenR * baseAmpR * (omega / max(0.001, u_vR));
+          vec2 waveSlopeHoriz = dirRadial * (waveSlopeP + waveSlopeR + waveSlopeS * 0.30) + dirTransverse * (waveSlopeS * 0.55);
 
-          vec3 perturbedNormal = normalize(localNormal - vec3(waveSlopeHoriz.x * 0.15, 0.0, waveSlopeHoriz.y * 0.15));
-          perturbedNormal.y = max(0.40, perturbedNormal.y); // Prevent downward flipped normals
-          perturbedNormal = normalize(perturbedNormal);
+          // Perturb the true curved surface normal along tangent and bitangent
+          vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * 2.2 + waveSlopeHoriz.x * 1.5 * edgeTaper) - bitangent * (dh_dy * 2.2 + waveSlopeHoriz.y * 1.5 * edgeTaper));
+          vWorldNormal = perturbedWorldN;
+          vNormal = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
 
-          vWorldNormal = perturbedNormal;
-          vNormal = normalMatrix * perturbedNormal;
+          float slopeMagDem = length(vec2(dh_dx_dem, dh_dy_dem)) * 80.0;
+          float slopeMagGlobal = length(vec2(dh_dx_global, dh_dy_global)) * 80.0;
+          vSlope = mix(slopeMagGlobal, slopeMagDem, edgeTaper);
 
-          // Smooth edge reconciliation: regional relief seamlessly fuses into Tier 0 WGS84 Ellipsoid
           // Displace along surface normal (WGS84 ellipsoidal curvature)
           float dispMeters = (reconciledElevation > 0.0) ? reconciledElevation : (reconciledElevation * 0.15);
           float displacedElevation = dispMeters * u_verticalExag * u_metersToUnits;
@@ -1318,26 +1259,13 @@ const FLIGHT_STATES = {
         uniform float u_depthUnits;
         uniform float u_focalDepthKm;
         uniform float u_dominantFreq;
-        uniform float u_attenuationQ;
         uniform float u_faultStrike;
-        uniform float u_radiationDirectivity;
-        uniform float u_modeP;
-        uniform float u_modeS;
         uniform float u_vP;
         uniform float u_vS;
-        uniform float u_enableStratum1;
-        uniform float u_enableStratum2;
-        uniform float u_purePhysicalMode;
-        uniform float u_ridgeStyle;
         uniform float u_uncertaintyRadiusUnits;
         uniform float u_faultLength;
         uniform float u_ruptureVelocity;
         uniform float u_isFiniteFault;
-
-        // Interactive Geophysics-to-Wavefield Probe (Phase F1)
-        uniform float u_probeDistUnits;
-        uniform float u_probeCritUnits;
-        uniform float u_probeCrossUnits;
 
         varying vec2 vUv;
         varying vec3 vNormal;
@@ -1347,13 +1275,10 @@ const FLIGHT_STATES = {
         varying float vSlope;
         varying float vRidgeConvexity;
         varying float vIsUnderwater;
-        varying float vWavePhaseP;
-        varying float vWavePhaseS;
-        varying float vWaveEnergy;
-        varying float vDistHypo;
         varying vec2 vPhysicalCoords;
         varying float vDisplacementMag;
         varying float vEdgeTaper;
+        varying float vRRegion;
 
         float hash(vec2 p) {
           return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -1361,151 +1286,76 @@ const FLIGHT_STATES = {
         ${MONOLITH_SURFACE_GLSL}
 
         void main() {
-          // Ocean floor is shaded with the same grading as the globe (globe yields inside this footprint)
+          // Boundary discard: beyond rRegion = 0.96, yield cleanly back to tier0GlobeMesh
+          if (vRRegion > 0.96) {
+            discard;
+          }
+
           float isSeaFloor = step(vElevation, 0.0);
 
           vec3 N = normalize(vNormal);
           vec3 V = normalize(vViewPos);
-          // Light direction must live in view space like N and V (previously light rotated with the camera)
           vec3 L = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
 
           float NdotL = dot(N, L);
-          float wrapDiffuse = pow(max(0.0, (NdotL + 0.32) / 1.32), 1.5);
+          float wrapDiffuse = pow(max(0.0, (NdotL + 0.35) / 1.35), 1.45);
           vec3 H = normalize(L + V);
-          float spec = pow(max(0.0, dot(N, H)), 32.0) * max(0.0, NdotL);
-          float rim = pow(1.0 - max(0.0, dot(N, V)), 3.2) * max(0.0, dot(L, -V) + 0.35);
+          float spec = pow(max(0.0, dot(N, H)), 42.0) * isSeaFloor * 0.52;
+          float rim = pow(1.0 - max(0.0, dot(N, V)), 2.8);
 
-          float grain = hash(vUv * 3600.0) * 0.05;
+          float grain = hash(vUv * 3600.0) * 0.04;
 
-          // -------------------------------------------------------------------
-          // BASE TERRAIN PBR ALBEDO (Sculptural Nocturnal Monolith)
-          // -------------------------------------------------------------------
-          float slopeScarp = smoothstep(22.0, 45.0, vSlope);
-          float alpinePeak = smoothstep(1250.0, 1704.0, vElevation);
-          vec3 baseAlbedo = (isSeaFloor > 0.5)
-            ? monolithOceanAlbedo(vElevation)
-            : monolithLandAlbedo(vElevation, slopeScarp);
-          baseAlbedo += (grain - 0.025) * 0.8 * (1.0 - isSeaFloor);
+          // Base Albedo (Sculptural Nocturnal Monolith - Identical to Globe)
+          vec3 baseAlbedo;
+          if (vElevation < 0.0) {
+            baseAlbedo = monolithOceanAlbedo(vElevation);
+          } else {
+            baseAlbedo = monolithLandAlbedo(vElevation, smoothstep(0.06, 0.28, vSlope));
+            baseAlbedo += (grain - 0.02) * 0.6;
+          }
 
-          // Directional Moonlight & Ambient Lighting (Identical pipeline with Tier 0 Globe)
-          vec3 lit = baseAlbedo * (u_ambientColor + u_lightColor * (wrapDiffuse * 1.45));
-          lit += u_lightColor * (spec * 0.04);
+          // Moonlight & Ambient Lighting
+          vec3 lit = baseAlbedo * (u_ambientColor + u_lightColor * (wrapDiffuse * 1.45)) + u_lightColor * spec;
+
+          // Celestial atmospheric rim
           vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
           lit += atmosphereColor * (rim * 0.48);
 
-          // Gallery Sculptural Mountain Crest Grazing Rim Light (Ridge Chiseled Definition)
-          float crestFactor = smoothstep(14.0, 38.0, vSlope) * (0.35 + 0.65 * vRidgeConvexity);
-          float mountainRim = pow(1.0 - max(0.0, dot(N, V)), 2.8) * max(0.0, dot(L, -V) + 0.45);
-          vec3 rimSculptColor = mix(vec3(0.24, 0.44, 0.76), vec3(0.82, 0.88, 0.96), alpinePeak);
-          lit += rimSculptColor * (mountainRim * crestFactor * 0.28 * vEdgeTaper);
+          // Sculptural Mountain Crest Definition
+          float crestFactor = (0.35 + 0.65 * vRidgeConvexity) * smoothstep(0.08, 0.30, vSlope);
+          lit += vec3(0.65, 0.78, 0.92) * (rim * crestFactor * 0.22 * vEdgeTaper);
 
-          // Dynamic strain specular & rim boost on wavefront passage
-          float strainBoost = smoothstep(0.001, 0.012, vDisplacementMag) * 0.20;
-          lit += vec3(0.35, 0.65, 0.90) * (rim * strainBoost * 0.30) + u_lightColor * (spec * strainBoost * 0.12);
-
-          if (u_purePhysicalMode < 0.5) {
+          // Permanent Geological Fault Scarp (Finite Fault Only)
+          if (u_isFiniteFault > 0.5) {
             vec2 dEpi = vPhysicalCoords - u_epiPos;
             vec2 uFault = vec2(sin(u_faultStrike), -cos(u_faultStrike));
             vec2 nFault = vec2(cos(u_faultStrike), sin(u_faultStrike));
             float sFault = dot(dEpi, uFault);
             float dFault = dot(dEpi, nFault);
             float halfLen = 0.5 * u_faultLength;
-            float sRup = min(halfLen, max(0.0, u_ruptureVelocity * u_simTime)) * u_isFiniteFault;
-            float sClamped = clamp(sFault, -sRup, sRup);
-            float tSlip = abs(sClamped) / max(0.001, u_ruptureVelocity);
-
-            float effEpicentralDist = sqrt(pow(sFault - sClamped, 2.0) + pow(dFault, 2.0));
-            float effHypoDist = sqrt(effEpicentralDist * effEpicentralDist + u_depthUnits * u_depthUnits);
-
-            float t_S_arrival = tSlip + effHypoDist / u_vS;
-            float dtS_arrival = u_simTime - t_S_arrival;
-
-            // Mountain ridge resonance & lunar-silver specular shimmer (Gallery Media Art - Anti-Game-VFX)
-            if (u_enableStratum2 > 0.5 && dtS_arrival > -0.06 && u_simTime > 0.0) {
-              float waveEnvelope = exp(-pow(dtS_arrival / 0.85, 2.0)) * smoothstep(-0.02, 0.12, dtS_arrival);
-              float taperFactor = vEdgeTaper;
-
-              float isAlpine = smoothstep(180.0, 950.0, vElevation);
-              float ridgeSharp = smoothstep(14.0, 38.0, vSlope);
-              float totalRidgeShape = vRidgeConvexity * ridgeSharp * 0.85 + pow(vRidgeConvexity, 0.75) * 0.45;
-
-              vec3 silverGleam = mix(vec3(0.55, 0.75, 0.95), vec3(0.85, 0.92, 1.0), alpinePeak);
-              float ridgeShimmer = isAlpine * totalRidgeShape * waveEnvelope * 0.35;
-              lit += silverGleam * (ridgeShimmer * taperFactor);
-
-              // Low-frequency ground tremor across valleys and plains (subtle contrast, zero neon glow)
-              float isPlain = (1.0 - isAlpine) * (1.0 - smoothstep(12.0, 26.0, vSlope));
-              float groundTremor = isPlain * cos(6.2831853 * u_dominantFreq * dtS_arrival) * waveEnvelope * 0.06;
-              lit += baseAlbedo * (groundTremor * taperFactor);
-
-              // Fast Compressional P-Wave Precursor Crest
-              float t_P_arrival = tSlip + effHypoDist / u_vP;
-              float dtP_arrival = u_simTime - t_P_arrival;
-              if (dtP_arrival > -0.04 && u_modeP > 0.5) {
-                float pEnv = exp(-pow(dtP_arrival / 0.55, 2.0)) * smoothstep(-0.02, 0.08, dtP_arrival);
-                float pRidgeTrace = (totalRidgeShape * 0.45 + isPlain * 0.08) * pEnv * taperFactor;
-                lit += vec3(0.68, 0.86, 0.98) * (pRidgeTrace * 0.18);
-              }
-
-              // Active Tectonic Fissure Trace along Rupture Segment (Finite Fault Only)
-              if (u_isFiniteFault > 0.5 && sRup > 0.001) {
-                float fissureCore = exp(-pow(dFault / 0.0012, 2.0)) * step(abs(sFault), sRup + 0.002);
-                float fissureScarp = exp(-pow(dFault / 0.0035, 2.0)) * step(abs(sFault), sRup + 0.006);
-                float activeFlare = exp(-pow((abs(sFault) - sRup) / 0.015, 2.0)) * 0.35;
-                float permanentScarp = 0.18; // Permanent geological earthen scarp
-                vec3 fissureColor = vec3(0.84, 0.70, 0.46); // Warm tectonic earthen bronze
-                lit += fissureColor * ((fissureCore * 1.6 + fissureScarp * 0.4) * (permanentScarp + activeFlare) * taperFactor);
-              }
-
-              // Historical Epicentral Uncertainty Topographic Contour (±errorRadiusKm on terrain surface)
-              if (u_uncertaintyRadiusUnits > 0.01) {
-                float distToUnc = abs(effEpicentralDist - u_uncertaintyRadiusUnits);
-                float angleAz = atan(dEpi.y, dEpi.x);
-                float stipple = step(0.35, fract(angleAz * 18.0 / 6.2831853));
-                float contourLine = exp(-pow(distToUnc / 0.0045, 2.0)) * stipple * taperFactor;
-                lit += vec3(0.78, 0.62, 0.33) * (contourLine * 0.13);
-              }
+            float sRup = min(halfLen, max(0.0, u_ruptureVelocity * u_simTime));
+            if (sRup > 0.001) {
+              float fissureCore = exp(-pow(dFault / 0.0012, 2.0)) * step(abs(sFault), sRup + 0.002);
+              float fissureScarp = exp(-pow(dFault / 0.0035, 2.0)) * step(abs(sFault), sRup + 0.006);
+              float permanentScarp = 0.18;
+              vec3 fissureColor = vec3(0.84, 0.70, 0.46); // Warm tectonic bronze
+              lit += fissureColor * ((fissureCore * 1.6 + fissureScarp * 0.4) * permanentScarp * vEdgeTaper);
             }
           }
 
-          // -------------------------------------------------------------------
-          // INTERACTIVE GEOPHYSICAL ISOCHRONE PROBE & CRITICAL DISTANCE RINGS (F1)
-          // -------------------------------------------------------------------
-          vec2 dEpiProbe = vPhysicalCoords - u_epiPos;
-          float epiDistProbe = length(dEpiProbe);
-          float taperFactorProbe = vEdgeTaper;
-
-          if (u_probeDistUnits > 0.0005) {
-            float distToProbe = abs(epiDistProbe - u_probeDistUnits);
-            float probeBand = exp(-pow(distToProbe / 0.0032, 2.0)) * taperFactorProbe;
-            // Radiant Brass Wavefront Isochrone Ring
-            lit += vec3(0.92, 0.78, 0.45) * (probeBand * 0.60);
+          // Historical Epicentral Uncertainty Topographic Contour (±errorRadiusKm)
+          if (u_uncertaintyRadiusUnits > 0.01) {
+            vec2 dEpi = vPhysicalCoords - u_epiPos;
+            float effEpicentralDist = length(dEpi);
+            float distToUnc = abs(effEpicentralDist - u_uncertaintyRadiusUnits);
+            float angleAz = atan(dEpi.y, dEpi.x);
+            float stipple = step(0.35, fract(angleAz * 18.0 / 6.2831853));
+            float contourLine = exp(-pow(distToUnc / 0.0045, 2.0)) * stipple * vEdgeTaper;
+            lit += vec3(0.78, 0.62, 0.33) * (contourLine * 0.15);
           }
 
-          if (u_probeCritUnits > 0.0005 || u_probeCrossUnits > 0.0005) {
-            float angleAzProbe = atan(dEpiProbe.y, dEpiProbe.x);
-
-            if (u_probeCritUnits > 0.0005) {
-              float distToCrit = abs(epiDistProbe - u_probeCritUnits);
-              float dashCrit = step(0.40, fract(angleAzProbe * 24.0 / 6.2831853));
-              float critBand = exp(-pow(distToCrit / 0.0022, 2.0)) * dashCrit * taperFactorProbe;
-              // Cool Mist dashed ring for Critical Distance X_crit
-              lit += vec3(0.53, 0.59, 0.67) * (critBand * 0.35);
-            }
-
-            if (u_probeCrossUnits > 0.0005) {
-              float distToCross = abs(epiDistProbe - u_probeCrossUnits);
-              float dashCross = step(0.45, fract(angleAzProbe * 36.0 / 6.2831853));
-              float crossBand = exp(-pow(distToCross / 0.0028, 2.0)) * dashCross * taperFactorProbe;
-              // Cinnabar/Brass dashed ring for Crossover Distance X_cross
-              lit += vec3(0.85, 0.45, 0.25) * (crossBand * 0.45);
-            }
-          }
-
-          // Seamless boundary blend into underlying planetary foundation
-          float boundaryAlpha = smoothstep(0.0, 0.90, vEdgeTaper);
-          if (boundaryAlpha < 0.005) discard;
-          gl_FragColor = vec4(lit, boundaryAlpha);
+          // 100% Solid Bedrock: Fully Opaque
+          gl_FragColor = vec4(lit, 1.0);
         }
       `
     });
@@ -1656,34 +1506,11 @@ const FLIGHT_STATES = {
           vec3 waterTint = mix(deepBathymetryTone, shelfTone, vShelfFactor);
 
           // -------------------------------------------------------------------
-          // NATURAL SWELL CREST BLOOM & LUNAR-SILVER SPECULAR GLEAM (Anti-Game-VFX)
+          // NATURAL SWELL CREST & LUNAR-SILVER SPECULAR GLEAM (Anti-Game-VFX)
           // -------------------------------------------------------------------
-          vec2 dEpi = vWorldPos - u_epiPos;
-          float rEpi = length(dEpi);
-
-          vec3 crestBloomColor = vec3(0.40, 0.74, 0.98);
-          vec3 crestVeilColor  = vec3(0.62, 0.85, 1.0);
-          float crestEnergy = pow(clamp(vWaterSwell * 500.0, 0.0, 1.0), 1.2) * vWaveFrontFactor;
-          float grazing = pow(1.0 - NdotV, 2.0);
-          float crestBloom = crestEnergy * (0.60 + 0.40 * vShelfFactor) * (0.5 + 0.5 * grazing);
-          float crestVeil = pow(vWaveFrontFactor, 1.5) * (0.45 + 0.55 * grazing) * (0.50 + 0.50 * vShelfFactor);
-
-          vec3 finalColor = waterTint + u_lightColor * spec * 0.45;
+          vec3 crestSilver = u_lightColor * (pow(max(0.0, dot(N, H)), 60.0) * 0.45);
+          vec3 finalColor = waterTint + u_lightColor * spec * 0.45 + crestSilver * (vWaveFrontFactor * 0.20);
           float alpha = 0.25 + fresnel * 0.35;
-
-          if (u_purePhysicalMode < 0.5 && u_enableStratum2 > 0.5) {
-            if (u_oceanBloomMode < 1.5) {
-              // MODE A: Surface-Coupled Only
-              finalColor += crestBloomColor * (crestBloom * 1.15) + crestVeilColor * (crestVeil * 0.45);
-              alpha += crestBloom * 0.35 + crestVeil * 0.15;
-            } else {
-              // MODE B: Hybrid Dual-Layer (Swell Crest Bloom + Subsea Shelf Radiance)
-              vec3 subseaGlow = vec3(0.015, 0.055, 0.110) * vShelfFactor * exp(-rEpi * 1.2);
-
-              finalColor += crestBloomColor * (crestBloom * 0.95) + crestVeilColor * (crestVeil * 0.35) + subseaGlow;
-              alpha += crestBloom * 0.25 + crestVeil * 0.10;
-            }
-          }
 
           float boundaryAlpha = smoothstep(0.000, 0.180, vWaterEdgeTaper);
           gl_FragColor = vec4(finalColor, clamp(alpha, 0.0, 0.85) * boundaryAlpha);
@@ -1815,14 +1642,15 @@ const FLIGHT_STATES = {
           );
 
           const pool = (matches.length > 0) ? matches : this.candidateCache.filter(c => c.zone === targetZone);
-          // Strictly restrict fallback candidates to central focal region (|X| <= 0.12, |Z| <= 0.08)
           const focalPool = pool.filter(c => Math.abs(c.worldX) <= 0.12 && Math.abs(c.worldZ) <= 0.08);
-          const candidateList = (focalPool.length > 0) ? focalPool : pool;
+          const candidateList = (targetZone === "ZONE_C_MOUNTAIN" || focalPool.length === 0) ? pool : focalPool;
           const poolIdx = Math.min(candidateList.length - 1, Math.max(0, Math.floor(candidateList.length * (0.35 + (unitIndex >= 0 ? unitIndex * 0.22 : 0)))));
           const chosen = candidateList[poolIdx] || candidateList[Math.floor(candidateList.length / 2)] || { worldX: 0, worldZ: 0, groundY: 0, elevation: 0, slope: 0 };
 
-          chosenWorldX = Math.max(-0.15, Math.min(0.15, chosen.worldX));
-          chosenWorldZ = Math.max(-0.10, Math.min(0.10, chosen.worldZ));
+          const maxExtentX = (terrainUniforms?.u_physicalSize?.value?.x || PHYSICAL_W_UNITS) * 0.42;
+          const maxExtentZ = (terrainUniforms?.u_physicalSize?.value?.y || PHYSICAL_H_UNITS) * 0.42;
+          chosenWorldX = Math.max(-maxExtentX, Math.min(maxExtentX, chosen.worldX));
+          chosenWorldZ = Math.max(-maxExtentZ, Math.min(maxExtentZ, chosen.worldZ));
           const m = getTerrainMetricsAt(chosenWorldX, chosenWorldZ);
           groundY = m.groundY;
           elevation = m.meters;
@@ -2154,6 +1982,9 @@ const FLIGHT_STATES = {
       const lat0 = currentParsedEvent.spatialCoords.lat ?? 37.95;
       const lon0 = currentParsedEvent.spatialCoords.lon ?? 129.05;
 
+      let curW = PHYSICAL_W_UNITS;
+      let curH = PHYSICAL_H_UNITS;
+
       if (eventMeta.demBinUrl) {
         try {
           const regionalTex = await loadRegionalDEMTexture(THREE, eventMeta.demBinUrl, eventMeta.width, eventMeta.height);
@@ -2180,8 +2011,6 @@ const FLIGHT_STATES = {
           console.warn('[Regional DEM Loader] Fallback to existing DEM texture:', err);
         }
 
-        let curW = 1.3142;
-        let curH = 0.6634;
         if (eventId.includes('1681')) {
           curW = 1.3142; curH = 0.6634;
         } else if (eventId.includes('gyeongju')) {
@@ -2250,8 +2079,11 @@ const FLIGHT_STATES = {
       }
       tier0GlobeMesh = stagingGlobeMesh;
       tier0GlobeMesh.renderOrder = 1;
-      if (tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms && tier0GlobeMesh.material.uniforms.u_regionActive) {
-        tier0GlobeMesh.material.uniforms.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
+      if (tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms) {
+        const gu = tier0GlobeMesh.material.uniforms;
+        if (gu.u_regionActive) gu.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
+        if (gu.u_regionCenter) gu.u_regionCenter.value.set(lat0, lon0);
+        if (gu.u_regionHalfSize) gu.u_regionHalfSize.value.set(curW * 0.5, curH * 0.5);
       }
       scene.add(tier0GlobeMesh);
       window.tier0GlobeMesh = tier0GlobeMesh;
@@ -2731,6 +2563,10 @@ const FLIGHT_STATES = {
           if (gu.u_ruptureVelocity) gu.u_ruptureVelocity.value = terrainUniforms.u_ruptureVelocity.value;
           if (gu.u_isFiniteFault) gu.u_isFiniteFault.value = terrainUniforms.u_isFiniteFault.value;
           if (gu.u_regionActive) gu.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
+          if (gu.u_regionCenter) gu.u_regionCenter.value.set(lat0, lon0);
+          if (gu.u_regionHalfSize && terrainUniforms.u_physicalSize) {
+            gu.u_regionHalfSize.value.set(terrainUniforms.u_physicalSize.value.x * 0.5, terrainUniforms.u_physicalSize.value.y * 0.5);
+          }
         }
         scene.remove(tier0GlobeMesh);
         if (tier0GlobeMesh.geometry) tier0GlobeMesh.geometry.dispose();

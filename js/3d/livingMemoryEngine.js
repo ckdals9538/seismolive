@@ -1042,7 +1042,7 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
   sprite.renderOrder = 100;
   group.add(sprite);
 
-  const finalY = Math.max(cand.groundY || 0.0, 0.020) + Math.max(unitDef.spatial?.elevationOffset || 0.080, 0.120);
+  const finalY = (cand.groundY || 0.0) + Math.max(0.010, unitDef.spatial?.elevationOffset || 0.020);
   group.position.set(cand.worldX, finalY, cand.worldZ);
 
   group.userData = {
@@ -1180,7 +1180,7 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
     });
   });
 
-  const finalY = Math.max(cand.groundY || 0.0, 0.020) + Math.max(unitDef.spatial?.elevationOffset || 0.080, 0.120);
+  const finalY = (cand.groundY || 0.0) + Math.max(0.010, unitDef.spatial?.elevationOffset || 0.020);
   group.position.set(cand.worldX, finalY, cand.worldZ);
 
   group.userData = {
@@ -1263,7 +1263,7 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
   sprite.renderOrder = 100;
   group.add(sprite);
 
-  const finalRecedeY = Math.max(cand.groundY || 0.0, 0.020) + Math.max(unitDef.spatial?.elevationOffset || 0.080, 0.120);
+  const finalRecedeY = (cand.groundY || 0.0) + Math.max(0.010, unitDef.spatial?.elevationOffset || 0.020);
   const finalY = finalRecedeY;
   group.position.set(cand.worldX, finalRecedeY, cand.worldZ);
 
@@ -1349,7 +1349,7 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
   sprite.renderOrder = 100;
   group.add(sprite);
 
-  const finalY = Math.max(cand.groundY || 0.0, 0.020) + Math.max(unitDef.spatial?.elevationOffset || 0.080, 0.120);
+  const finalY = (cand.groundY || 0.0) + Math.max(0.010, unitDef.spatial?.elevationOffset || 0.020);
   group.position.set(cand.worldX, finalY, cand.worldZ);
 
   group.userData = {
@@ -1423,11 +1423,11 @@ export class TerrainAwareSpawner {
 
       const pool = (matches.length > 0) ? matches : this.candidateCache.filter(c => c.zone === targetZone);
       const focalPool = pool.filter(c => Math.abs(c.worldX) <= 0.12 && Math.abs(c.worldZ) <= 0.08);
-      const candidateList = focalPool.length > 0 ? focalPool : pool;
+      const candidateList = (targetZone === 'ZONE_C_MOUNTAIN' || focalPool.length === 0) ? pool : focalPool;
       const chosen = candidateList[Math.floor(candidateList.length / 2)] || { worldX: 0, worldZ: 0, groundY: 0, elevation: 0, slope: 0 };
 
-      chosenWorldX = Math.max(-0.15, Math.min(0.15, chosen.worldX));
-      chosenWorldZ = Math.max(-0.10, Math.min(0.10, chosen.worldZ));
+      chosenWorldX = chosen.worldX;
+      chosenWorldZ = chosen.worldZ;
       if (typeof terrainMetricsLookup === 'function') {
         const m = terrainMetricsLookup(chosenWorldX, chosenWorldZ);
         groundY = m.groundY;
