@@ -1006,7 +1006,7 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.AdditiveBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const haloSprite = new THREE_INST.Sprite(haloMat);
   haloSprite.scale.set(unitDef.visual.spriteW * 1.35, unitDef.visual.spriteH * 2.2, 1.0);
@@ -1018,7 +1018,8 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
   canvas.height = unitDef.visual.canvasH;
   const ctx = canvas.getContext('2d');
   const texture = new THREE_INST.CanvasTexture(canvas);
-  texture.minFilter = THREE_INST.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE_INST.LinearMipmapLinearFilter;
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg, strokeJitterPx = 0.0) {
@@ -1034,7 +1035,7 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.NormalBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const sprite = new THREE_INST.Sprite(spriteMat);
   sprite.scale.set(unitDef.visual.spriteW, unitDef.visual.spriteH, 1.0);
@@ -1091,7 +1092,7 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.AdditiveBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const haloSprite = new THREE_INST.Sprite(haloMat);
   haloSprite.scale.set(unitDef.visual.spriteW * 1.35, unitDef.visual.spriteH * 2.2, 1.0);
@@ -1131,7 +1132,8 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
     c.height = cH;
     const ctx = c.getContext('2d');
     const tex = new THREE_INST.CanvasTexture(c);
-    tex.minFilter = THREE_INST.LinearFilter;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE_INST.LinearMipmapLinearFilter;
     tex.magFilter = THREE_INST.LinearFilter;
 
     function renderChunk(prog) {
@@ -1147,7 +1149,7 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
       opacity: 0.0,
       blending: THREE_INST.NormalBlending,
       depthWrite: false,
-      depthTest: false
+      depthTest: true
     });
     const sp = new THREE_INST.Sprite(sMat);
     const aspect = cW / cH;
@@ -1225,7 +1227,7 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.AdditiveBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const haloSprite = new THREE_INST.Sprite(haloMat);
   haloSprite.scale.set(unitDef.visual.spriteW * 1.35, unitDef.visual.spriteH * 2.2, 1.0);
@@ -1237,7 +1239,8 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
   canvas.height = unitDef.visual.canvasH;
   const ctx = canvas.getContext('2d');
   const texture = new THREE_INST.CanvasTexture(canvas);
-  texture.minFilter = THREE_INST.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE_INST.LinearMipmapLinearFilter;
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg) {
@@ -1253,7 +1256,7 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.NormalBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const sprite = new THREE_INST.Sprite(spriteMat);
   sprite.scale.set(unitDef.visual.spriteW, unitDef.visual.spriteH, 1.0);
@@ -1310,7 +1313,7 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.AdditiveBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const haloSprite = new THREE_INST.Sprite(haloMat);
   haloSprite.scale.set(unitDef.visual.spriteW * 1.35, unitDef.visual.spriteH * 2.2, 1.0);
@@ -1322,7 +1325,8 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
   canvas.height = unitDef.visual.canvasH;
   const ctx = canvas.getContext('2d');
   const texture = new THREE_INST.CanvasTexture(canvas);
-  texture.minFilter = THREE_INST.LinearFilter;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE_INST.LinearMipmapLinearFilter;
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg) {
@@ -1338,7 +1342,7 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
     opacity: 0.0,
     blending: THREE_INST.NormalBlending,
     depthWrite: false,
-    depthTest: false
+    depthTest: true
   });
   const sprite = new THREE_INST.Sprite(spriteMat);
   sprite.scale.set(unitDef.visual.spriteW, unitDef.visual.spriteH, 1.0);

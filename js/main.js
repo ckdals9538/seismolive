@@ -3073,14 +3073,23 @@ const FLIGHT_STATES = {
         const lc = unitDef.timing;
         const totalDuration = lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration + lc.residueDuration;
 
-        // Distance-adaptive screen-space scaling for gallery legibility
+        // Distance-adaptive screen-space scaling for guaranteed minimum legibility
         if (u.sprite && camera) {
           const distToCam = camera.position.distanceTo(grp.position);
-          const scaleMul = Math.max(0.85, Math.min(2.4, distToCam * 1.6));
+          const fovRad = (camera.fov || 45) * Math.PI / 180.0;
+          const fovScale = 2.0 * Math.tan(fovRad * 0.5) * distToCam;
+          // Target angular screen height fraction (~0.038 gives ~40px on 1080p, ~20px on 540p)
+          const targetWorldH = fovScale * 0.038;
+          const baseH = unitDef.visual.spriteH || 0.062;
+          const scaleMul = Math.max(0.85, Math.min(2.8, targetWorldH / baseH));
           u.sprite.scale.set(unitDef.visual.spriteW * scaleMul, unitDef.visual.spriteH * scaleMul, 1.0);
           if (u.haloSprite) {
             u.haloSprite.scale.set(unitDef.visual.spriteW * 1.35 * scaleMul, unitDef.visual.spriteH * 2.2 * scaleMul, 1.0);
           }
+
+          // Atmospheric fog distance fade: smoothly dissolve when camera is far in orbit
+          const fogFactor = Math.max(0.0, Math.min(1.0, (3.2 - distToCam) / 1.6));
+          u.fogFactor = fogFactor;
         }
 
         if (enableStratum3 < 0.5) {
@@ -3253,6 +3262,13 @@ const FLIGHT_STATES = {
           if (unitDef.kinetic.archetype === "FRACTURE" && u.chunks) {
             u.chunks.forEach(chk => { chk.mat.opacity = 0.0; });
           }
+        }
+
+        const fogMul = (u.fogFactor !== undefined) ? u.fogFactor : 1.0;
+        if (u.spriteMat) u.spriteMat.opacity *= fogMul;
+        if (u.haloMat) u.haloMat.opacity *= fogMul;
+        if (u.chunks) {
+          u.chunks.forEach(chk => { if (chk.mat) chk.mat.opacity *= fogMul; });
         }
       });
 
