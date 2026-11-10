@@ -1545,3 +1545,9 @@ export const INSTRUMENTAL_EVENTS = [
     links: [{ label: "USGS Tohoku Earthquake Event Page", url: "https://earthquake.usgs.gov/earthquakes/eventpage/official20110311054624120_30" }]
   }
 ];
+
+// Ensure all entries are explicitly marked as modern instrumental
+INSTRUMENTAL_EVENTS.forEach(ev => {
+  ev.isInstrumental = true;
+});
+

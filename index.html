@@ -186,26 +186,24 @@
 
     /* State Dimensions */
     #unified-control-surface.state-explore {
-      width: 1040px;
+      width: max-content;
+      min-width: 0;
       max-width: calc(100vw - 32px);
-      height: 52px;
+      height: 48px;
     }
     #unified-control-surface.state-discover {
-      width: 800px;
-      max-width: calc(100vw - 32px);
-      height: 540px;
-      max-height: 85vh;
+      width: min(840px, calc(100vw - 32px));
+      height: min(540px, 85vh);
     }
     #unified-control-surface.state-selected {
-      width: 860px;
-      max-width: calc(100vw - 32px);
-      height: 600px;
-      max-height: 88vh;
+      width: min(880px, calc(100vw - 32px));
+      height: min(620px, 86vh);
     }
     #unified-control-surface.state-performance {
-      width: 1080px;
+      width: max-content;
+      min-width: 0;
       max-width: calc(100vw - 32px);
-      height: 52px;
+      height: 48px;
     }
 
     /* Contextual Views Switching */
@@ -292,9 +290,9 @@
     .view-explore {
       flex-direction: row;
       align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
-      gap: 8px;
+      justify-content: flex-start;
+      padding: 6px 14px;
+      gap: 10px;
       box-sizing: border-box;
       width: 100%;
     }
@@ -306,8 +304,8 @@
       flex-shrink: 0;
     }
     .beacon-pulse {
-      width: 7px;
-      height: 7px;
+      width: 6px;
+      height: 6px;
       border-radius: 50%;
       background: #8ec5fc;
       box-shadow: 0 0 8px #8ec5fc;
@@ -325,11 +323,7 @@
       white-space: nowrap;
     }
     .brand-sub {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 9.5px;
-      color: rgba(142, 197, 252, 0.65);
-      margin-left: 2px;
-      white-space: nowrap;
+      display: none;
     }
     /* Category Segmented Switch: [역사지진] vs [글로벌 USGS] */
     .explore-category-tabs {
@@ -389,15 +383,22 @@
     .explore-actions {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
       white-space: nowrap;
       flex-shrink: 0;
+      margin-left: auto;
     }
     .explore-benchmarks {
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-shrink: 0;
+      flex-shrink: 1;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .explore-benchmarks::-webkit-scrollbar {
+      display: none;
     }
     .surface-btn.pill {
       font-size: 10.5px;
@@ -414,9 +415,8 @@
       display: inline-flex;
       align-items: center;
       gap: 4px;
-    }
-      align-items: center;
-      gap: 5px;
+      white-space: nowrap;
+      flex-shrink: 0;
     }
     .surface-btn.pill.indexed .idx-num {
       display: inline-flex;
@@ -722,13 +722,10 @@
     }
     /* Hero Editorial Key Insight Banner (Immediate Cognitive Anchor) */
     .selected-key-insight {
-      background: rgba(20, 32, 48, 0.55);
-      border-left: 2px solid rgba(142, 197, 252, 0.65);
-      border-top: 1px solid rgba(255, 255, 255, 0.06);
-      border-right: 1px solid rgba(255, 255, 255, 0.04);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      padding: 11px 16px;
-      margin: 6px 0 8px 0;
+      background: rgba(14, 20, 30, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 12px 18px;
+      margin: 4px 0 10px 0;
       border-radius: 2px;
       display: flex;
       flex-direction: column;
@@ -739,19 +736,15 @@
       align-items: center;
       gap: 6px;
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 600;
       letter-spacing: 0.06em;
       color: #8FAEC8;
       text-transform: uppercase;
     }
-    .insight-diamond {
-      color: #C2A882;
-      font-size: 11px;
-    }
     .key-insight-text {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 12.5px;
+      font-size: 12px;
       line-height: 1.7;
       color: #E2E8F0;
       margin: 0;
@@ -1538,7 +1531,7 @@
           <span id="discover-btn-label">글로벌 관측 피드</span>
         </button>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
-          <span class="toggle-dot"></span> <span id="auto-continue-text">연속 재생: 꺼짐</span>
+          <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
         </button>
         <button id="btn-surface-audio" class="surface-btn icon" title="음향 토글">
           <span id="surface-audio-icon">🔇</span>
@@ -1575,7 +1568,7 @@
     <!-- 3. SELECTED EVENT STATE: Event Dossier, Provenance & Launch Action -->
     <div class="surface-view view-selected" id="view-selected">
       <div class="selected-header">
-        <button id="btn-back-to-discover" class="surface-btn text-link">← 아카이브 목록</button>
+        <button id="btn-back-to-discover" class="surface-btn text-link">&lsaquo; 목록으로 복귀</button>
         <div class="selected-era-badge" id="selected-era-badge">조선 숙종 7년 (1681)</div>
         <button id="btn-close-selected" class="surface-btn icon close" title="닫기">&times;</button>
       </div>
@@ -1594,7 +1587,7 @@
         <!-- HERO KEY INSIGHT BOX (Immediate High-Impact Scientific & Historical Takeaway) -->
         <div class="selected-key-insight" id="selected-key-insight">
           <div class="key-insight-tag" id="key-insight-tag">
-            <span class="insight-diamond">✦</span> <span id="key-insight-tag-text">사건 핵심 통찰 (KEY INSIGHT)</span>
+            <span id="key-insight-tag-text">사건 핵심 통찰</span>
           </div>
           <p class="key-insight-text" id="selected-key-insight-text">
             사건 핵심 요약 정보가 이곳에 표시됩니다.
@@ -2201,6 +2194,22 @@
     }
     window.getEventCoords = getEventCoords;
 
+    function isHistoricalRecord(ev) {
+      if (!ev) return true;
+      if (ev.isInstrumental === true) return false;
+      if (ev.recordType === 'usgs-live' || ev.catalogType === 'INSTRUMENTAL_GLOBAL' || ev.recordType === 'instrumental-global' || ev.recordType === 'instrumental-early' || ev.recordType === 'instrumental-digital') return false;
+      const evId = String(ev.id || ev.eventId || "").toLowerCase();
+      if (evId.startsWith('inst_') || evId.startsWith('global_') || evId.startsWith('usgs_')) return false;
+      if (evId.includes('turkey') || evId.includes('kumamoto') || evId.includes('tohoku')) return false;
+      if (evId.includes('gyeongju') && evId.includes('2016')) return false;
+      if (evId.includes('pohang') && (evId.includes('2017') || evId.includes('2018'))) return false;
+      if (evId.includes('buan') && evId.includes('2024')) return false;
+      if (ev.century && ev.century >= 20) return false;
+      if (ev.year && ev.year >= 1910) return false;
+      return true;
+    }
+    window.isHistoricalRecord = isHistoricalRecord;
+
     function getAllLocalizedEvents() {
       const list = [];
       const source = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
@@ -2403,7 +2412,7 @@
           if (grpUsgs) grpUsgs.style.display = 'flex';
           const globalCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.id?.includes('global_') || e.id?.includes('usgs')).length || 727;
           if (subCount) subCount.textContent = `${globalCount} 글로벌 관측 노드`;
-          if (btnLabel) btnLabel.textContent = "USGS 글로벌 피드 (727) →";
+          if (btnLabel) btnLabel.textContent = "글로벌 관측 피드";
           this.activeFilter = 'global';
           
           const sub = document.getElementById('chronicle-subtitle-text');
@@ -2417,7 +2426,7 @@
           if (grpUsgs) grpUsgs.style.display = 'none';
           const histCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.country === 'KOREA' || (!e.id?.includes('global_') && !e.id?.includes('usgs') && e.catalogType !== 'INSTRUMENTAL_GLOBAL')).length || 48;
           if (subCount) subCount.textContent = `${histCount} 한반도 역사 사료`;
-          if (btnLabel) btnLabel.textContent = "한반도 사료 목록 (48) →";
+          if (btnLabel) btnLabel.textContent = "한반도 사료 목록";
           this.activeFilter = 'all-historical';
 
           const sub = document.getElementById('chronicle-subtitle-text');
@@ -2774,7 +2783,7 @@
         const chk = document.getElementById('chk-auto-continue');
         if (btn && txt) {
           btn.classList.toggle('active', this.autoContinue);
-          txt.textContent = this.autoContinue ? "연속 재생: 켜짐" : "연속 재생: 꺼짐";
+          txt.textContent = this.autoContinue ? "연속: 켬" : "연속: 끔";
         }
         if (chk) {
           chk.checked = this.autoContinue;
@@ -2980,16 +2989,7 @@
           || (window.HISTORICAL_EVENTS || []).find(e => (e.id === evId || e.eventId === evId))
           || ev;
 
-        const isModernId = evId.startsWith('inst_') || evId.startsWith('global_') || evId.startsWith('usgs_') ||
-                           evId.includes('turkey') || evId.includes('kumamoto') || evId.includes('tohoku') ||
-                           evId.includes('gyeongju') || evId.includes('pohang');
-        const isHist = !isModernId && (
-          canonicalEv.isInstrumental !== true &&
-          canonicalEv.catalogType !== 'INSTRUMENTAL_GLOBAL' &&
-          canonicalEv.recordType !== 'usgs-live' &&
-          canonicalEv.era !== 'ERA_2_INSTRUMENTAL' &&
-          (canonicalEv.century == null || canonicalEv.century < 20)
-        );
+        const isHist = isHistoricalRecord(canonicalEv);
 
         const cleanTitle = (canonicalEv.titleKo || canonicalEv.place || canonicalEv.canonicalName || "지진 사건").replace(/[\u4e00-\u9fff]/g, '').trim();
         const eraText = canonicalEv.dateConversion?.reignName || (!isHist ? (canonicalEv.recordType === 'usgs-live' ? "USGS 글로벌 실시간 관측망" : "현대 정밀 계측 지진") : "역사 문헌 사료 기록");
@@ -3003,7 +3003,7 @@
         if (canonicalEv.recordType === 'usgs-live') {
           provTagText = "USGS Global Real-time";
           confText = "USGS 실시간 지진계 네트워크";
-        } else if (canonicalEv.catalogType === 'INSTRUMENTAL_GLOBAL' || (canonicalEv.country && canonicalEv.country !== 'KOREA') || isModernId) {
+        } else if (canonicalEv.catalogType === 'INSTRUMENTAL_GLOBAL' || (canonicalEv.country && canonicalEv.country !== 'KOREA') || !isHist) {
           provTagText = "국제 표준 계측 (ISC/USGS)";
           confText = "국제 지진 센터(ISC) 및 기상청 정밀 관측";
         } else if (!isHist) {
@@ -3073,22 +3073,18 @@
               <div class="meta-block">
                 <span class="meta-lbl">계측 시각</span>
                 <span class="meta-val">${dateStr}</span>
-                <span class="epistemic-badge obs">[실측]</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">진앙 좌표</span>
                 <span class="meta-val">${hasCoords ? `${lat.toFixed(2)}°N, ${lon.toFixed(2)}°E` : '좌표 계측중'}</span>
-                <span class="epistemic-badge obs">[실측]</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">지진 규모</span>
                 <span class="meta-val">${magStr}</span>
-                <span class="epistemic-badge obs">[실측]</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">진원 심도</span>
                 <span class="meta-val">${depthStr}</span>
-                <span class="epistemic-badge obs">[실측]</span>
               </div>
             `;
           }
@@ -3139,7 +3135,7 @@
         }
 
         if (btnBackDiscover) {
-          btnBackDiscover.textContent = (this.previousState === 'PERFORMANCE') ? "← 3D 현장으로 복귀" : "← 목록으로 복귀";
+          btnBackDiscover.innerHTML = (this.previousState === 'PERFORMANCE') ? "&lsaquo; 3D 현장 복귀" : "&lsaquo; 목록으로 복귀";
         }
 
         // STRICT EPISTEMIC & DOMAIN SEPARATION:
@@ -3192,7 +3188,7 @@
 
         const evId = String(ev.id || ev.eventId || "");
         const rawHist = (window.HISTORICAL_EVENTS || []).find(h => h.id === evId) || ev;
-        const isHist = !ev.century || (ev.century < 20 && ev.catalogType !== 'INSTRUMENTAL_GLOBAL' && ev.recordType !== 'usgs-live' && ev.era !== 'ERA_2_INSTRUMENTAL');
+        const isHist = isHistoricalRecord(ev);
         const isUSGS = ev.recordType === 'usgs-live' || ev.catalogType === 'INSTRUMENTAL_GLOBAL';
 
         if (isHist) {
@@ -3682,19 +3678,6 @@
               <div class="tectonic-title">글로벌 지진계 네트워크(GSN) 파형 역산 및 단층면해</div>
               <div class="tectonic-desc">
                 광대역 지진계에 기록된 3성분 파형의 초동 위상(P, S, Pn, Sn)과 W-phase 모멘트 텐서 역산을 통해 진원 깊이, 방출 에너지, 단층 파쇄 메커니즘이 확정되었습니다.
-              </div>
-            </div>
-          `;
-        }
-
-        container.innerHTML = html;
-      }
-              </div>
-            </div>
-            <div class="tectonic-theory-card">
-              <div class="tectonic-title">경기육괴 및 추가령 단층대 역사 지구조 응력 방출</div>
-              <div class="tectonic-desc">
-                사료에 기록된 '담벽과 가옥이 무너지고 인마(人馬)가 놀라 쓰러졌다'는 기록을 감진도로 환산(MMI VII 이상)하여 진앙을 복원하였습니다. 선캠브리아기 편마암 복합체로 구성된 경기육괴 내부의 고단층대 활성화 또는 추가령 구조선의 간헐적 지진성 단층 미끄러짐으로 해석됩니다.
               </div>
             </div>
           `;
