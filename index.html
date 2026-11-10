@@ -169,12 +169,12 @@
       transform: translateX(-50%);
       z-index: 35;
       pointer-events: auto;
-      background: rgba(10, 16, 26, 0.88);
+      background: rgba(8, 12, 20, 0.94);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
-      border: 1px solid rgba(142, 197, 252, 0.22);
-      border-radius: 14px;
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.78), 0 0 24px rgba(142, 197, 252, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
       transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
                   height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
                   max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
@@ -191,16 +191,16 @@
       height: 52px;
     }
     #unified-control-surface.state-discover {
-      width: 760px;
+      width: 800px;
       max-width: calc(100vw - 32px);
-      height: 500px;
-      max-height: 80vh;
+      height: 540px;
+      max-height: 85vh;
     }
     #unified-control-surface.state-selected {
-      width: 820px;
+      width: 860px;
       max-width: calc(100vw - 32px);
-      height: 560px;
-      max-height: 85vh;
+      height: 600px;
+      max-height: 88vh;
     }
     #unified-control-surface.state-performance {
       width: 1080px;
@@ -713,6 +713,7 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 0;
     }
     .telemetry-cell:last-child {
       border-right: none;
@@ -732,16 +733,18 @@
       color: #6482a0;
       letter-spacing: 0.06em;
       text-transform: uppercase;
+      white-space: nowrap;
     }
     .cell-value {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 11.5px;
+      font-size: 11px;
       color: #EAE4D5;
       font-weight: 500;
       display: flex;
       align-items: baseline;
       flex-wrap: wrap;
       gap: 4px;
+      line-height: 1.45;
     }
     /* Museum Archival Folio Inscription */
     .selected-quote-card {
