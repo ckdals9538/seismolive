@@ -52,18 +52,19 @@
       user-select: none;
     }
     .gallery-title {
-      font-size: 11.5px;
-      font-weight: 700;
-      letter-spacing: 0.22em;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      color: #7a9ec2;
+      color: var(--hanji);
       margin-bottom: 3px;
     }
     .gallery-sub {
-      font-size: 11px;
-      font-family: "Noto Serif KR", Batang, serif;
-      color: rgba(234, 228, 213, 0.75);
-      letter-spacing: 0.05em;
+      font-size: 10.5px;
+      font-family: var(--font-serif);
+      color: var(--mist);
+      letter-spacing: 0.04em;
     }
 
 
@@ -76,17 +77,17 @@
       transform: translate(-50%, -50%);
       font-family: "SF Mono", Menlo, monospace;
       font-size: 12px;
-      color: #89b4de;
-      letter-spacing: 0.1em;
+      color: var(--hanji);
+      letter-spacing: 0.08em;
       text-align: center;
       z-index: 100;
       pointer-events: none;
     }
     .spinner {
-      width: 28px;
-      height: 28px;
-      border: 2px solid rgba(120, 175, 230, 0.2);
-      border-top-color: #8ec5fc;
+      width: 26px;
+      height: 26px;
+      border: 1px solid var(--hairline);
+      border-top-color: var(--brass);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin: 0 auto 10px auto;
@@ -154,26 +155,26 @@
       margin-bottom: 4px;
     }
     .tooltip-meta {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 10.5px;
-      color: #7a9ec2;
+      color: var(--mist);
       margin-bottom: 6px;
     }
     .tooltip-quote {
-      font-family: "Noto Serif KR", Batang, serif;
+      font-family: var(--font-serif);
       font-size: 11px;
-      color: rgba(234, 228, 213, 0.75);
-      line-height: 1.45;
+      color: var(--hanji-muted);
+      line-height: 1.5;
       font-style: italic;
-      border-left: 2px solid rgba(200, 157, 84, 0.5);
+      border-left: 2px solid var(--brass);
       padding-left: 8px;
       margin-bottom: 6px;
     }
     .tooltip-cta {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 9.5px;
       letter-spacing: 0.08em;
-      color: #8ec5fc;
+      color: var(--brass);
       text-transform: uppercase;
     }
 
@@ -246,32 +247,33 @@
       align-items: center;
       justify-content: center;
       gap: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(14, 22, 34, 0.72);
-      color: #EAE4D5;
+      border: 1px solid var(--hairline);
+      background: var(--basalt);
+      color: var(--hanji);
       font-size: 11.5px;
       padding: 6px 12px;
       border-radius: 3px;
       cursor: pointer;
       transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--font-sans);
     }
     .surface-btn:hover {
-      background: rgba(26, 38, 56, 0.9);
-      border-color: rgba(200, 157, 84, 0.4);
+      background: var(--basalt-elevated);
+      border-color: var(--hairline-strong);
       color: #ffffff;
       box-shadow: none;
     }
     .surface-btn.primary {
-      background: rgba(24, 38, 58, 0.92);
-      border-color: rgba(142, 197, 252, 0.45);
-      color: #ffffff;
+      background: var(--basalt-elevated);
+      border-color: var(--brass-dim);
+      color: var(--hanji);
       font-weight: 500;
       box-shadow: none;
     }
     .surface-btn.primary:hover {
-      background: rgba(34, 56, 82, 0.98);
-      border-color: rgba(142, 197, 252, 0.7);
+      background: rgba(36, 44, 58, 0.98);
+      border-color: var(--brass);
+      color: #ffffff;
       box-shadow: none;
     }
     .surface-btn.icon {
@@ -282,24 +284,24 @@
       border: none;
       background: transparent;
       font-size: 16px;
-      color: #6482a0;
+      color: var(--mist);
       padding: 4px 8px;
     }
     .surface-btn.icon.close:hover {
-      color: #EAE4D5;
+      color: var(--hanji);
       box-shadow: none;
       background: rgba(255, 255, 255, 0.06);
     }
     .surface-btn.text-link {
       background: transparent;
       border: none;
-      color: #6482a0;
+      color: var(--mist);
       padding: 4px 6px;
       font-size: 11px;
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
     }
     .surface-btn.text-link:hover {
-      color: #EAE4D5;
+      color: var(--hanji);
       text-decoration: none;
       box-shadow: none;
     }
@@ -317,85 +319,85 @@
     .explore-brand {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       white-space: nowrap;
       flex-shrink: 0;
     }
     .beacon-pulse {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
-      background: #8ec5fc;
-      box-shadow: 0 0 8px #8ec5fc;
-      animation: pulseGlow 2s infinite ease-in-out;
+      background: var(--brass);
+      box-shadow: 0 0 6px var(--brass);
+      animation: pulseGlow 2.5s infinite ease-in-out;
     }
     @keyframes pulseGlow {
       0%, 100% { transform: scale(0.9); opacity: 0.6; }
       50% { transform: scale(1.3); opacity: 1.0; }
     }
     .brand-title {
+      font-family: var(--font-mono);
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.16em;
-      color: #8ebbee;
+      color: var(--hanji);
       white-space: nowrap;
     }
     .brand-sub {
       display: none;
     }
-    /* Category Segmented Switch: [역사지진] vs [글로벌 USGS] */
+    /* Category Segmented Switch: [글로벌 계측 관측] vs [한반도 역사 사료] */
     .explore-category-tabs {
       display: inline-flex;
       align-items: center;
-      background: rgba(12, 18, 28, 0.92);
-      border: 1px solid rgba(142, 197, 252, 0.22);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--hairline);
       border-radius: 20px;
       padding: 2px;
       gap: 2px;
       flex-shrink: 0;
-      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.5);
     }
     .cat-tab {
-      padding: 3.5px 9px;
-      font-size: 10.5px;
+      padding: 4px 11px;
+      font-size: 11px;
+      font-family: var(--font-sans);
       font-weight: 500;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.02em;
       border-radius: 14px;
       border: 1px solid transparent;
       background: transparent;
-      color: rgba(176, 196, 222, 0.7);
+      color: var(--mist);
       cursor: pointer;
-      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       white-space: nowrap;
       user-select: none;
     }
     .cat-tab:hover {
-      color: #ffffff;
-      background: rgba(142, 197, 252, 0.1);
+      color: var(--hanji);
+      background: rgba(255, 255, 255, 0.04);
     }
     .cat-tab.active {
-      background: rgba(30, 58, 92, 0.95);
-      color: #ffffff;
+      background: rgba(200, 157, 84, 0.16);
+      color: var(--hanji);
       font-weight: 600;
-      box-shadow: 0 0 12px rgba(142, 197, 252, 0.35);
-      border-color: rgba(142, 197, 252, 0.45);
+      border-color: var(--brass-dim);
     }
     .cat-tab .tab-bullet {
-      width: 5px;
-      height: 5px;
+      width: 4px;
+      height: 4px;
       border-radius: 50%;
-      background: #8ec5fc;
-      opacity: 0.45;
+      background: var(--mist);
+      opacity: 0.5;
       display: inline-block;
       transition: all 0.2s ease;
     }
     .cat-tab.active .tab-bullet {
       opacity: 1;
-      background: #c8e0f8;
-      box-shadow: 0 0 6px #8ec5fc;
+      background: var(--brass);
+      box-shadow: 0 0 6px var(--brass);
     }
 
     .explore-actions {
@@ -409,30 +411,37 @@
     .explore-benchmarks {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       flex-shrink: 1;
       min-width: 0;
       overflow-x: auto;
       scrollbar-width: none;
+      animation: fadeInBenchmarks 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeInBenchmarks {
+      from { opacity: 0; transform: translateX(-4px); }
+      to { opacity: 1; transform: translateX(0); }
     }
     .explore-benchmarks::-webkit-scrollbar {
       display: none;
     }
     .surface-btn.pill {
-      font-size: 10.5px;
-      padding: 4px 8px;
-      border-radius: 12px;
-      background: rgba(14, 22, 34, 0.65);
-      border: 1px solid rgba(142, 197, 252, 0.22);
-      color: #b0c4de;
+      font-size: 11px;
+      font-family: var(--font-sans);
+      padding: 4px 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--hairline);
+      color: var(--hanji-muted);
       white-space: nowrap;
       flex-shrink: 0;
+      transition: all 0.16s ease;
     }
     .surface-btn.pill.indexed {
-      padding: 3.5px 8px;
+      padding: 3.5px 9px;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       white-space: nowrap;
       flex-shrink: 0;
     }
@@ -443,40 +452,41 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background: rgba(200, 157, 84, 0.25);
-      color: #e2b46c;
-      font-size: 9.5px;
-      font-weight: 700;
-      font-family: "SF Mono", Menlo, monospace;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--mist);
+      font-size: 9px;
+      font-weight: 600;
+      font-family: var(--font-mono);
     }
     .surface-btn.pill.indexed.usgs-idx .idx-num {
-      background: rgba(142, 197, 252, 0.25);
-      color: #8ec5fc;
+      background: rgba(200, 157, 84, 0.2);
+      color: var(--brass);
     }
     .surface-btn.pill:hover {
-      background: rgba(30, 52, 80, 0.9);
-      border-color: rgba(142, 197, 252, 0.6);
-      color: #ffffff;
+      background: rgba(255, 255, 255, 0.07);
+      border-color: var(--hairline-strong);
+      color: var(--hanji);
     }
     .surface-btn.pill.active {
-      background: rgba(34, 70, 110, 0.95);
-      border-color: #8ec5fc;
-      color: #ffffff;
-      box-shadow: 0 0 10px rgba(142, 197, 252, 0.45);
+      background: rgba(200, 157, 84, 0.18);
+      border-color: var(--brass);
+      color: var(--hanji);
     }
     .surface-btn.pill.inactive {
-      opacity: 0.65;
+      opacity: 0.55;
     }
     .toggle-dot {
-      width: 6px;
-      height: 6px;
+      width: 5px;
+      height: 5px;
       border-radius: 50%;
-      background: #50657a;
-      transition: all 0.25s ease;
+      background: var(--mist);
+      opacity: 0.5;
+      transition: all 0.2s ease;
     }
     .surface-btn.toggle.active .toggle-dot {
-      background: #8ec5fc;
-      box-shadow: 0 0 6px #8ec5fc;
+      background: var(--brass);
+      opacity: 1;
+      box-shadow: 0 0 6px var(--brass);
     }
 
     /* 2. DISCOVER VIEW (Archival Ledger & Search) */
@@ -500,9 +510,9 @@
       letter-spacing: 0.04em;
     }
     .discover-count {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 10px;
-      color: #6482a0;
+      color: var(--mist);
       letter-spacing: 0.04em;
       margin-left: 10px;
     }
@@ -542,9 +552,9 @@
       border: none;
       border-bottom: 2px solid transparent;
       border-radius: 0;
-      color: #6482a0;
+      color: var(--mist);
       font-size: 10.5px;
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-weight: 500;
       letter-spacing: 0.03em;
       padding: 6px 11px;
@@ -552,14 +562,14 @@
       transition: all 0.18s ease;
     }
     .filter-chip:hover {
-      color: #adc6df;
+      color: var(--hanji);
       background: rgba(255, 255, 255, 0.025);
       box-shadow: none;
     }
     .filter-chip.active {
-      color: #EAE4D5;
-      border-bottom-color: #C89D54;
-      background: rgba(200, 157, 84, 0.04);
+      color: var(--hanji);
+      border-bottom-color: var(--brass);
+      background: rgba(200, 157, 84, 0.06);
       font-weight: 600;
       box-shadow: none;
     }
@@ -623,9 +633,9 @@
       gap: 12px;
     }
     .card-coords {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 9.5px;
-      color: #6482a0;
+      color: var(--mist);
       white-space: nowrap;
       flex-shrink: 0;
     }
@@ -1222,24 +1232,26 @@
       flex-shrink: 0;
     }
     .transport-btn:hover {
-      color: #8ec5fc;
-      transform: scale(1.1);
+      color: var(--brass);
+      transform: scale(1.08);
     }
     .transport-btn.play-pause {
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      background: rgba(142, 197, 252, 0.15);
-      border: 1px solid rgba(142, 197, 252, 0.35);
+      background: rgba(200, 157, 84, 0.15);
+      border: 1px solid var(--brass-dim);
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 11px;
+      color: var(--hanji);
       flex-shrink: 0;
     }
     .transport-btn.play-pause:hover {
-      background: rgba(142, 197, 252, 0.3);
-      box-shadow: 0 0 10px rgba(142, 197, 252, 0.4);
+      background: rgba(200, 157, 84, 0.28);
+      border-color: var(--brass);
+      box-shadow: none;
     }
     .transport-scrubber-group {
       display: flex;
@@ -1249,9 +1261,9 @@
       min-width: 0;
     }
     .transport-time-label {
-      font-family: "SF Mono", Menlo, monospace;
+      font-family: var(--font-mono);
       font-size: 10.5px;
-      color: #7a9ec2;
+      color: var(--mist);
       min-width: 34px;
       text-align: center;
       flex-shrink: 0;
@@ -1262,7 +1274,7 @@
       min-width: 60px;
       height: 4px;
       -webkit-appearance: none;
-      background: rgba(40, 60, 85, 0.8);
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 2px;
       outline: none;
       cursor: pointer;
@@ -1272,8 +1284,8 @@
       width: 10px;
       height: 10px;
       border-radius: 50%;
-      background: #8ec5fc;
-      box-shadow: 0 0 6px #8ec5fc;
+      background: var(--brass);
+      box-shadow: 0 0 6px var(--brass);
       cursor: pointer;
     }
     .transport-audio-group {
@@ -1286,7 +1298,7 @@
       width: 44px;
       height: 3px;
       -webkit-appearance: none;
-      background: rgba(40, 60, 85, 0.8);
+      background: rgba(255, 255, 255, 0.1);
       border-radius: 2px;
       outline: none;
       cursor: pointer;
@@ -1297,7 +1309,7 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #c8e0f8;
+      background: var(--hanji);
       cursor: pointer;
     }
     .transport-exit {
@@ -1398,22 +1410,22 @@
       top: 18px;
       right: 22px;
       z-index: 45;
-      background: rgba(8, 14, 24, 0.72);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(142, 197, 252, 0.22);
-      color: #9cb8d4;
-      font-family: "SF Mono", Menlo, monospace;
+      background: var(--basalt-surface);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--hairline);
+      color: var(--mist);
+      font-family: var(--font-mono);
       font-size: 10px;
-      padding: 5px 10px;
-      border-radius: 16px;
+      padding: 5px 12px;
+      border-radius: 14px;
       cursor: pointer;
       transition: all 0.2s ease;
       user-select: none;
     }
     #quality-mode-pill:hover {
-      border-color: rgba(142, 197, 252, 0.55);
-      color: #e6f2ff;
+      border-color: var(--hairline-strong);
+      color: var(--hanji);
     }
     #immersive-restore-pill {
       position: fixed;
@@ -1421,20 +1433,20 @@
       right: 22px;
       z-index: 60;
       display: none;
-      background: rgba(8, 14, 24, 0.78);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(200, 157, 84, 0.45);
-      color: #eae4d5;
+      background: var(--basalt-elevated);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--brass-dim);
+      color: var(--hanji);
       font-size: 11px;
       padding: 6px 13px;
-      border-radius: 18px;
+      border-radius: 16px;
       cursor: pointer;
     }
     .transport-pill-btn {
-      background: rgba(20, 32, 48, 0.85);
-      border: 1px solid rgba(142, 197, 252, 0.25);
-      color: #bdd6f0;
-      font-family: "SF Mono", Menlo, monospace;
+      background: var(--basalt-elevated);
+      border: 1px solid var(--hairline);
+      color: var(--mist);
+      font-family: var(--font-mono);
       font-size: 10px;
       padding: 4px 7px;
       border-radius: 4px;
@@ -1451,8 +1463,9 @@
       flex-shrink: 0;
     }
     .transport-pill-btn:hover {
-      background: rgba(142, 197, 252, 0.22);
-      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--hairline-strong);
+      color: var(--hanji);
     }
 
     @media (max-width: 1060px) {
@@ -1522,7 +1535,7 @@
 
   <!-- Floating Archival Subtitle (Hanji Ivory, Floating, No Box) -->
   <div id="chronicle-subtitle-container">
-    <div id="chronicle-subtitle-text">지구 표면의 역사지진 노드를 탐색하십시오 · [SPACE] 탐색 시작/일시정지</div>
+    <div id="chronicle-subtitle-text">지구를 회전하여 지진 노드를 탐색하거나, 하단의 관측망을 선택하십시오</div>
   </div>
 
   <!-- Interactive Discovery Beacon Tooltip -->
@@ -1549,7 +1562,7 @@
 
       <!-- Segmented Mode Tabs: [글로벌 계측 관측] vs [한반도 역사 사료] -->
       <div class="explore-category-tabs" role="tablist">
-        <button id="tab-cat-usgs" class="cat-tab active" data-cat="usgs" title="USGS 전 지구 M4.5+ 실시간 관측 및 현대 계측 대지진">
+        <button id="tab-cat-usgs" class="cat-tab" data-cat="usgs" title="USGS 전 지구 M4.5+ 실시간 관측 및 현대 계측 대지진">
           <span class="tab-bullet"></span>글로벌 계측 관측
         </button>
         <button id="tab-cat-historical" class="cat-tab" data-cat="historical" title="한반도 2,000년 역사 문헌 사료 아카이브 (기원후 2년~1904년)">
@@ -1557,8 +1570,8 @@
         </button>
       </div>
 
-      <!-- Curated USGS Global Instrumental Benchmarks -->
-      <div class="explore-benchmarks" id="benchmarks-usgs">
+      <!-- Curated USGS Global Instrumental Benchmarks (Reveals on demand) -->
+      <div class="explore-benchmarks" id="benchmarks-usgs" style="display:none;">
         <button id="btn-ev-turkey" class="surface-btn pill indexed usgs-idx" data-id="global_2023_turkey" title="2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)">
           <span class="idx-num">1</span> 2023 튀르키예
         </button>
@@ -1594,7 +1607,7 @@
 
       <div class="explore-actions">
         <button id="btn-open-discover" class="surface-btn primary" title="전체 사료 및 관측 아카이브 목록 열기">
-          <span id="discover-btn-label">글로벌 관측 피드</span>
+          <span id="discover-btn-label">아카이브 탐색</span>
         </button>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
           <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
@@ -2449,7 +2462,7 @@
         this.container = document.getElementById('unified-control-surface');
         this.currentState = 'EXPLORE';
         this.previousState = 'EXPLORE';
-        this.exploreCategory = 'usgs';
+        this.exploreCategory = null;
         this.selectedEvent = null;
         this.activeFilter = 'global';
         this.searchQuery = '';
@@ -2459,11 +2472,11 @@
 
         window.controlSurface = this;
         this.bindEvents();
-        this.setExploreCategory('usgs');
+        this.setExploreCategory(null);
       }
 
       setExploreCategory(cat) {
-        this.exploreCategory = cat; // 'historical' | 'usgs'
+        this.exploreCategory = cat; // 'historical' | 'usgs' | null
         const tabHist = document.getElementById('tab-cat-historical');
         const tabUsgs = document.getElementById('tab-cat-usgs');
         const grpHist = document.getElementById('benchmarks-historical');
@@ -2483,9 +2496,9 @@
           
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "USGS 전 지구 M4.5+ 실시간 관측 노드를 탐색하십시오 · [글로벌 관측 피드] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
+            sub.textContent = "USGS 현대 정밀 계측 지진을 선택하거나, 탭을 다시 눌러 목록을 닫을 수 있습니다";
           }
-        } else {
+        } else if (cat === 'historical') {
           if (tabHist) tabHist.classList.add('active');
           if (tabUsgs) tabUsgs.classList.remove('active');
           if (grpHist) grpHist.style.display = 'flex';
@@ -2497,7 +2510,20 @@
 
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && flightState === FLIGHT_STATES.ORBIT) {
-            sub.textContent = "지구 표면의 역사지진 사료 노드를 탐색하십시오 · [한반도 사료 목록]을 열어 사건을 선택할 수 있습니다";
+            sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하거나, 탭을 다시 눌러 목록을 닫을 수 있습니다";
+          }
+        } else {
+          // Pristine Default Exhibition State: Benchmarks hidden
+          if (tabHist) tabHist.classList.remove('active');
+          if (tabUsgs) tabUsgs.classList.remove('active');
+          if (grpHist) grpHist.style.display = 'none';
+          if (grpUsgs) grpUsgs.style.display = 'none';
+          if (btnLabel) btnLabel.textContent = "아카이브 탐색";
+          this.activeFilter = 'all';
+
+          const sub = document.getElementById('chronicle-subtitle-text');
+          if (sub && flightState === FLIGHT_STATES.ORBIT) {
+            sub.textContent = "지구 표면의 지진 노드를 탐색하십시오 · [글로벌 계측] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
           }
         }
 
@@ -2572,19 +2598,21 @@
       }
 
       bindEvents() {
-        // 1. EXPLORE Category Tabs: [역사지진] vs [글로벌 USGS]
+        // 1. EXPLORE Category Tabs: [역사지진] vs [글로벌 USGS] (Toggle on/off)
         const tabHist = document.getElementById('tab-cat-historical');
         if (tabHist) {
           tabHist.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.setExploreCategory('historical');
+            const nextCat = (this.exploreCategory === 'historical') ? null : 'historical';
+            this.setExploreCategory(nextCat);
           });
         }
         const tabUsgs = document.getElementById('tab-cat-usgs');
         if (tabUsgs) {
           tabUsgs.addEventListener('click', (e) => {
             e.stopPropagation();
-            this.setExploreCategory('usgs');
+            const nextCat = (this.exploreCategory === 'usgs') ? null : 'usgs';
+            this.setExploreCategory(nextCat);
           });
         }
 
@@ -2606,6 +2634,8 @@
             e.stopPropagation();
             if (this.exploreCategory === 'usgs') {
               this.activeFilter = 'global';
+            } else if (this.exploreCategory === 'historical') {
+              this.activeFilter = 'all-historical';
             } else {
               this.activeFilter = 'all';
             }
@@ -4220,9 +4250,11 @@
       if (state === 'orbit') {
         if (sub) {
           if (controlSurface && controlSurface.exploreCategory === 'usgs') {
-            sub.textContent = "USGS 전 지구 M5.5+ 관측 노드를 탐색하십시오 · [USGS 피드]를 열어 사건을 선택할 수 있습니다";
+            sub.textContent = "USGS 현대 정밀 계측 지진을 선택하거나, 탭을 다시 눌러 닫을 수 있습니다";
+          } else if (controlSurface && controlSurface.exploreCategory === 'historical') {
+            sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하거나, 탭을 다시 눌러 닫을 수 있습니다";
           } else {
-            sub.textContent = "지구 표면의 역사지진 노드를 탐색하십시오 · [사료 아카이브]를 열어 사건을 선택할 수 있습니다";
+            sub.textContent = "지구를 회전하여 지진 노드를 탐색하거나, 하단의 관측망을 선택하십시오";
           }
         }
         if (gallEvTitle) {
@@ -6146,9 +6178,9 @@
       }
 
       const btnP = document.getElementById('btn-toggle-p');
-      if (btnP) btnP.style.borderColor = (modeP > 0.5) ? "#8ec5fc" : "#445a70";
+      if (btnP) btnP.style.borderColor = (modeP > 0.5) ? "var(--brass)" : "var(--hairline)";
       const btnS = document.getElementById('btn-toggle-s');
-      if (btnS) btnS.style.borderColor = (modeS > 0.5) ? "#8ec5fc" : "#445a70";
+      if (btnS) btnS.style.borderColor = (modeS > 0.5) ? "var(--brass)" : "var(--hairline)";
 
       updateWaveDisplays();
     }
