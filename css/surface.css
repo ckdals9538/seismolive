@@ -955,6 +955,47 @@
       color: var(--mist);
       letter-spacing: 0.02em;
     }
+
+    /* T-X Interactive Travel-Time Probe Readout Panel */
+    .tx-probe-readout-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px 16px;
+      background: rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--hairline);
+      border-left: 2px solid var(--brass);
+      padding: 7px 12px;
+      border-radius: 2px;
+      margin: 6px 0 2px 0;
+      flex-wrap: wrap;
+    }
+    .tx-readout-item {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 5px;
+      font-family: var(--font-mono);
+    }
+    .tx-r-lbl {
+      font-size: 8.5px;
+      color: var(--mist);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .tx-r-val {
+      font-size: 11px;
+      color: var(--hanji);
+      font-weight: 600;
+    }
+    .tx-readout-regime {
+      width: 100%;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--mist);
+      padding-top: 4px;
+      margin-top: 2px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
     .editorial-narrative {
       font-family: var(--font-serif);
       font-size: 12px;

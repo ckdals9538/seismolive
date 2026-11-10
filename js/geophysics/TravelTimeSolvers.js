@@ -89,8 +89,33 @@ export function generateTravelTimeCurveSVG(params, width = 580, height = 155) {
     if (t <= maxTime) reflPath += ` L ${x(d)} ${y(t)}`;
   }
 
+  const readoutHtml = `
+    <div class="tx-probe-readout-panel" id="tx-probe-readout-bar">
+      <div class="tx-readout-item">
+        <span class="tx-r-lbl">오프셋 X</span>
+        <span class="tx-r-val" id="tx-val-dist">— km</span>
+      </div>
+      <div class="tx-readout-item">
+        <span class="tx-r-lbl">직접파 P</span>
+        <span class="tx-r-val" id="tx-val-dir">— s</span>
+      </div>
+      <div class="tx-readout-item">
+        <span class="tx-r-lbl">모호면 두부파</span>
+        <span class="tx-r-val" id="tx-val-head" style="color:var(--cinnabar);">— s</span>
+      </div>
+      <div class="tx-readout-item">
+        <span class="tx-r-lbl">반사파 쌍곡선</span>
+        <span class="tx-r-val" id="tx-val-refl" style="color:#5EA8FF;">— s</span>
+      </div>
+      <div class="tx-readout-regime">
+        <span class="tx-regime-badge" id="tx-regime-status">T-X 주시 곡선 위로 마우스를 올려 3D 지형 파동과 실시간 연동하십시오</span>
+      </div>
+    </div>
+  `;
+
   return `
-    <svg viewBox="0 0 ${width} ${height}" class="tx-curve-svg" style="width:100%; height:auto; max-height:170px; background:rgba(0,0,0,0.45); border-radius:2px; border:1px solid rgba(255,255,255,0.08); margin:4px 0 8px 0;">
+    ${readoutHtml}
+    <svg viewBox="0 0 ${width} ${height}" class="tx-curve-svg" style="width:100%; height:auto; max-height:170px; background:rgba(0,0,0,0.45); border-radius:2px; border:1px solid rgba(255,255,255,0.08); margin:4px 0 8px 0; cursor:crosshair; touch-action:none;">
       <!-- Axes -->
       <line x1="${padL}" y1="${padT + plotH}" x2="${padL + plotW}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
       <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
@@ -107,6 +132,14 @@ export function generateTravelTimeCurveSVG(params, width = 580, height = 155) {
       <path d="${reflPath}" fill="none" stroke="#5EA8FF" stroke-dasharray="4 2" stroke-width="1.3"/>
       <path d="${dirPath}" fill="none" stroke="#EAE4D5" stroke-width="1.6"/>
       <path d="${headPath}" fill="none" stroke="#D94E34" stroke-width="1.6"/>
+
+      <!-- Interactive Probe Cursor Elements (Dynamic Hover) -->
+      <g id="tx-probe-cursor-group" style="display:none; pointer-events:none;">
+        <line id="tx-probe-cursor" x1="0" y1="${padT}" x2="0" y2="${padT + plotH}" stroke="rgba(234, 228, 213, 0.75)" stroke-width="1.2" stroke-dasharray="2 2"/>
+        <circle id="tx-probe-dot-refl" cx="0" cy="0" r="3.5" fill="#5EA8FF" stroke="#161A22" stroke-width="1.5"/>
+        <circle id="tx-probe-dot-dir" cx="0" cy="0" r="3.5" fill="#EAE4D5" stroke="#161A22" stroke-width="1.5"/>
+        <circle id="tx-probe-dot-head" cx="0" cy="0" r="3.5" fill="#D94E34" stroke="#161A22" stroke-width="1.5"/>
+      </g>
 
       <!-- Legend -->
       <g transform="translate(${padL + 80}, 13)">
@@ -202,4 +235,127 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0) {
       </div>
     </div>
   `;
+}
+
+/**
+ * Initializes interactive cursor probe on T-X curve SVG and connects to 3D wavefield
+ * @param {HTMLElement} container
+ * @param {number} depthKm
+ */
+export function initTravelTimeInteractiveProbe(container, depthKm = 10.0) {
+  if (!container) return;
+  const svg = container.querySelector('.tx-curve-svg');
+  if (!svg) return;
+
+  const params = computeTravelTimeParams(depthKm);
+  const { V1, V2, ti, xCrit, xCross, t0 } = params;
+
+  const width = 580;
+  const height = 155;
+  const padL = 45;
+  const padR = 25;
+  const padT = 28;
+  const padB = 25;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+  const maxDist = Math.max(300, Math.ceil(xCross * 1.5 / 50) * 50);
+  const maxTime = Math.max(50, Math.ceil((ti + maxDist / V2) * 1.15 / 10) * 10);
+
+  const yCoord = (t) => padT + plotH - (t / maxTime) * plotH;
+
+  const probeGroup = svg.querySelector('#tx-probe-cursor-group');
+  const lineCursor = svg.querySelector('#tx-probe-cursor');
+  const dotDir = svg.querySelector('#tx-probe-dot-dir');
+  const dotHead = svg.querySelector('#tx-probe-dot-head');
+  const dotRefl = svg.querySelector('#tx-probe-dot-refl');
+
+  const valDist = container.querySelector('#tx-val-dist');
+  const valDir = container.querySelector('#tx-val-dir');
+  const valHead = container.querySelector('#tx-val-head');
+  const valRefl = container.querySelector('#tx-val-refl');
+  const regimeStatus = container.querySelector('#tx-regime-status');
+
+  function updateProbe(clientX) {
+    const rect = svg.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const svgX = ((clientX - rect.left) / rect.width) * width;
+    const clampedSvgX = Math.max(padL, Math.min(padL + plotW, svgX));
+    const dist = ((clampedSvgX - padL) / plotW) * maxDist;
+
+    const tDir = dist / V1;
+    const tRefl = Math.sqrt(t0 * t0 + (dist * dist) / (V1 * V1));
+    const hasHead = dist >= xCrit;
+    const tHead = hasHead ? (ti + dist / V2) : null;
+
+    if (probeGroup) probeGroup.style.display = 'block';
+
+    if (lineCursor) {
+      lineCursor.setAttribute('x1', clampedSvgX.toFixed(1));
+      lineCursor.setAttribute('x2', clampedSvgX.toFixed(1));
+    }
+
+    if (dotDir) {
+      dotDir.setAttribute('cx', clampedSvgX.toFixed(1));
+      dotDir.setAttribute('cy', yCoord(tDir).toFixed(1));
+    }
+
+    if (dotRefl) {
+      dotRefl.setAttribute('cx', clampedSvgX.toFixed(1));
+      dotRefl.setAttribute('cy', yCoord(tRefl).toFixed(1));
+    }
+
+    if (dotHead) {
+      if (hasHead) {
+        dotHead.style.display = 'block';
+        dotHead.setAttribute('cx', clampedSvgX.toFixed(1));
+        dotHead.setAttribute('cy', yCoord(tHead).toFixed(1));
+      } else {
+        dotHead.style.display = 'none';
+      }
+    }
+
+    if (valDist) valDist.textContent = `${dist.toFixed(1)} km`;
+    if (valDir) valDir.textContent = `${tDir.toFixed(2)} s`;
+    if (valRefl) valRefl.textContent = `${tRefl.toFixed(2)} s`;
+    if (valHead) {
+      valHead.textContent = hasHead ? `${tHead.toFixed(2)} s` : '미발생 (X < Xcrit)';
+    }
+
+    if (regimeStatus) {
+      if (dist < xCrit) {
+        regimeStatus.innerHTML = `<span style="color:var(--mist);">직접파 대역 (x &lt; X<sub>crit</sub> ${xCrit.toFixed(1)}km, 굴절파 미생성)</span>`;
+      } else if (dist < xCross) {
+        regimeStatus.innerHTML = `<span style="color:var(--hanji);">직접파 최초 도달 대역 (x &lt; X<sub>cross</sub> ${xCross.toFixed(1)}km)</span>`;
+      } else {
+        regimeStatus.innerHTML = `<span style="color:var(--cinnabar); font-weight:600;">★ 모호면 굴절 두부파 역전 최초 도달 (First Arrival, x &gt; X<sub>cross</sub>)</span>`;
+      }
+    }
+
+    if (typeof window.setGeophysics3DProbe === 'function') {
+      window.setGeophysics3DProbe(dist, xCrit, xCross);
+    }
+  }
+
+  function resetProbe() {
+    if (probeGroup) probeGroup.style.display = 'none';
+    if (valDist) valDist.textContent = '— km';
+    if (valDir) valDir.textContent = '— s';
+    if (valHead) valHead.textContent = '— s';
+    if (valRefl) valRefl.textContent = '— s';
+    if (regimeStatus) {
+      regimeStatus.innerHTML = 'T-X 주시 곡선 위로 마우스를 올려 3D 지형 파동과 실시간 연동하십시오';
+    }
+    if (typeof window.setGeophysics3DProbe === 'function') {
+      window.setGeophysics3DProbe(0, 0, 0);
+    }
+  }
+
+  svg.addEventListener('pointermove', (e) => updateProbe(e.clientX));
+  svg.addEventListener('mousemove', (e) => updateProbe(e.clientX));
+  svg.addEventListener('pointerleave', resetProbe);
+  svg.addEventListener('mouseleave', resetProbe);
+  svg.addEventListener('touchmove', (e) => {
+    if (e.touches && e.touches[0]) updateProbe(e.touches[0].clientX);
+  }, { passive: true });
+  svg.addEventListener('touchend', resetProbe);
 }

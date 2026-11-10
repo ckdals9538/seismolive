@@ -834,11 +834,14 @@ const FLIGHT_STATES = {
             float isOcean = step(fragElev, 0.0);
 
             if (fragElev < 0.0) {
-              // Ocean bathymetry: abyssal plain to coastal continental shelf
-              float shelfT = clamp((fragElev + 3500.0) / 3500.0, 0.0, 1.0);
+              // Deep Ocean Bathymetric Light Absorption (Sublime Nocturnal Monolith)
+              float depthAbsorption = exp(fragElev * 0.00045); // fragElev is negative: deeper = closer to 0
+              float shelfT = clamp((fragElev + 3200.0) / 3200.0, 0.0, 1.0);
+              vec3 abyssVoid = vec3(0.002, 0.005, 0.010);
               vec3 abyssColor = vec3(0.012, 0.024, 0.048);
+              vec3 deepAbyss = mix(abyssVoid, abyssColor, depthAbsorption);
               vec3 shelfColor = vec3(0.028, 0.075, 0.135);
-              baseColor = mix(abyssColor, shelfColor, shelfT);
+              baseColor = mix(deepAbyss, shelfColor, shelfT);
             } else {
               // Land topography: granitic lowlands to alpine mountain massifs with slope-sensitive relief
               float slopeMag = length(vec2(dh_dx, dh_dy)) * 80.0;
@@ -986,7 +989,12 @@ const FLIGHT_STATES = {
       u_globalElevation: { value: null },
       u_globalHMin: { value: -11000.0 },
       u_globalHMax: { value: 9000.0 },
-      u_uncertaintyRadiusUnits: { value: 0.45 }
+      u_uncertaintyRadiusUnits: { value: 0.45 },
+
+      // Interactive Geophysics-to-Wavefield Probe (Phase F1)
+      u_probeDistUnits: { value: 0.0 },
+      u_probeCritUnits: { value: 0.0 },
+      u_probeCrossUnits: { value: 0.0 }
     };
     window.terrainUniforms = terrainUniforms;
 
@@ -1233,6 +1241,11 @@ const FLIGHT_STATES = {
         uniform float u_ridgeStyle;
         uniform float u_uncertaintyRadiusUnits;
 
+        // Interactive Geophysics-to-Wavefield Probe (Phase F1)
+        uniform float u_probeDistUnits;
+        uniform float u_probeCritUnits;
+        uniform float u_probeCrossUnits;
+
         varying vec2 vUv;
         varying vec3 vNormal;
         varying vec3 vWorldNormal;
@@ -1286,6 +1299,12 @@ const FLIGHT_STATES = {
           lit += u_lightColor * (spec * 0.04);
           vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
           lit += atmosphereColor * (rim * 0.48);
+
+          // Gallery Sculptural Mountain Crest Grazing Rim Light (Ridge Chiseled Definition)
+          float crestFactor = smoothstep(14.0, 38.0, vSlope) * (0.35 + 0.65 * vRidgeConvexity);
+          float mountainRim = pow(1.0 - max(0.0, dot(N, V)), 2.8) * max(0.0, dot(L, -V) + 0.45);
+          vec3 rimSculptColor = mix(vec3(0.24, 0.44, 0.76), vec3(0.82, 0.88, 0.96), alpinePeak);
+          lit += rimSculptColor * (mountainRim * crestFactor * 0.38);
 
           // Dynamic strain specular & rim boost on wavefront passage
           float strainBoost = smoothstep(0.001, 0.012, vDisplacementMag) * 0.20;
@@ -1358,6 +1377,40 @@ const FLIGHT_STATES = {
                 float contourLine = exp(-pow(distToUnc / 0.0045, 2.0)) * stipple * taperFactor;
                 lit += vec3(0.78, 0.62, 0.33) * (contourLine * 0.13);
               }
+            }
+          }
+
+          // -------------------------------------------------------------------
+          // INTERACTIVE GEOPHYSICAL ISOCHRONE PROBE & CRITICAL DISTANCE RINGS (F1)
+          // -------------------------------------------------------------------
+          vec2 dEpiProbe = vPhysicalCoords - u_epiPos;
+          float epiDistProbe = length(dEpiProbe);
+          float taperFactorProbe = smoothstep(0.005, 0.180, vEdgeTaper);
+
+          if (u_probeDistUnits > 0.0005) {
+            float distToProbe = abs(epiDistProbe - u_probeDistUnits);
+            float probeBand = exp(-pow(distToProbe / 0.0032, 2.0)) * taperFactorProbe;
+            // Radiant Brass Wavefront Isochrone Ring
+            lit += vec3(0.92, 0.78, 0.45) * (probeBand * 0.60);
+          }
+
+          if (u_probeCritUnits > 0.0005 || u_probeCrossUnits > 0.0005) {
+            float angleAzProbe = atan(dEpiProbe.y, dEpiProbe.x);
+
+            if (u_probeCritUnits > 0.0005) {
+              float distToCrit = abs(epiDistProbe - u_probeCritUnits);
+              float dashCrit = step(0.40, fract(angleAzProbe * 24.0 / 6.2831853));
+              float critBand = exp(-pow(distToCrit / 0.0022, 2.0)) * dashCrit * taperFactorProbe;
+              // Cool Mist dashed ring for Critical Distance X_crit
+              lit += vec3(0.53, 0.59, 0.67) * (critBand * 0.35);
+            }
+
+            if (u_probeCrossUnits > 0.0005) {
+              float distToCross = abs(epiDistProbe - u_probeCrossUnits);
+              float dashCross = step(0.45, fract(angleAzProbe * 36.0 / 6.2831853));
+              float crossBand = exp(-pow(distToCross / 0.0028, 2.0)) * dashCross * taperFactorProbe;
+              // Cinnabar/Brass dashed ring for Crossover Distance X_cross
+              lit += vec3(0.85, 0.45, 0.25) * (crossBand * 0.45);
             }
           }
 
@@ -1506,9 +1559,12 @@ const FLIGHT_STATES = {
           float spec = pow(max(0.0, dot(N, H)), 90.0);
 
           // Nocturnal oceanic palette: deep abyssal midnight blue to shelf teal
+          float depthAbsorption = exp(-vBathyDepth * 0.00065);
+          vec3 abyssalVoid = vec3(0.002, 0.005, 0.010);
           vec3 abyssalTone = vec3(0.012, 0.024, 0.048);
+          vec3 deepBathymetryTone = mix(abyssalVoid, abyssalTone, depthAbsorption);
           vec3 shelfTone   = vec3(0.028, 0.075, 0.135);
-          vec3 waterTint = mix(abyssalTone, shelfTone, vShelfFactor);
+          vec3 waterTint = mix(deepBathymetryTone, shelfTone, vShelfFactor);
 
           // -------------------------------------------------------------------
           // NATURAL SWELL CREST BLOOM & LUNAR-SILVER SPECULAR GLEAM (Anti-Game-VFX)
@@ -2444,6 +2500,14 @@ const FLIGHT_STATES = {
       if (restorePill) restorePill.style.display = shouldHide ? 'flex' : 'none';
       if (qualityPill) qualityPill.style.opacity = shouldHide ? '0.0' : '1.0';
       return shouldHide;
+    };
+
+    window.setGeophysics3DProbe = function(distKm, xCritKm = 0, xCrossKm = 0) {
+      if (!terrainUniforms) return;
+      const kmToUnits = 1000.0 * METERS_TO_UNITS; // 0.01 units/km
+      terrainUniforms.u_probeDistUnits.value = (distKm > 0) ? (distKm * kmToUnits) : 0.0;
+      terrainUniforms.u_probeCritUnits.value = (xCritKm > 0) ? (xCritKm * kmToUnits) : 0.0;
+      terrainUniforms.u_probeCrossUnits.value = (xCrossKm > 0) ? (xCrossKm * kmToUnits) : 0.0;
     };
 
     window.setQualityMode = async function(mode) {

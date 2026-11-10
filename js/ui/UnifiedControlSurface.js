@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
-import { renderGeophysicsFolioHTML } from '../geophysics/TravelTimeSolvers.js';
+import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe } from '../geophysics/TravelTimeSolvers.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
 
 const BENCHMARK_CATALOGS = {
@@ -349,6 +349,9 @@ export class UnifiedControlSurface {
           btnLaunch.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!this.selectedEvent) return;
+            if (window.livingSoundfield && typeof window.livingSoundfield.ensureAudioContext === 'function') {
+              try { await window.livingSoundfield.ensureAudioContext(); } catch (_) {}
+            }
             await this.selectEvent(this.selectedEvent);
           });
         }
@@ -888,6 +891,9 @@ export class UnifiedControlSurface {
         Object.entries(panes).forEach(([k, el]) => {
           if (el) el.style.display = (k === tabName) ? 'flex' : 'none';
         });
+        if (tabName !== 'inst_geophysics' && typeof window.setGeophysics3DProbe === 'function') {
+          window.setGeophysics3DProbe(0, 0, 0);
+        }
         const scrollBody = document.getElementById('selected-scroll-body');
         if (scrollBody) scrollBody.scrollTop = 0;
       }
@@ -1180,6 +1186,7 @@ export class UnifiedControlSurface {
         if (!container) return;
         const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 10.0;
         container.innerHTML = renderGeophysicsFolioHTML(depth);
+        initTravelTimeInteractiveProbe(container, depth);
       }
 
       updatePerformanceHeader(ev) {
