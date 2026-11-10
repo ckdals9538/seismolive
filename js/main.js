@@ -3,9 +3,9 @@
     // Unified Architecture · Figure-Ground Contrast · Editorial Serif · Negative Space
     // =========================================================================
 
-    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.4';
-    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.4';
-    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.4';
+    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.6';
+    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.6';
+    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.6';
     import {
       WGS84,
       DATUM_STATUS,
@@ -14,7 +14,7 @@
       computeEllipsoidalHeight,
       threeToECEF,
       ecefToThree
-    } from './3d/geodeticEllipsoidCoord.js?v=4.4';
+    } from './3d/geodeticEllipsoidCoord.js?v=4.6';
     import {
       SURFACE_CLASSIFICATION,
       RASTER_PIXEL_TYPE,
@@ -26,16 +26,16 @@
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
       loadGlobalElevationTexture
-    } from './3d/terrainDataResolver.js?v=4.4';
+    } from './3d/terrainDataResolver.js?v=4.6';
     import {
       SeismicSourceModel,
       VelocityModelStatus,
       REFERENCE_CRUSTAL_VELOCITY,
       REGIONAL_VELOCITY_MODELS
-    } from './3d/seismicSourceModel.js?v=4.4';
-    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.4';
-    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.4';
-    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.4';
+    } from './3d/seismicSourceModel.js?v=4.6';
+    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.6';
+    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.6';
+    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.6';
     import {
       ArchivalSemanticParser,
       renderEditorialTypography,
@@ -44,7 +44,7 @@
       createFractureEntity,
       createRecedeEntity,
       createExposeEntity
-    } from './3d/livingMemoryEngine.js?v=4.4';
+    } from './3d/livingMemoryEngine.js?v=4.6';
 
     let orchestrator = null;
     window.orchestrator = null;
@@ -69,10 +69,10 @@
     // MASTER EXHIBITION ARCHITECTURE: STATE MACHINE, FLIGHT & DISCOVERY
     // =========================================================================
 
-import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js';
-import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js';
-import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js';
-import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js';
+import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=4.6';
+import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=4.6';
+import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=4.6';
+import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js?v=4.6';
 
 const FLIGHT_STATES = {
       ORBIT: 'STATE_ORBIT',
