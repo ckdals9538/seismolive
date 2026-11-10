@@ -1221,16 +1221,22 @@ export class UnifiedControlSurface {
 
       updatePerformanceTime(time, maxTime = 35.0) {
         const curLabel = document.getElementById('transport-time-current');
+        const totalLabel = document.getElementById('transport-time-total');
         const scrubber = document.getElementById('transport-scrubber');
         const badgeEl = document.getElementById('transport-phase-badge');
         if (curLabel) curLabel.textContent = time.toFixed(1) + 's';
-        if (scrubber && !this.isScrubbing) scrubber.value = time.toFixed(1);
+        if (totalLabel) totalLabel.textContent = maxTime.toFixed(1) + 's';
+        if (scrubber) {
+          scrubber.max = String(maxTime);
+          if (!this.isScrubbing) scrubber.value = time.toFixed(1);
+        }
         if (badgeEl) {
-          if (time < 3.2) {
+          const ratio = time / maxTime;
+          if (ratio < 0.10) {
             badgeEl.textContent = "P파 압축 도달";
-          } else if (time < 11.5) {
+          } else if (ratio < 0.35) {
             badgeEl.textContent = "S파 전단 · 능선 공명";
-          } else if (time < 26.5) {
+          } else if (ratio < 0.75) {
             badgeEl.textContent = "레일리 표면파 너울";
           } else {
             badgeEl.textContent = "CODA (여운·고요)";

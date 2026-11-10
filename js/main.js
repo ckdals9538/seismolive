@@ -3,9 +3,9 @@
     // Unified Architecture · Figure-Ground Contrast · Editorial Serif · Negative Space
     // =========================================================================
 
-    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.6';
-    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.6';
-    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.6';
+    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=4.7';
+    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=4.7';
+    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=4.7';
     import {
       WGS84,
       DATUM_STATUS,
@@ -14,7 +14,7 @@
       computeEllipsoidalHeight,
       threeToECEF,
       ecefToThree
-    } from './3d/geodeticEllipsoidCoord.js?v=4.6';
+    } from './3d/geodeticEllipsoidCoord.js?v=4.7';
     import {
       SURFACE_CLASSIFICATION,
       RASTER_PIXEL_TYPE,
@@ -26,16 +26,16 @@
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
       loadGlobalElevationTexture
-    } from './3d/terrainDataResolver.js?v=4.6';
+    } from './3d/terrainDataResolver.js?v=4.7';
     import {
       SeismicSourceModel,
       VelocityModelStatus,
       REFERENCE_CRUSTAL_VELOCITY,
       REGIONAL_VELOCITY_MODELS
-    } from './3d/seismicSourceModel.js?v=4.6';
-    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.6';
-    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.6';
-    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.6';
+    } from './3d/seismicSourceModel.js?v=4.7';
+    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=4.7';
+    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=4.7';
+    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=4.7';
     import {
       ArchivalSemanticParser,
       renderEditorialTypography,
@@ -44,7 +44,7 @@
       createFractureEntity,
       createRecedeEntity,
       createExposeEntity
-    } from './3d/livingMemoryEngine.js?v=4.6';
+    } from './3d/livingMemoryEngine.js?v=4.7';
 
     let orchestrator = null;
     window.orchestrator = null;
@@ -69,10 +69,10 @@
     // MASTER EXHIBITION ARCHITECTURE: STATE MACHINE, FLIGHT & DISCOVERY
     // =========================================================================
 
-import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=4.6';
-import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=4.6';
-import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=4.6';
-import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js?v=4.6';
+import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=4.7';
+import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=4.7';
+import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=4.7';
+import { computeTravelTimeParams, generateTravelTimeCurveSVG, renderGeophysicsFolioHTML } from './geophysics/TravelTimeSolvers.js?v=4.7';
 
 const FLIGHT_STATES = {
       ORBIT: 'STATE_ORBIT',
@@ -616,7 +616,7 @@ const FLIGHT_STATES = {
           showCodaSubtitle();
         }
       } else if (flightState === FLIGHT_STATES.CODA) {
-        if (simTime >= 35.0) {
+        if (simTime >= currentMaxSimTime) {
           if (autonomousMode) {
             startAscentFlight();
           } else {
@@ -935,6 +935,13 @@ const FLIGHT_STATES = {
                     float oceanWaveGlint = waveSignalG * pow(NdotH, 24.0) * 0.25;
                     lit += vec3(0.40, 0.65, 0.95) * oceanWaveGlint;
                   }
+                }
+
+                // Planetary permanent fault trace for massive ruptures (e.g. 310km East Anatolian Fault)
+                if (u_isFiniteFault > 0.5 && sRupG > 0.001) {
+                  float fissureGlobe = exp(-pow(dFaultG / 0.0018, 2.0)) * step(abs(sFaultG), sRupG + 0.004);
+                  vec3 earthBronzeG = vec3(0.84, 0.70, 0.46);
+                  lit += earthBronzeG * (fissureGlobe * 0.16 * regionFade);
                 }
               }
             }
@@ -1442,9 +1449,12 @@ const FLIGHT_STATES = {
 
               // Active Tectonic Fissure Trace along Rupture Segment (Finite Fault Only)
               if (u_isFiniteFault > 0.5 && sRup > 0.001) {
-                float fissureBand = exp(-pow(dFault / 0.0016, 2.0)) * step(abs(sFault), sRup + 0.005);
-                vec3 fissureColor = vec3(0.88, 0.72, 0.45); // Warm tectonic earthen bronze
-                lit += fissureColor * (fissureBand * 0.32 * taperFactor);
+                float fissureCore = exp(-pow(dFault / 0.0012, 2.0)) * step(abs(sFault), sRup + 0.002);
+                float fissureScarp = exp(-pow(dFault / 0.0035, 2.0)) * step(abs(sFault), sRup + 0.006);
+                float activeFlare = exp(-pow((abs(sFault) - sRup) / 0.015, 2.0)) * 0.35;
+                float permanentScarp = 0.18; // Permanent geological earthen scarp
+                vec3 fissureColor = vec3(0.84, 0.70, 0.46); // Warm tectonic earthen bronze
+                lit += fissureColor * ((fissureCore * 1.6 + fissureScarp * 0.4) * (permanentScarp + activeFlare) * taperFactor);
               }
 
               // Historical Epicentral Uncertainty Topographic Contour (±errorRadiusKm on terrain surface)
@@ -2464,6 +2474,12 @@ const FLIGHT_STATES = {
       // 5.1 Enforce guaranteed Exhibition Composition framing
       validateAndAdjustExhibitionComposition(camera, archivalEntities, eventMeta);
 
+      currentMaxSimTime = resolveEventDuration(currentParsedEvent);
+      window.currentMaxSimTime = currentMaxSimTime;
+      if (controlSurface) {
+        controlSurface.updatePerformanceTime(simTime, currentMaxSimTime);
+      }
+
       updateWaveDisplays();
       console.log(`[Event Switcher] Successfully loaded ${eventId} with ${archivalEntities.length} entities.`);
     }
@@ -2642,7 +2658,22 @@ const FLIGHT_STATES = {
     let isPlaying = true;
     let playbackSpeed = 1.0;
     window.playbackSpeed = 1.0;
-    const maxSimTime = 35.0;
+    function resolveEventDuration(ev) {
+      if (!ev) return 35.0;
+      if (typeof ev.sourceDurationSeconds === 'number' && ev.sourceDurationSeconds > 0) return ev.sourceDurationSeconds;
+      if (typeof ev.duration === 'number' && ev.duration > 0) return ev.duration;
+      const evId = String(ev.eventId || ev.id || '');
+      if (evId.includes('turkey')) return 80.0;
+      if (evId.includes('tohoku')) return 120.0;
+      if (evId.includes('1681')) return 50.0;
+      if (evId.includes('1643')) return 50.0;
+      if (evId.includes('kumamoto')) return 45.0;
+      return 35.0;
+    }
+    let currentMaxSimTime = 35.0;
+    const maxSimTime = currentMaxSimTime;
+    window.currentMaxSimTime = currentMaxSimTime;
+    window.resolveEventDuration = resolveEventDuration;
 
     window.setPlaybackSpeed = function(speed) {
       playbackSpeed = Math.max(0.25, Math.min(4.0, Number(speed) || 1.0));
@@ -2944,7 +2975,7 @@ const FLIGHT_STATES = {
     // Synchronously reconstructs wavefield, typography, lighting & sound at time t
     // -------------------------------------------------------------------------
     function seekToSimulationTime(t) {
-      simTime = Math.max(0.0, Math.min(35.0, t));
+      simTime = Math.max(0.0, Math.min(currentMaxSimTime, t));
 
       if (terrainUniforms) {
         terrainUniforms.u_simTime.value = simTime;
@@ -3004,7 +3035,7 @@ const FLIGHT_STATES = {
     // Update Wave Displays & Dynamic Lifecycle for Reformed Memories
     function updateWaveDisplays() {
       if (controlSurface && controlSurface.currentState === 'PERFORMANCE') {
-        controlSurface.updatePerformanceTime(simTime);
+        controlSurface.updatePerformanceTime(simTime, currentMaxSimTime);
       }
 
       const tDisp = document.getElementById('time-display');
@@ -3642,7 +3673,7 @@ const FLIGHT_STATES = {
 
     // Phase D Automation & Verification Hooks (Master Deterministic Timeline Seeker)
     window.seekToSimulationTime = function(targetSec) {
-      simTime = Math.max(0.0, Math.min(35.0, targetSec));
+      simTime = Math.max(0.0, Math.min(currentMaxSimTime, targetSec));
 
       if (terrainUniforms) {
         terrainUniforms.u_simTime.value = simTime;
