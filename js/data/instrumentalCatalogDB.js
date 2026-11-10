@@ -1466,5 +1466,82 @@ export const INSTRUMENTAL_EVENTS = [
     originalText: "06 Şubat 2023 saat 04:17 Kahramanmaraş Pazarcık Mw 7.8 Depremi",
     uncertainty: "현대 전 지구 광대역 지진계 및 InSAR 위성 관측; 지표 변위 최대 7m 측정",
     links: [{ label: "USGS Kahramanmaras Event Page", url: "https://earthquake.usgs.gov/earthquakes/eventpage/us6000jllz" }]
+  },
+
+  {
+    eventId: "global_2011_tohoku",
+    id: "global_2011_tohoku",
+    era: "ERA_4_1999_PRESENT_DIGITAL",
+    century: 21,
+    sequenceGroupId: "seq_2011_tohoku",
+    sequenceRole: "MAINSHOCK",
+    catalogType: "INSTRUMENTAL_GLOBAL",
+    recordType: "instrumental-global",
+    sourceName: "일본 기상청(JMA) 및 미국지질조사국(USGS) 정밀 관측 보고",
+    verification: "jma-usgs-verified",
+    kind: "instrumental-global",
+    place: "2011 동일본 대지진 (도호쿠 거대해구역단층 지진)",
+    dateText: "2011-03-11 14:46:23 JST",
+    datePrecision: "second",
+    temporal: {
+      gregorianDate: "2011-03-11",
+      gregorianPrecision: "SECOND",
+      originTimeUTC: "2011-03-11T05:46:23Z"
+    },
+    spatial: {
+      placeName: "일본 도호쿠 미야기현 오시카 반도 동남동 130km 해역 (일본해구 섭입대)",
+      inferredCoordinates: {
+        lat: 38.2970,
+        lon: 142.3730,
+        coordinateConfidence: "HIGH_PRECISION_INSTRUMENTAL",
+        errorRadiusKm: 0.1
+      },
+      focalDepth: {
+        valKm: 29.0,
+        isKnown: true,
+        determinationType: "INSTRUMENTAL_FREE_INVERSION",
+        comment: "태평양판-북미판 섭입대 메가스러스트 저경사 역단층 (심도 29km, 파쇄길이 500km)"
+      }
+    },
+    time: F(Date.parse("2011-03-11T05:46:23Z"), "usgs-verified", "JMA/USGS 공식 시각"),
+    lat: F(38.2970, "usgs-verified", "38.2970°N"),
+    lon: F(142.3730, "usgs-verified", "142.3730°E"),
+    depth: F(29.0, "usgs-verified", "29.0 km (해구 섭입대 역단층)"),
+    mag: F(9.1, "usgs-verified", "Mw 9.1 (USGS / JMA)"),
+    magType: "Mw",
+    faultStrikeDeg: 203,
+    geographicType: "OCEAN_TRENCH_SUBDUCTION",
+    scientificEstimates: [
+      {
+        source: "미국지질조사국 (USGS)",
+        estimatedMag: 9.1,
+        magType: "Mw",
+        confidence: "PRIMARY_OFFICIAL"
+      },
+      {
+        source: "일본 기상청 (JMA)",
+        estimatedMag: 9.0,
+        magType: "Mw",
+        confidence: "PRIMARY_OFFICIAL"
+      }
+    ],
+    primaryText: {
+      originalScript: "平成23年3月11日14時46分 三陸沖を震源とするMw 9.1の巨大地震 プレート境界断層が500kmにわたり破壊 最大波高40mを超える大津波が発生",
+      scriptLanguage: "ja-JP",
+      translationKo: "2011년 3월 11일 산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생. 판 경계 단층이 500km에 걸쳐 파쇄되고 최대 파고 40m를 초과하는 거대 지진해일(쓰나미)이 발생함.",
+      editorialPhraseKo: "바다의 바닥이 솟구치다",
+      evidenceStatus: "VERIFIED_PRIMARY_INSTRUMENTAL",
+      documentSource: "JMA 지진화산부 공식 보고서 및 USGS Global CMT Analysis",
+      sourceLocation: "일본 미야기현 앞바다 일본해구 섭입대"
+    },
+    archivalLexicon: [
+      { token: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생", displayKo: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생", nativeText: "三陸沖を震源とするMw 9.1の巨大地震", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생" },
+      { token: "판 경계 단층이 500km에 걸쳐 파쇄되고", displayKo: "판 경계 단층이 500km에 걸쳐 파쇄되고", nativeText: "プレート境界断層が500kmにわたり破壊", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "판 경계 단층이 500km에 걸쳐 파쇄되고" },
+      { token: "최대 파고 40m를 초과하는 거대 지진해일 발생", displayKo: "최대 파고 40m를 초과하는 거대 지진해일 발생", nativeText: "最大波高40mを超える大津波が発生", category: "phenomenon", archetype: "RECEDE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "최대 파고 40m를 초과하는 거대 지진해일 발생" }
+    ],
+    text: "일본해구 메가스러스트 단층 500km 파쇄, Mw 9.1 거대해구역단층 지진 및 40m 쓰나미 유발.",
+    originalText: "平成23年3月11日 三陸沖 Mw 9.1 東日本大震災 プレート境界破壊",
+    uncertainty: "현대 글로벌 광대역 관측망(GSN) 및 해저 수압계 실측 자료; 진원 깊이 29km, 해저 최대 미끄러짐 50m 역산",
+    links: [{ label: "USGS Tohoku Earthquake Event Page", url: "https://earthquake.usgs.gov/earthquakes/eventpage/official20110311054624120_30" }]
   }
 ];

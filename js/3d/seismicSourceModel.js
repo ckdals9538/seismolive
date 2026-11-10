@@ -378,6 +378,39 @@ export class SeismicSourceModel {
           }
         });
 
+      case 'global_2011_tohoku':
+        return new SeismicSourceModel({
+          eventId,
+          sourceType: 'FINITE_FAULT',
+          sourceCitation: 'USGS Finite Fault (Hayes et al., 2011) / JMA / Ide et al. (2011, Science)',
+          kinematicDirectivityStatus: 'EDUCATIONAL_KINEMATIC_APPROXIMATION',
+          lat: 38.30,
+          lon: 142.37,
+          depthKm: 29.0,
+          magnitude: 9.1,
+          magnitudeScale: 'Mw',
+          velocityModel: REGIONAL_VELOCITY_MODELS.KYUSHU_JAPAN,
+          focalMechanism: {
+            strikeDeg: 203.0,
+            dipDeg: 12.0,
+            rakeDeg: 88.0, // Megathrust subduction reverse fault
+            isVerified: true,
+            rupturePlaneResolved: true,
+            alternateNodalPlane: { strikeDeg: 27.0, dipDeg: 78.0, rakeDeg: 91.0 }
+          },
+          finiteFault: {
+            lengthKm: 500.0,
+            widthKm: 200.0,
+            topDepthKm: 5.0,
+            ruptureVelocityKmS: 2.8,
+            strikeDeg: 203.0,
+            dipDeg: 12.0,
+            rakeDeg: 88.0,
+            directivity: 'BILATERAL',
+            isVerified: true
+          }
+        });
+
       case 'hist_1681_0626':
       default:
         // 1681 Yangyang (Historical Inferred):

@@ -595,6 +595,11 @@ export class ArchivalSemanticParser {
       q = 320.0;
       dispScale = 2.2;
       strikeRad = 0.524; // East Anatolian Fault strike
+    } else if (ev.eventId === 'global_2011_tohoku') {
+      dominantFreq = 0.22;
+      q = 360.0;
+      dispScale = 2.5;
+      strikeRad = 3.54; // Strike 203° (Japan Trench megathrust)
     } else {
       dominantFreq = Math.max(0.2, Math.min(2.5, 1.8 * Math.pow(10.0, -0.22 * (mag - 5.0))));
       q = 200.0;
@@ -611,7 +616,13 @@ export class ArchivalSemanticParser {
     const editorialInterpretationCount = semanticUnits.filter(u => u.evidenceClass === 'EDITORIAL_DISTILLATION' || u.source?.evidenceStatus === 'EDITORIAL_INTERPRETATION').length;
 
     return {
-      eventId: ev.eventId,
+      ...ev,
+      id: ev.id || ev.eventId,
+      eventId: ev.eventId || ev.id,
+      century: ev.century || (ev.temporal?.gregorianDate ? Math.floor(parseInt(ev.temporal.gregorianDate.substring(0, 4), 10) / 100) + 1 : 21),
+      catalogType: ev.catalogType || "INSTRUMENTAL_GLOBAL",
+      recordType: ev.recordType || "instrumental-global",
+      country: ev.country || "GLOBAL",
       title: ev.place || ev.canonicalName || ev.titles?.ko || "계측 지진",
       titleKo: ev.place || ev.canonicalName || ev.titles?.ko || "계측 지진",
       archivalText: ev.primaryText?.originalScript || ev.text || ev.originalText || "",
@@ -630,14 +641,18 @@ export class ArchivalSemanticParser {
       spatialCoords: { lat, lon, depthKm: depth },
       sceneEpicenter: sceneEpi,
       focalDepthKm: depth,
+      depth: (typeof ev.depth === 'object' && ev.depth !== null) ? ev.depth : { valKm: depth, v: depth, unit: 'km', isKnown: true },
+      mag: (typeof ev.mag === 'object' && ev.mag !== null) ? ev.mag : { v: mag, val: mag, type: ev.magType || 'Mw' },
+      magType: ev.magType || 'Mw',
       dominantFreqHz: dominantFreq,
       attenuationQ: q,
       displacementScale: dispScale,
       faultStrikeRad: strikeRad,
-      scientificEstimates: { magnitude: mag },
+      scientificEstimates: Array.isArray(ev.scientificEstimates) ? ev.scientificEstimates : [{ source: "USGS / ISC", estimatedMag: mag, magType: ev.magType || 'Mw' }],
       magnitude: mag,
       compositionProfileStatus: profileStatus,
-      semanticUnits: semanticUnits
+      semanticUnits: semanticUnits,
+      isInstrumental: true
     };
   }
 
