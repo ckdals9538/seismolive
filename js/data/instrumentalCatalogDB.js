@@ -1379,10 +1379,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "일본 규슈 구마모토현 및 아소 칼데라 서익"
     },
     archivalLexicon: [
-      { token: "구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생", displayKo: "구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생", nativeText: "熊本県熊本地方を震源とするM7.3の地震", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "2016년 4월 16일 구마모토현 구마모토 지방을 진원으로 하는 M7.3 지진 발생" },
-      { token: "후타가와 단층대를 따라", displayKo: "후타가와 단층대를 따라", nativeText: "布田川断層帯に沿って", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "후타가와 단층대를 따라" },
-      { token: "최대 진도 7을 관측하고", displayKo: "최대 진도 7을 관측하고", nativeText: "最大震度7を観測", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ja-JP", translation: "최대 진도 7을 관측하고" },
-      { token: "지표 지진단층이 노출됨", displayKo: "지표 지진단층이 노출됨", nativeText: "地表地震断層が出現", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "지표 지진단층이 노출됨" }
+      { token: "후타가와 단층대", displayKo: "후타가와 단층대", nativeText: "布田川断層帯", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "후타가와 단층대" },
+      { token: "진도 7 관측", displayKo: "진도 7 관측", nativeText: "震度7観測", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ja-JP", translation: "진도 7 관측" },
+      { token: "지표 변위 2m", displayKo: "지표 변위 2m", nativeText: "地表変位 2m", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "ja-JP", translation: "지표 변위 2m" },
+      { token: "무너지다", displayKo: "무너지다", nativeText: "崩壊", category: "structure", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "ja-JP", translation: "무너지다" }
     ],
     text: "구마모토 후타가와 단층대를 따라 M7.3 대지진 발생, 아소 화산 분지 지표 단층 파쇄.",
     originalText: "平成28年4月16日01時25分 熊本県熊本地方 M7.3 地震 布田川断層帯 震度7",
@@ -1457,10 +1457,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "튀르키예 카흐라만마라슈주 타우루스 산맥 및 동아나톨리아 단층 회랑"
     },
     archivalLexicon: [
-      { token: "단층 파열 개시", displayKo: "단층 파열 개시", nativeText: "Fay Kırılması Başlangıcı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "단층 파열 개시" },
-      { token: "310km 주향이동 전파", displayKo: "310km 지표 파쇄 전파", nativeText: "310 km Yüzey Kırığı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "310km 주향이동 전파" },
-      { token: "최대 지반 변위 6.5m", displayKo: "최대 지반 변위 6.5m", nativeText: "Maksimum 6.5 m Kayma", category: "phenomenon", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "최대 지반 변위 6.5m" },
-      { token: "타우루스 산맥 여진", displayKo: "타우루스 산맥 여진 분기", nativeText: "Toros Dağları Artçı", category: "geology", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "타우루스 산맥 여진" }
+      { token: "동아나톨리아 대단층", displayKo: "동아나톨리아 대단층", nativeText: "Doğu Anadolu Fayı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "동아나톨리아 대단층" },
+      { token: "지표 파열 310km", displayKo: "지표 파열 310km", nativeText: "310 km Yüzey Kırığı", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "지표 파열 310km" },
+      { token: "최대 변위 6.5m", displayKo: "최대 변위 6.5m", nativeText: "Maksimum 6.5 m Kayma", category: "phenomenon", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND", language: "tr-TR", translation: "최대 변위 6.5m" },
+      { token: "갈라지다", displayKo: "갈라지다", nativeText: "Yarılmak", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN", language: "tr-TR", translation: "갈라지다" }
     ],
     text: "동아나톨리아 대단층을 따라 Mw 7.8 대지진 발생, 타우루스 산맥 협곡 300km 단층 파쇄.",
     originalText: "06 Şubat 2023 saat 04:17 Kahramanmaraş Pazarcık Mw 7.8 Depremi",
@@ -1535,9 +1535,10 @@ export const INSTRUMENTAL_EVENTS = [
       sourceLocation: "일본 미야기현 앞바다 일본해구 섭입대"
     },
     archivalLexicon: [
-      { token: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생", displayKo: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생", nativeText: "三陸沖を震源とするMw 9.1の巨大地震", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "산리쿠 오프 해역을 진원으로 하는 Mw 9.1 거대 지진 발생" },
-      { token: "판 경계 단층이 500km에 걸쳐 파쇄되고", displayKo: "판 경계 단층이 500km에 걸쳐 파쇄되고", nativeText: "プレート境界断層が500kmにわたり破壊", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "판 경계 단층이 500km에 걸쳐 파쇄되고" },
-      { token: "최대 파고 40m를 초과하는 거대 지진해일 발생", displayKo: "최대 파고 40m를 초과하는 거대 지진해일 발생", nativeText: "最大波高40mを超える大津波が発生", category: "phenomenon", archetype: "RECEDE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "최대 파고 40m를 초과하는 거대 지진해일 발생" }
+      { token: "판 경계 파열 500km", displayKo: "판 경계 파열 500km", nativeText: "断層破壊 500km", category: "geology", archetype: "FRACTURE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "판 경계 파열 500km" },
+      { token: "최대 파고 40m", displayKo: "최대 파고 40m", nativeText: "最大波高 40m", category: "phenomenon", archetype: "RECEDE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "최대 파고 40m" },
+      { token: "해저 지반 융기 5m", displayKo: "해저 지반 융기 5m", nativeText: "海底隆起 5m", category: "geology", archetype: "EXPOSE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "해저 지반 융기 5m" },
+      { token: "솟구치다", displayKo: "솟구치다", nativeText: "湧き上がる", category: "phenomenon", archetype: "RESONANCE", stageZone: "ZONE_A_SEAWARD", language: "ja-JP", translation: "솟구치다" }
     ],
     text: "일본해구 메가스러스트 단층 500km 파쇄, Mw 9.1 거대해구역단층 지진 및 40m 쓰나미 유발.",
     originalText: "平成23年3月11日 三陸沖 Mw 9.1 東日本大震災 プレート境界破壊",

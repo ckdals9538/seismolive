@@ -201,6 +201,29 @@ export const UNIVERSAL_EVENT_METADATA = Object.freeze({
       targetY: 0.010,
       targetZ: 0.0
     }
+  },
+  global_2011_tohoku: {
+    eventId: "global_2011_tohoku",
+    titleKo: "2011 동일본 거대해구역단층 대지진 (Mw 9.1)",
+    country: "JAPAN",
+    editorialProfile: "PROFILE_GLOBAL_PLANETARY_RELIEF",
+    geographicType: "GLOBAL_PLANETARY_RELIEF",
+    demBinUrl: null,
+    isGlobalPlanetaryRelief: true,
+    hasOcean: true,
+    oceanPercentage: 85.0,
+    tier2Available: false,
+    magnitude: 9.1,
+    magnitudeScale: "Mw (USGS / JMA)",
+    cameraPreset: {
+      name: "Japan Trench & Tohoku Megathrust Subduction Zone",
+      pitchDeg: 42.0,
+      headingDeg: 60.0,
+      camDist: 1.85,
+      targetX: -0.08,
+      targetY: 0.015,
+      targetZ: 0.02
+    }
   }
 });
 
