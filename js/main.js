@@ -581,6 +581,16 @@ const FLIGHT_STATES = {
           }
         }
       } else if (flightState === FLIGHT_STATES.PERFORMANCE) {
+        // Subtle gallery camera breathing drift when user is not manually interacting
+        if (!controls.state || controls.state === -1) {
+          const driftSpeed = 0.00035;
+          const driftAngle = Math.sin(simTime * 0.12) * driftSpeed;
+          camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), driftAngle);
+          // Very gentle vertical breathing synced with long-period seismic swell
+          camera.position.y += Math.cos(simTime * 0.08) * 0.00008;
+          controls.update();
+        }
+
         if (simTime >= 28.0 && simTime < 34.0) {
           flightState = FLIGHT_STATES.CODA;
           showCodaSubtitle();
@@ -887,8 +897,16 @@ const FLIGHT_STATES = {
               if (distToFrontG < 0.065 && u_simTime > 0.0) {
                 float waveEnvG = exp(-pow(distToFrontG / 0.038, 2.0)) * smoothstep(-0.02, 0.04, u_simTime - effDistG / u_vS);
                 float attenG = 1.0 / sqrt(max(0.12, effDistG * 3.5));
-                vec3 waveTone = isOcean > 0.5 ? vec3(0.22, 0.44, 0.70) : vec3(0.38, 0.58, 0.82);
-                lit += waveTone * (waveEnvG * attenG * 0.22);
+                // Physical lunar reflection tilt on ocean swell vs bedrock slope
+                if (isOcean > 0.5) {
+                  // Ocean swell: fluid wave perturbation of surface normal reflecting celestial light
+                  vec3 waveNormalPerturb = perturbedN_view + vec3(sin(u_simTime * 2.0) * 0.15, 0.0, cos(u_simTime * 2.0) * 0.15) * waveEnvG;
+                  float oceanWaveSpec = pow(max(0.0, dot(normalize(waveNormalPerturb), H)), 32.0) * 0.65;
+                  lit += u_lightColor * (oceanWaveSpec * waveEnvG * attenG) + vec3(0.12, 0.28, 0.45) * (waveEnvG * attenG * 0.15);
+                } else {
+                  vec3 waveTone = vec3(0.38, 0.58, 0.82);
+                  lit += waveTone * (waveEnvG * attenG * 0.20);
+                }
               }
             }
 
