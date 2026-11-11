@@ -552,7 +552,7 @@ export class ArchivalSemanticParser {
           archetype,
           fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
           fontSize: 78,
-          canvasW: 1536,
+          canvasW: 2048,
           canvasH: 384,
           spriteW: 0.235,
           spriteH: 0.062,
@@ -715,7 +715,7 @@ export class ArchivalSemanticParser {
           ? (sp.originalLanguage === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
           : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
         fontSize: 82,
-        canvasW: 1280,
+        canvasW: 2048,
         canvasH: 384,
         spriteW: 0.215,
         spriteH: 0.064,
@@ -836,7 +836,7 @@ export class ArchivalSemanticParser {
             ? (origLang === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
             : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
           fontSize: 78,
-          canvasW: 1536,
+          canvasW: 2048,
           canvasH: 384,
           spriteW: 0.235,
           spriteH: 0.062,
@@ -910,6 +910,7 @@ export function renderEditorialTypography(ctx, canvas, text, formationProg, visu
       ctx.font = `600 ${fontSize}px ${fontFamily}`;
     }
   }
+  canvas.finalFontSize = fontSize;
 
   // PASS 1: Soft Ambient Dark Cushion (Zero harsh black outlines, no boxes)
   if (enableDarkCushion && visualOpts.enableDarkCushion !== false) {
@@ -1030,6 +1031,9 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
   function renderCanvas(formationProg, strokeJitterPx = 0.0) {
     renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, strokeJitterPx, enableDarkCushion);
     texture.needsUpdate = true;
+    if (group.userData) {
+      group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
+    }
   }
 
   renderCanvas(0.0, 0.0);
@@ -1059,6 +1063,9 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
     haloMat: haloMat,
     mainMesh: sprite,
     renderCanvas: renderCanvas,
+    finalFontSize: canvas.finalFontSize || unitDef.visual?.fontSize || 78,
+    canvasH: canvas.height,
+    canvasW: canvas.width,
     t_activation: cand.t_activation,
     lifecycleState: 'LATENT',
     currentOpacity: 0.0,
@@ -1195,6 +1202,8 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
     haloSprite: haloSprite,
     haloMat: haloMat,
     mainMesh: chunks[Math.floor(chunks.length / 2)]?.sprite || group,
+    chunkCanvasSize: 256,
+    chunkFontSize: Math.min(unitDef.visual?.fontSize || 78, Math.round(256 * 0.40)),
     t_activation: cand.t_activation,
     lifecycleState: 'LATENT',
     currentOpacity: 0.0,
@@ -1251,6 +1260,9 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
   function renderCanvas(formationProg) {
     renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, enableDarkCushion);
     texture.needsUpdate = true;
+    if (group.userData) {
+      group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
+    }
   }
 
   renderCanvas(0.0);
@@ -1281,6 +1293,9 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
     haloMat: haloMat,
     mainMesh: sprite,
     renderCanvas: renderCanvas,
+    finalFontSize: canvas.finalFontSize || unitDef.visual?.fontSize || 78,
+    canvasH: canvas.height,
+    canvasW: canvas.width,
     t_activation: cand.t_activation,
     lifecycleState: 'LATENT',
     currentOpacity: 0.0,
@@ -1337,6 +1352,9 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
   function renderCanvas(formationProg) {
     renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, enableDarkCushion);
     texture.needsUpdate = true;
+    if (group.userData) {
+      group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
+    }
   }
 
   renderCanvas(0.0);
@@ -1366,6 +1384,9 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
     haloMat: haloMat,
     mainMesh: sprite,
     renderCanvas: renderCanvas,
+    finalFontSize: canvas.finalFontSize || unitDef.visual?.fontSize || 78,
+    canvasH: canvas.height,
+    canvasW: canvas.width,
     t_activation: cand.t_activation,
     lifecycleState: 'LATENT',
     currentOpacity: 0.0,

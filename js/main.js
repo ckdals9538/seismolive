@@ -2919,23 +2919,60 @@ const FLIGHT_STATES = {
         const lc = unitDef.timing;
         const totalDuration = lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration + lc.residueDuration;
 
-        // Guaranteed minimum legibility screen-space scaling (Strictly >= 22px on any screen/camera)
-        if (u.sprite && camera) {
+        // Guaranteed minimum legibility screen-space scaling (Strictly >= 26px font height across all viewports)
+        const targetGlyphFraction = 0.030; // ~27px on 900p, ~32px on 1080p, ~65px on 4K
+
+        if (camera) {
           const distToCam = camera.position.distanceTo(grp.position);
           const fovRad = (camera.fov || 45) * Math.PI / 180.0;
           const fovScale = 2.0 * Math.tan(fovRad * 0.5) * distToCam;
-          // Target angular screen height fraction: 0.038 (~42px on 1080p, ~24px on 540p, ~84px on 4K)
-          const targetWorldH = fovScale * 0.038;
-          const aspect = (unitDef.visual.spriteW || 0.235) / (unitDef.visual.spriteH || 0.062);
-          const targetWorldW = targetWorldH * aspect;
-          u.sprite.scale.set(targetWorldW, targetWorldH, 1.0);
-          if (u.haloSprite) {
-            u.haloSprite.scale.set(targetWorldW * 1.35, targetWorldH * 2.2, 1.0);
-          }
 
           // Atmospheric fog distance fade: smoothly dissolve when camera pulls out to distant orbit
-          const fogFactor = Math.max(0.0, Math.min(1.0, (2.8 - distToCam) / 1.4));
+          const fogFactor = Math.max(0.0, Math.min(1.0, (3.2 - distToCam) / 1.8));
           u.fogFactor = fogFactor;
+
+          if (u.sprite) {
+            const canvasH = u.canvasH || unitDef.visual?.canvasH || 384;
+            const canvasW = u.canvasW || unitDef.visual?.canvasW || 2048;
+            const finalFontSize = u.finalFontSize || unitDef.visual?.fontSize || 78;
+            const fontRatio = Math.max(0.08, finalFontSize / canvasH);
+            const targetWorldH = fovScale * (targetGlyphFraction / fontRatio);
+            const aspect = canvasW / canvasH;
+            const targetWorldW = targetWorldH * aspect;
+
+            u.targetWorldH = targetWorldH;
+            u.targetWorldW = targetWorldW;
+            u.sprite.scale.set(targetWorldW, targetWorldH, 1.0);
+
+            if (u.haloSprite) {
+              u.haloSprite.scale.set(targetWorldW * 1.35, targetWorldH * 2.2, 1.0);
+            }
+          } else if (u.chunks && u.chunks.length > 0) {
+            const chunkCanvasH = u.chunkCanvasSize || 256;
+            const chunkFontSize = u.chunkFontSize || 78;
+            const chunkFontRatio = Math.max(0.15, chunkFontSize / chunkCanvasH);
+            const chunkTargetH = fovScale * (targetGlyphFraction / chunkFontRatio);
+            const chunkTargetW = chunkTargetH; // 1:1 square chunk canvas
+            const baseScaleRef = 0.062;
+            const scaleRatio = chunkTargetH / baseScaleRef;
+
+            u.scaleRatio = scaleRatio;
+            u.targetWorldH = chunkTargetH;
+            u.targetWorldW = chunkTargetW * u.chunks.length;
+
+            u.chunks.forEach(chk => {
+              chk.sprite.scale.set(chunkTargetW, chunkTargetH, 1.0);
+              // Maintain proportional inter-glyph layout prior to dissolution
+              if (u.lifecycleState !== "DISSOLUTION" && u.lifecycleState !== "RESIDUE") {
+                chk.sprite.position.set(chk.baseOffsetX * scaleRatio, 0.0, 0.0);
+              }
+            });
+
+            if (u.haloSprite) {
+              const totalW = chunkTargetW * (u.chunks.length * 0.95 + 1.2);
+              u.haloSprite.scale.set(totalW, chunkTargetH * 2.2, 1.0);
+            }
+          }
         }
 
         if (enableStratum3 < 0.5) {
@@ -2961,9 +2998,10 @@ const FLIGHT_STATES = {
           u.currentOpacity = easeOut * 0.95;
           if (u.renderCanvas) u.renderCanvas(prog, 0.0);
           if (unitDef.kinetic.archetype === "FRACTURE" && u.chunks) {
+            const sRatio = u.scaleRatio || 1.0;
             u.chunks.forEach(chk => {
               chk.mat.opacity = easeOut * 0.95;
-              chk.sprite.position.set(chk.baseOffsetX, 0.0, 0.0);
+              chk.sprite.position.set(chk.baseOffsetX * sRatio, 0.0, 0.0);
               chk.sprite.material.rotation = 0.0;
             });
           }
@@ -2976,9 +3014,10 @@ const FLIGHT_STATES = {
           u.currentOpacity = 0.98;
           if (u.renderCanvas) u.renderCanvas(1.0, 0.0);
           if (unitDef.kinetic.archetype === "FRACTURE" && u.chunks) {
+            const sRatio = u.scaleRatio || 1.0;
             u.chunks.forEach(chk => {
               chk.mat.opacity = 0.98;
-              chk.sprite.position.set(chk.baseOffsetX, 0.0, 0.0);
+              chk.sprite.position.set(chk.baseOffsetX * sRatio, 0.0, 0.0);
               chk.sprite.material.rotation = 0.0;
             });
           }
@@ -3009,9 +3048,10 @@ const FLIGHT_STATES = {
             grp.position.x = baseX;
             grp.position.y = baseY;
             grp.position.z = baseZ;
+            const sRatio = u.scaleRatio || 1.0;
             u.chunks.forEach((chk, idx) => {
-              const microJitter = ((idx % 2 === 0) ? 1 : -1) * Math.sin(resT * 26.0) * 0.0004;
-              chk.sprite.position.set(chk.baseOffsetX + microJitter, 0.0, 0.0);
+              const microJitter = ((idx % 2 === 0) ? 1 : -1) * Math.sin(resT * 26.0) * 0.0004 * sRatio;
+              chk.sprite.position.set(chk.baseOffsetX * sRatio + microJitter, 0.0, 0.0);
               chk.mat.opacity = 0.98;
             });
             u.haloMat.opacity = 0.12;
@@ -3055,10 +3095,11 @@ const FLIGHT_STATES = {
             grp.position.x = baseX;
             grp.position.y = baseY;
             grp.position.z = baseZ;
+            const sRatio = u.scaleRatio || 1.0;
             u.chunks.forEach(chk => {
-              chk.sprite.position.x = chk.baseOffsetX + (chk.spreadX + chk.gradDirX * 0.015) * dissProg * 3.6;
-              chk.sprite.position.y = chk.fallVelY * fallProg * 2.8;
-              chk.sprite.position.z = (chk.spreadZ + chk.gradDirZ * 0.015) * dissProg * 3.6;
+              chk.sprite.position.x = chk.baseOffsetX * sRatio + (chk.spreadX + chk.gradDirX * 0.015) * dissProg * 3.6 * sRatio;
+              chk.sprite.position.y = chk.fallVelY * fallProg * 2.8 * sRatio;
+              chk.sprite.position.z = (chk.spreadZ + chk.gradDirZ * 0.015) * dissProg * 3.6 * sRatio;
               chk.sprite.material.rotation = chk.rotSpeed * dissProg * 1.2;
               chk.mat.opacity = u.currentOpacity;
             });
@@ -3066,7 +3107,8 @@ const FLIGHT_STATES = {
           } else if (unitDef.kinetic.archetype === "RECEDE") {
             // Seaward retreat drift: elongates horizontally, drifts offshore while staying above water
             u.currentOpacity = THREE.MathUtils.lerp(0.94, 0.18, dissProg);
-            u.sprite.scale.x = unitDef.visual.spriteW * (1.0 + dissProg * 0.70);
+            const baseW = u.targetWorldW || unitDef.visual.spriteW;
+            u.sprite.scale.x = baseW * (1.0 + dissProg * 0.70);
             grp.position.x = baseX + dissProg * 0.018;
             grp.position.z = baseZ - dissProg * 0.008;
             grp.position.y = baseY - dissProg * 0.008;
