@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
-import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe } from '../geophysics/TravelTimeSolvers.js';
+import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, computeTsunamiHydrodynamicParams, generateTsunamiBathymetrySVG } from '../geophysics/TravelTimeSolvers.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
 
 const BENCHMARK_CATALOGS = {
@@ -1009,11 +1009,19 @@ export class UnifiedControlSurface {
               } else if (mmiStr.includes("VII") || mmiStr.includes("VI")) {
                 badgeCls = "severe";
               }
+
+              const dist = Number(c.distanceKm) || 15;
+              const tS = dist / 3.5;
+              const tSP = dist / 8.0;
+
               tableHtml += `
-                <tr>
+                <tr class="hist-felt-row" data-county="${c.countyKo}" data-dist="${dist}" data-mmi="${c.intensityMMI}">
                   <td><strong style="color:var(--hanji); font-weight:600;">${c.countyKo}</strong></td>
                   <td style="color:var(--mist); font-size:10px;">${c.modernLocation}</td>
-                  <td style="font-family:var(--font-mono); color:var(--brass);">${c.distanceKm} km</td>
+                  <td style="font-family:var(--font-mono); color:var(--brass);">
+                    ${c.distanceKm} km
+                    <div style="font-size:8.5px; color:var(--mist); margin-top:2px;">S파 +${tS.toFixed(1)}s <span style="opacity:0.65;">(P-S ${tSP.toFixed(1)}s)</span></div>
+                  </td>
                   <td><span class="hist-mmi-badge ${badgeCls}">${c.intensityMMI}</span></td>
                   <td style="font-size:10.5px; color:var(--hanji-muted);">${c.phenomenonKo}</td>
                 </tr>
@@ -1280,6 +1288,22 @@ export class UnifiedControlSurface {
                 ${gp.narrativeKo || ""}
               </p>
             `;
+
+            // Tsunami Bathymetric Shoaling Profile (Phase D6)
+            if (gp.type === 'TSUNAMI_HYDRODYNAMICS' || ev.tsunamiObserved || ev.seaDrawbackRecorded) {
+              const tParams = computeTsunamiHydrodynamicParams(2000.0, 20.0, 60.0);
+              const tSvg = generateTsunamiBathymetrySVG(tParams, 540, 145);
+              geoContainer.innerHTML += `
+                <div class="hist-tsunami-box" style="margin-top:8px; padding:10px; background:rgba(10,14,20,0.65); border:1px solid var(--hairline); border-radius:2px;">
+                  <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
+                    <span style="font-family:var(--font-mono); font-size:10px; color:var(--brass); font-weight:600;">동해 울릉분지 대륙사면 천해파 해일 전파 단면 (BATHYMETRY SHOALING)</span>
+                    <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--mist);">수심 2,000m → 20m 천해화</span>
+                  </div>
+                  ${tSvg}
+                </div>
+              `;
+            }
+
             geoContainer.style.display = 'flex';
           } else {
             geoContainer.style.display = 'none';

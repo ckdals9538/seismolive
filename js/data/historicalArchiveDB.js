@@ -1455,6 +1455,11 @@ function createHistoricalEvent(spec) {
     placeMappings: spec.placeIds.map(pid => PLACE_MAP.get(pid)).filter(Boolean),
     interpretations: spec.interpretations,
     defaultInterpretationId: defaultInterp.interpretationId,
+    tsunamiObserved: spec.tsunamiObserved || "NONE",
+    seaDrawbackRecorded: !!spec.seaDrawbackRecorded,
+    tsunamiDefinite: !!spec.tsunamiDefinite,
+    drawbackRecordNote: spec.drawbackRecordNote || null,
+    liquefactionObserved: !!spec.liquefactionObserved,
 
     // --- v3.0 Backward-Compatible Fields for DataProcessor & TextGenerator ---
     catalogType: "HISTORICAL",

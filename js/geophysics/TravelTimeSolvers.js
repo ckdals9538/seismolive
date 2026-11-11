@@ -359,3 +359,109 @@ export function initTravelTimeInteractiveProbe(container, depthKm = 10.0) {
   }, { passive: true });
   svg.addEventListener('touchend', resetProbe);
 }
+
+// ============================================================================
+// Phase D6: Tsunami Hydrodynamics & Bathymetric Shoaling Solver
+// Equations: Airy Shallow-Water Wave Speed, Green's Law Shoaling Amplification
+// ============================================================================
+
+export function computeTsunamiHydrodynamicParams(deepDepthM = 2000.0, coastalDepthM = 20.0, slopeDistKm = 60.0) {
+  const g = 9.80665;
+  const vDeepMS = Math.sqrt(g * deepDepthM);
+  const vDeepKmH = vDeepMS * 3.6;
+
+  const vMidMS = Math.sqrt(g * 200.0);
+  const vMidKmH = vMidMS * 3.6;
+
+  const vCoastMS = Math.sqrt(g * coastalDepthM);
+  const vCoastKmH = vCoastMS * 3.6;
+
+  // Green's Law Shoaling Factor: A_coast / A_deep = (H_deep / H_coast)^(1/4)
+  const shoalingFactor = Math.pow(deepDepthM / coastalDepthM, 0.25);
+
+  // Exact Travel Time across linear bathymetric slope: tau = 2*L / (sqrt(g)*(sqrt(H1) + sqrt(H2)))
+  const L = slopeDistKm * 1000.0;
+  const travelTimeSec = (2.0 * L) / (Math.sqrt(g) * (Math.sqrt(deepDepthM) + Math.sqrt(coastalDepthM)));
+  const travelTimeMin = travelTimeSec / 60.0;
+
+  return {
+    g,
+    deepDepthM,
+    coastalDepthM,
+    slopeDistKm,
+    vDeepMS: Math.round(vDeepMS * 10) / 10,
+    vDeepKmH: Math.round(vDeepKmH),
+    vMidMS: Math.round(vMidMS * 10) / 10,
+    vMidKmH: Math.round(vMidKmH),
+    vCoastMS: Math.round(vCoastMS * 10) / 10,
+    vCoastKmH: Math.round(vCoastKmH),
+    shoalingFactor: Math.round(shoalingFactor * 100) / 100,
+    travelTimeSec: Math.round(travelTimeSec),
+    travelTimeMin: Math.round(travelTimeMin * 10) / 10
+  };
+}
+
+export function generateTsunamiBathymetrySVG(params, width = 560, height = 150) {
+  const { deepDepthM, coastalDepthM, slopeDistKm, vDeepKmH, vMidKmH, vCoastKmH, shoalingFactor, travelTimeMin } = params;
+
+  const padL = 40;
+  const padR = 25;
+  const padT = 26;
+  const padB = 25;
+  const plotW = width - padL - padR;
+  const plotH = height - padT - padB;
+
+  const ySeaLevel = padT + 22;
+  const yBedDeep = padT + plotH - 6;
+  const yBedSlopeBreak = padT + plotH * 0.65;
+  const yBedShelf = padT + plotH * 0.35;
+  const yBedCoast = ySeaLevel + 4;
+
+  const x0 = padL;
+  const x1 = padL + plotW * 0.35;
+  const x2 = padL + plotW * 0.80;
+  const x3 = padL + plotW;
+
+  const bedPath = `M ${x0} ${yBedDeep} L ${x1} ${yBedDeep} Q ${(x1+x2)/2} ${yBedSlopeBreak} ${x2} ${yBedShelf} L ${x3} ${yBedCoast} L ${x3} ${padT + plotH} L ${x0} ${padT + plotH} Z`;
+
+  const wavePath = `
+    M ${x0} ${ySeaLevel}
+    L ${x1} ${ySeaLevel}
+    Q ${x1 + plotW*0.2} ${ySeaLevel - 2} ${x2 - 15} ${ySeaLevel - 4}
+    C ${x2 + 10} ${ySeaLevel - 8} ${x3 - 35} ${ySeaLevel - 16} ${x3 - 22} ${ySeaLevel - 18}
+    C ${x3 - 14} ${ySeaLevel - 18} ${x3 - 8} ${ySeaLevel + 8} ${x3} ${ySeaLevel + 2}
+  `;
+
+  return `
+    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="tsunami-bathymetry-svg" style="width:100%; height:auto; display:block;">
+      <defs>
+        <linearGradient id="tsunamiWaterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="rgba(30, 60, 100, 0.45)"/>
+          <stop offset="70%" stop-color="rgba(30, 85, 140, 0.35)"/>
+          <stop offset="100%" stop-color="rgba(200, 157, 84, 0.20)"/>
+        </linearGradient>
+        <linearGradient id="bedrockGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="rgba(20, 24, 32, 0.95)"/>
+          <stop offset="100%" stop-color="rgba(10, 12, 16, 0.98)"/>
+        </linearGradient>
+      </defs>
+
+      <polygon points="${x0},${ySeaLevel} ${x1},${ySeaLevel} ${x2},${ySeaLevel} ${x3},${ySeaLevel} ${x3},${yBedCoast} ${x2},${yBedShelf} ${x1},${yBedDeep} ${x0},${yBedDeep}" fill="url(#tsunamiWaterGrad)"/>
+      <path d="${bedPath}" fill="url(#bedrockGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+      <line x1="${x0}" y1="${ySeaLevel}" x2="${x3}" y2="${ySeaLevel}" stroke="rgba(255,255,255,0.15)" stroke-dasharray="3 3" stroke-width="0.8"/>
+      <path d="${wavePath}" fill="none" stroke="#5EA8FF" stroke-width="1.8"/>
+
+      <text x="${x0 + 15}" y="${padT + 12}" fill="#8797AC" font-size="8.5" font-family="'SF Mono', Menlo, monospace">울릉분지 (심해 ${deepDepthM}m)</text>
+      <text x="${x0 + 15}" y="${ySeaLevel + 16}" fill="#5EA8FF" font-size="8" font-family="'SF Mono', Menlo, monospace">v = ${vDeepKmH} km/h (천해파 초고속 전파)</text>
+
+      <text x="${x2 - 35}" y="${yBedSlopeBreak - 8}" fill="#8797AC" font-size="8" font-family="'SF Mono', Menlo, monospace">대륙사면 (200m)</text>
+      <text x="${x2 - 35}" y="${yBedSlopeBreak + 5}" fill="#BAC3CE" font-size="7.5" font-family="'SF Mono', Menlo, monospace">v = ${vMidKmH} km/h</text>
+
+      <text x="${x3 - 8}" y="${padT + 10}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">강원 연안 (천해 ${coastalDepthM}m)</text>
+      <text x="${x3 - 8}" y="${padT + 22}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">파고 ${shoalingFactor}배 증폭 · 퇴조(海水退) 후 내습</text>
+      <text x="${x3 - 8}" y="${ySeaLevel + 32}" fill="#8797AC" font-size="7.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">v = ${vCoastKmH} km/h (급격한 감속)</text>
+
+      <text x="${(x1 + x2)/2}" y="${padT + plotH + 16}" fill="#BAC3CE" font-size="8" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">사면 전파 소요 시간: 약 ${travelTimeMin}분 (사료 기록: '잠시 후 해일 내습'과 물리적 일치)</text>
+    </svg>
+  `;
+}
