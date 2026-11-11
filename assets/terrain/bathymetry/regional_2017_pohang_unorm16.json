@@ -13,14 +13,14 @@
     "lon_max": 129.87
   },
   "elevationRangeMeters": {
-    "min": -1178.0,
-    "max": 1151.16,
+    "min": -1181.72,
+    "max": 1143.85,
     "hMin": -3500.0,
     "hMax": 2500.0
   },
   "surfaceDistribution": {
-    "landPercentage": "58.4%",
-    "oceanPercentage": "41.6%"
+    "landPercentage": "58.2%",
+    "oceanPercentage": "41.8%"
   },
   "cameraPreset": {
     "name": "Pohang Yeongil Bay Shelf",

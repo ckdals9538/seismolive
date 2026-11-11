@@ -71,6 +71,17 @@ class ETOPOReader:
         self.cached_tiles[tile_idx] = floats
         return floats
 
+    def _sample_pixel(self, c, r):
+        c = max(0, min(3599, int(c)))
+        r = max(0, min(3599, int(r)))
+        col_tile = min(14, c // 256)
+        row_tile = min(14, r // 256)
+        tile_idx = row_tile * 15 + col_tile
+        floats = self._decode_tile(tile_idx)
+        sub_c = c % 256
+        sub_r = r % 256
+        return floats[sub_r * 256 + sub_c]
+
     def sample_elevation(self, lat, lon):
         if not (self.south <= lat <= self.north and self.west <= lon <= self.east):
             return 0.0
@@ -78,19 +89,25 @@ class ETOPOReader:
         c = (lon - self.west) / self.pixel_w
         r = (self.north - lat) / self.pixel_h
 
-        c = max(0.0, min(3599.0, c))
-        r = max(0.0, min(3599.0, r))
+        c = max(0.0, min(3598.999, c))
+        r = max(0.0, min(3598.999, r))
 
-        col_tile = int(c // 256)
-        row_tile = int(r // 256)
-        col_tile = min(14, col_tile)
-        row_tile = min(14, row_tile)
-        tile_idx = row_tile * 15 + col_tile
+        c0 = int(c)
+        c1 = c0 + 1
+        fc = c - c0
 
-        floats = self._decode_tile(tile_idx)
-        sub_c = int(c % 256)
-        sub_r = int(r % 256)
-        return floats[sub_r * 256 + sub_c]
+        r0 = int(r)
+        r1 = r0 + 1
+        fr = r - r0
+
+        e00 = self._sample_pixel(c0, r0)
+        e10 = self._sample_pixel(c1, r0)
+        e01 = self._sample_pixel(c0, r1)
+        e11 = self._sample_pixel(c1, r1)
+
+        e_top = e00 + (e10 - e00) * fc
+        e_bot = e01 + (e11 - e01) * fc
+        return e_top + (e_bot - e_top) * fr
 
 def extract_regional_grid(reader, lat_center, lon_center, d_lat, d_lon, width=900, height=720):
     lat_min = lat_center - d_lat * 0.5

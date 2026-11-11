@@ -673,7 +673,8 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 6000);
   try {
-    const response = await fetch(binUrl, { signal: controller.signal });
+    const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
+    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`Failed to load DEM binary from ${binUrl}: ${response.status} ${response.statusText}`);
@@ -719,7 +720,8 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 7000);
   try {
-    const response = await fetch(binUrl, { signal: controller.signal });
+    const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
+    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`Failed to load global relief binary: ${response.status}`);

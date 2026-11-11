@@ -859,13 +859,24 @@ const FLIGHT_STATES = {
             vec3 baseColor;
             float isOcean = step(fragElev, 0.0);
 
+            // Geodetic offset from regional DEM center in scene units
+            float lat = 90.0 - vUv.y * 180.0;
+            float lon = -180.0 + vUv.x * 360.0;
+            float phi0Rad = radians(u_regionCenter.x);
+            float dLatM = (lat - u_regionCenter.x) * 110996.0;
+            float dLonDeg = lon - u_regionCenter.y;
+            if (dLonDeg > 180.0) dLonDeg -= 360.0;
+            if (dLonDeg < -180.0) dLonDeg += 360.0;
+            float dLonM = dLonDeg * 111319.0 * cos(phi0Rad);
+            vec2 dEpiG = vec2(dLonM * 0.00001, dLatM * 0.00001);
+
             // Inside regional DEM coverage: high-res regional terrain mesh renders the land.
             // Discard low-res globe land interior to eliminate dual-mesh depth collision with zero elevation groove.
             if (u_regionActive > 0.5 && isOcean < 0.5) {
-              float uNormX = abs(vLocalPos.x) / max(0.001, u_regionHalfSize.x);
-              float uNormZ = abs(vLocalPos.z) / max(0.001, u_regionHalfSize.y);
-              float inBox = max(uNormX, uNormZ);
-              if (inBox < 0.985) {
+              float uNormX = abs(dEpiG.x) / max(0.0001, u_regionHalfSize.x);
+              float uNormY = abs(dEpiG.y) / max(0.0001, u_regionHalfSize.y);
+              float inBox = max(uNormX, uNormY);
+              if (inBox < 0.86) {
                 discard;
               }
             }
@@ -881,12 +892,6 @@ const FLIGHT_STATES = {
             // Planetary continuous seismic wavefield expansion (Spherical Geodetic Propagation)
             // Strict Anti-Game-VFX (GEMINI.md Rule 2): Physical normal shearing under moonlight, zero additive glowing rings
             if (u_simTime > 0.0) {
-              float lat = 90.0 - vUv.y * 180.0;
-              float lon = -180.0 + vUv.x * 360.0;
-              float phi0Rad = radians(u_regionCenter.x);
-              float dLatM = (lat - u_regionCenter.x) * 110996.0;
-              float dLonM = (lon - u_regionCenter.y) * 111319.0 * cos(phi0Rad);
-              vec2 dEpiG = vec2(dLonM * 0.00001, dLatM * 0.00001);
               float rEpiG = length(dEpiG);
 
               // Exact physical bilateral finite-fault propagation on planetary globe
@@ -1982,8 +1987,8 @@ const FLIGHT_STATES = {
 
       // 3.4 Phase B Universal Regional DEM & Ocean Adaptation
       const eventMeta = getUniversalEventMetadata(eventId, currentParsedEvent.spatialCoords.lat, currentParsedEvent.spatialCoords.lon);
-      const lat0 = currentParsedEvent.spatialCoords.lat ?? 37.95;
-      const lon0 = currentParsedEvent.spatialCoords.lon ?? 129.05;
+      const lat0 = (eventId.includes('1681')) ? 38.00 : (currentParsedEvent.spatialCoords.lat ?? 37.95);
+      const lon0 = (eventId.includes('1681')) ? 129.05 : (currentParsedEvent.spatialCoords.lon ?? 129.05);
 
       let curW = PHYSICAL_W_UNITS;
       let curH = PHYSICAL_H_UNITS;
@@ -2870,6 +2875,8 @@ const FLIGHT_STATES = {
       }
     }
     window.seekToSimulationTime = seekToSimulationTime;
+    window.pauseSimulation = function() { isPlaying = false; };
+    window.resumeSimulation = function() { isPlaying = true; };
 
     // Update Wave Displays & Dynamic Lifecycle for Reformed Memories
     function updateWaveDisplays() {
@@ -3351,6 +3358,11 @@ const FLIGHT_STATES = {
 
         tier0GlobeMesh = createTier0WGS84Ellipsoid(lat0, lon0);
         tier0GlobeMesh.renderOrder = 1;
+        if (tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms) {
+          tier0GlobeMesh.material.uniforms.u_regionActive.value = 1.0;
+          tier0GlobeMesh.material.uniforms.u_regionCenter.value.set(lat0, lon0);
+          tier0GlobeMesh.material.uniforms.u_regionHalfSize.value.set(PHYSICAL_W_UNITS * 0.5, PHYSICAL_H_UNITS * 0.5);
+        }
         scene.add(tier0GlobeMesh);
 
         // 3. Add Celestial Starfield & Atmosphere Outer Glow Shell

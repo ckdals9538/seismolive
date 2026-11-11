@@ -13,14 +13,14 @@
     "lon_max": 129.69
   },
   "elevationRangeMeters": {
-    "min": -265.0,
-    "max": 1151.16,
+    "min": -244.94,
+    "max": 1133.16,
     "hMin": -3500.0,
     "hMax": 2500.0
   },
   "surfaceDistribution": {
-    "landPercentage": "74.8%",
-    "oceanPercentage": "25.2%"
+    "landPercentage": "74.6%",
+    "oceanPercentage": "25.4%"
   },
   "cameraPreset": {
     "name": "Gyeongju Yangsan Fault Corridor",

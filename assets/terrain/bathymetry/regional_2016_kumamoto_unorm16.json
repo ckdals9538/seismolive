@@ -13,14 +13,14 @@
     "lon_max": 131.26
   },
   "elevationRangeMeters": {
-    "min": -165.0,
-    "max": 1727.56,
+    "min": -156.96,
+    "max": 1722.64,
     "hMin": -3500.0,
     "hMax": 2500.0
   },
   "surfaceDistribution": {
-    "landPercentage": "82.7%",
-    "oceanPercentage": "17.3%"
+    "landPercentage": "82.9%",
+    "oceanPercentage": "17.1%"
   },
   "cameraPreset": {
     "name": "Kumamoto Graben & Mount Aso",
