@@ -626,27 +626,27 @@ const FLIGHT_STATES = {
           gallEvTitle.textContent = "한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)";
         }
       } else if (state === 'descending') {
-        if (sub) sub.textContent = `${currentParsedEvent.titleKo} 현장으로 강하 중... (WGS84 연속 궤도 비행)`;
+        if (sub && currentParsedEvent) sub.textContent = `${currentParsedEvent.titleKo || currentParsedEvent.place || "진원 지형"}`;
       } else if (state === 'performance') {
         updateChronicleSubtitleForEvent(currentParsedEvent);
       } else if (state === 'ascending') {
-        if (sub) sub.textContent = "대지의 기억을 뒤로하고 우주 궤도로 복귀 중...";
+        if (sub) sub.textContent = "고요 — 우주 궤도";
       }
     }
 
     function updateChronicleSubtitleForEvent(ev) {
       const sub = document.getElementById('chronicle-subtitle-text');
-      if (sub) {
-        let quote = ev.translationKo || ev.originalTranslationKo || ev.translation || ev.koreanTranslation || ev.primaryTranslation || "";
-        if (!quote && ev.archivalText && !/[\u4e00-\u9fff]/.test(ev.archivalText)) {
-          quote = ev.archivalText;
-        }
-        if (quote) {
-          sub.textContent = quote;
-        } else {
-          const titleStr = ev.titleKo || ev.title || "역사지진";
+      if (sub && ev) {
+        const isHist = ev.recordType === 'historical' || ev.dynasty || (ev.century != null && ev.century < 20);
+        if (isHist) {
+          const srcName = ev.sourceName || ev.primaryText?.documentSource || "사료 기록";
           const dateStr = ev.dateText ? ` (${ev.dateText})` : '';
-          sub.textContent = `${titleStr}${dateStr} — 대지 진동과 사료의 기억`;
+          sub.textContent = `${srcName}${dateStr}`;
+        } else {
+          const srcName = ev.primaryText?.documentSource || ev.sourceName || "정밀 관측망";
+          const hasYr = /\(\d{4}\)|\b\d{4}년?\b/.test(srcName);
+          const yr = (!hasYr && ev.temporal?.gregorianDate) ? ` (${ev.temporal.gregorianDate.substring(0, 4)})` : (!hasYr && ev.dateText ? ` (${ev.dateText})` : '');
+          sub.textContent = `${srcName}${yr}`;
         }
       }
 
@@ -772,14 +772,7 @@ const FLIGHT_STATES = {
             float normElev = texture2D(u_globalElevation, uv).r;
             float rawMeters = u_globalHMin + normElev * (u_globalHMax - u_globalHMin);
 
-            if (u_regionActive > 0.5) {
-              float rEllip = length(vec2(position.x / max(0.001, u_regionHalfSize.x), position.z / max(0.001, u_regionHalfSize.y)));
-              if (rEllip < 1.0) {
-                float depress = (1.0 + cos(rEllip * 3.14159265)) * 0.5 * 350.0;
-                rawMeters -= depress;
-              }
-            }
-
+            // Continuous planetary elevation foundation (NO artificial depression crater or groove)
             vElevation = rawMeters;
 
             // Displace along normal: authentic continuous planetary elevation (NO artificial depression crater)
@@ -857,6 +850,17 @@ const FLIGHT_STATES = {
             vec3 baseColor;
             float isOcean = step(fragElev, 0.0);
 
+            // Inside regional DEM coverage: high-res regional terrain mesh renders the land.
+            // Discard low-res globe land interior to eliminate dual-mesh depth collision with zero elevation groove.
+            if (u_regionActive > 0.5 && isOcean < 0.5) {
+              float uNormX = abs(vLocalPos.x) / max(0.001, u_regionHalfSize.x);
+              float uNormZ = abs(vLocalPos.z) / max(0.001, u_regionHalfSize.y);
+              float inBox = max(uNormX, uNormZ);
+              if (inBox < 0.94) {
+                discard;
+              }
+            }
+
             if (fragElev < 0.0) {
               baseColor = monolithOceanAlbedo(fragElev);
             } else {
@@ -886,16 +890,25 @@ const FLIGHT_STATES = {
               vec2 dEpiG = vec2(dLonM * 0.00001, dLatM * 0.00001);
               float rEpiG = length(dEpiG);
 
-              // Directivity along fault strike (smooth natural ellipse)
-              vec2 uFaultG = vec2(sin(u_faultStrike), cos(u_faultStrike));
-              float cosDirG = (rEpiG > 0.0001) ? dot(dEpiG / rEpiG, uFaultG) : 0.0;
-              float directivityG = 1.0 + 0.28 * cosDirG * u_isFiniteFault;
-              float effDistG = rEpiG / directivityG;
+              // Exact physical bilateral finite-fault propagation on planetary globe
+              float tSlipG = 0.0;
+              float effDistG = rEpiG;
+              if (u_isFiniteFault > 0.5 && u_faultLength > 0.001) {
+                vec2 uFG = vec2(sin(u_faultStrike), cos(u_faultStrike));
+                vec2 nFG = vec2(cos(u_faultStrike), -sin(u_faultStrike));
+                float sFaultG = dot(dEpiG, uFG);
+                float dFaultG = dot(dEpiG, nFG);
+                float halfLG = 0.5 * u_faultLength;
+                float sClampedG = clamp(sFaultG, -halfLG, halfLG);
+                tSlipG = abs(sClampedG) / max(0.001, u_ruptureVelocity);
+                effDistG = length(vec2(sFaultG - sClampedG, dFaultG));
+              }
 
-              float waveRS = sqrt(max(0.0, (u_vS * u_simTime) * (u_vS * u_simTime) - 0.0001));
+              float dtG = u_simTime - tSlipG;
+              float waveRS = (dtG > 0.0) ? (u_vS * dtG) : -1.0;
               float distToFrontG = abs(effDistG - waveRS);
-              if (distToFrontG < 0.065 && u_simTime > 0.0) {
-                float waveEnvG = exp(-pow(distToFrontG / 0.038, 2.0)) * smoothstep(-0.02, 0.04, u_simTime - effDistG / u_vS);
+              if (distToFrontG < 0.065 && dtG > 0.0) {
+                float waveEnvG = exp(-pow(distToFrontG / 0.038, 2.0)) * smoothstep(-0.02, 0.04, dtG - effDistG / u_vS);
                 float attenG = 1.0 / sqrt(max(0.12, effDistG * 3.5));
                 // Physical lunar reflection tilt on ocean swell vs bedrock slope
                 if (isOcean > 0.5) {
@@ -1161,11 +1174,19 @@ const FLIGHT_STATES = {
           vec2 dEpi = vec2(x_units - u_epiPos.x, z_units - u_epiPos.y);
           float rEpi = length(dEpi);
 
-          // Directivity along fault strike (smooth natural ellipse)
-          vec2 uFault = vec2(sin(u_faultStrike), cos(u_faultStrike));
-          float cosDir = (rEpi > 0.0001) ? dot(dEpi / rEpi, uFault) : 0.0;
-          float directivity = 1.0 + 0.28 * cosDir * u_isFiniteFault;
-          float effDist = rEpi / directivity;
+          // Exact physical bilateral finite-fault wavefront propagation
+          float tSlip = 0.0;
+          float effDist = rEpi;
+          if (u_isFiniteFault > 0.5 && u_faultLength > 0.001) {
+            vec2 uF = vec2(sin(u_faultStrike), -cos(u_faultStrike));
+            vec2 nF = vec2(cos(u_faultStrike), sin(u_faultStrike));
+            float sFault = dot(dEpi, uF);
+            float dFault = dot(dEpi, nF);
+            float halfL = 0.5 * u_faultLength;
+            float sClamped = clamp(sFault, -halfL, halfL);
+            tSlip = abs(sClamped) / max(0.001, u_ruptureVelocity);
+            effDist = length(vec2(sFault - sClamped, dFault));
+          }
           float effHypoDist = sqrt(effDist * effDist + u_depthUnits * u_depthUnits);
           vDistHypo = effHypoDist;
 
@@ -1183,8 +1204,8 @@ const FLIGHT_STATES = {
           float localVelP = u_vP * mix(0.80, 1.0, shelfFactor);
           float localVelS = u_vS * mix(0.74, 1.0, shelfFactor);
 
-          float t_P = effHypoDist / localVelP;
-          float t_S = effHypoDist / localVelS;
+          float t_P = tSlip + (effHypoDist / max(0.001, localVelP));
+          float t_S = tSlip + (effHypoDist / max(0.001, localVelS));
           float dt_P = u_simTime - t_P;
           float dt_S = u_simTime - t_S;
           vDtP = dt_P;
@@ -3177,16 +3198,17 @@ const FLIGHT_STATES = {
         const subEl = document.getElementById("chronicle-subtitle-text");
         if (subEl) {
           if (bestEntity && bestEntity.unitDef) {
-            const sem = bestEntity.unitDef.semantic || {};
-            const disp = sem.displayText || bestEntity.unitDef.token || "";
             const isHist = currentParsedEvent.recordType === 'historical' || currentParsedEvent.dynasty || (currentParsedEvent.century != null && currentParsedEvent.century < 20);
             let nextLine = "";
             if (isHist) {
-              const trans = bestEntity.unitDef.translation || sem.translation || currentParsedEvent.translationKo || currentParsedEvent.originalTranslationKo || "";
-              nextLine = trans || `${currentParsedEvent.titleKo || "역사지진"}`;
+              const srcRef = bestEntity.unitDef.sourceReference || bestEntity.unitDef.source?.sourceReference || bestEntity.unitDef.source?.volumeOrSection;
+              const dateRef = currentParsedEvent.dateText || (currentParsedEvent.temporal?.gregorianDate ? `${currentParsedEvent.temporal.gregorianDate.substring(0, 4)}년` : "");
+              nextLine = srcRef ? `${srcRef}` : `${currentParsedEvent.sourceName || "사료 기록"} (${dateRef})`;
             } else {
-              const doc = currentParsedEvent.primaryText?.translationKo || currentParsedEvent.sourceName || currentParsedEvent.place || currentParsedEvent.titleKo || "";
-              nextLine = doc;
+              const srcRef = bestEntity.unitDef.source?.sourceReference || bestEntity.unitDef.sourceReference || currentParsedEvent.primaryText?.documentSource || currentParsedEvent.sourceName;
+              const hasYr = srcRef && /\(\d{4}\)|\b\d{4}년?\b/.test(srcRef);
+              const yr = (!hasYr && currentParsedEvent.temporal?.gregorianDate) ? ` (${currentParsedEvent.temporal.gregorianDate.substring(0, 4)})` : '';
+              nextLine = srcRef ? `${srcRef}${yr}` : `${currentParsedEvent.place || "계측 기록"}${yr}`;
             }
             if (subEl.textContent !== nextLine) {
               subEl.textContent = nextLine;

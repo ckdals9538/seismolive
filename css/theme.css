@@ -98,10 +98,10 @@
       to { transform: rotate(360deg); }
     }
 
-    /* Floating Archival Subtitle (Hanji Ivory, Floating, No Box) */
+    /* Floating Archival Subtitle (Hanji Ivory, Floating, No Box, Provenance Only) */
     #chronicle-subtitle-container {
       position: absolute;
-      bottom: 92px;
+      bottom: 84px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 20;
@@ -113,15 +113,15 @@
     }
     #chronicle-subtitle-text {
       font-family: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
-      font-size: 16px;
+      font-size: 13px;
       font-weight: 300;
-      line-height: 1.8;
-      color: #EAE4D5; /* Hanji Ivory */
-      letter-spacing: 0.08em;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 14px rgba(2, 4, 8, 0.95), 0 0 32px rgba(2, 4, 8, 0.90);
+      line-height: 1.6;
+      color: rgba(220, 215, 202, 0.72); /* Hanji Ivory, archival low opacity */
+      letter-spacing: 0.12em;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.98), 0 0 14px rgba(2, 4, 8, 0.95);
       background: transparent;
       border: none;
-      padding: 6px 16px;
+      padding: 4px 12px;
       transition: opacity 0.8s ease;
     }
 
