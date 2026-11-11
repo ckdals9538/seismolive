@@ -339,7 +339,12 @@ export class ArchivalSemanticParser {
     const cleanDateText = (rawDateText || '').replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
 
     return {
+      ...ev,
       eventId: ev.eventId,
+      recordType: "historical",
+      dynasty: ev.dynasty || "JOSEON",
+      century: ev.century || 17,
+      sourceName: ev.sourceName || (records[0]?.volumeOrSection ? `${records[0].volumeOrSection}` : "조선왕조실록 · 승정원일기"),
       title: ev.place || ev.titleKo || ev.titles?.ko || ev.canonicalName || "역사 사료 지진",
       titleKo: (ev.titleKo || ev.titles?.ko || ev.place || ev.canonicalName || (ev.dateConversion?.gregorianYear ? `${ev.dateConversion.gregorianYear}년 사료 지진` : "역사 사료 지진")).replace(/[\u4e00-\u9fff]/g, '').trim(),
       archivalText: ev.primaryText?.originalScript || ev.text || ev.originalText || "",

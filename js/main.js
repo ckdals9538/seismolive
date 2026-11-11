@@ -3,9 +3,9 @@
     // Unified Architecture · Figure-Ground Contrast · Editorial Serif · Negative Space
     // =========================================================================
 
-    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=5.0';
-    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=5.0';
-    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=5.0';
+    import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=5.5';
+    import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=5.5';
+    import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=5.5';
     import {
       WGS84,
       DATUM_STATUS,
@@ -14,7 +14,7 @@
       computeEllipsoidalHeight,
       threeToECEF,
       ecefToThree
-    } from './3d/geodeticEllipsoidCoord.js?v=5.0';
+    } from './3d/geodeticEllipsoidCoord.js?v=5.5';
     import {
       SURFACE_CLASSIFICATION,
       RASTER_PIXEL_TYPE,
@@ -26,16 +26,16 @@
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
       loadGlobalElevationTexture
-    } from './3d/terrainDataResolver.js?v=5.0';
+    } from './3d/terrainDataResolver.js?v=5.5';
     import {
       SeismicSourceModel,
       VelocityModelStatus,
       REFERENCE_CRUSTAL_VELOCITY,
       REGIONAL_VELOCITY_MODELS
-    } from './3d/seismicSourceModel.js?v=5.0';
-    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=5.0';
-    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=5.0';
-    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=5.0';
+    } from './3d/seismicSourceModel.js?v=5.5';
+    import { UniversalWavefieldEngine } from './3d/universalWavefieldEngine.js?v=5.5';
+    import { WavefieldVisualOrchestrator } from './3d/wavefieldVisualOrchestrator.js?v=5.5';
+    import { LivingSoundfieldEngine } from './audio/livingSoundfieldEngine.js?v=5.5';
     import {
       ArchivalSemanticParser,
       renderEditorialTypography,
@@ -44,7 +44,7 @@
       createFractureEntity,
       createRecedeEntity,
       createExposeEntity
-    } from './3d/livingMemoryEngine.js?v=5.0';
+    } from './3d/livingMemoryEngine.js?v=5.5';
 
     let orchestrator = null;
     window.orchestrator = null;
@@ -639,9 +639,11 @@ const FLIGHT_STATES = {
       if (sub && ev) {
         const isHist = ev.recordType === 'historical' || ev.dynasty || (ev.century != null && ev.century < 20);
         if (isHist) {
-          const srcName = ev.sourceName || ev.primaryText?.documentSource || "사료 기록";
-          const dateStr = ev.dateText ? ` (${ev.dateText})` : '';
-          sub.textContent = `${srcName}${dateStr}`;
+          let srcName = ev.sourceName || ev.primaryText?.documentSource || "사료 기록";
+          srcName = srcName.replace(/\s*\([^\)]*기상청[^\)]*\)/g, '').trim();
+          const yr = (ev.dateStr || ev.dateText || '').substring(0, 4);
+          const yrSuffix = yr && !srcName.includes(yr) ? ` (${yr})` : '';
+          sub.textContent = `${srcName}${yrSuffix}`;
         } else {
           const srcName = ev.primaryText?.documentSource || ev.sourceName || "정밀 관측망";
           const hasYr = /\(\d{4}\)|\b\d{4}년?\b/.test(srcName);
@@ -680,9 +682,21 @@ const FLIGHT_STATES = {
         return mix(deepAbyss, vec3(0.028, 0.075, 0.135), shelfT);
       }
       vec3 monolithLandAlbedo(float elev, float slopeRelief) {
-        float relief = max(slopeRelief, clamp(elev / 1200.0, 0.0, 1.0));
+        float relief = max(slopeRelief, clamp((elev - 150.0) / 1600.0, 0.0, 1.0));
         vec3 c = mix(vec3(0.055, 0.075, 0.110), vec3(0.165, 0.200, 0.255), relief * 0.85);
         return mix(c, vec3(0.240, 0.290, 0.360), pow(relief, 2.0) * 0.75);
+      }
+      vec3 computeMonolithLighting(vec3 albedo, vec3 N, vec3 V, vec3 L, vec3 ambientCol, vec3 lightCol, float isOcean) {
+        float NdotL = dot(N, L);
+        float wrapDiffuse = pow(max(0.0, (NdotL + 0.35) / 1.35), 1.45);
+        vec3 H = normalize(L + V);
+        float NdotH = max(0.0, dot(N, H));
+        float spec = pow(NdotH, 42.0) * isOcean * 0.52;
+        float rim = pow(1.0 - max(0.0, dot(N, V)), 2.8) * max(0.0, dot(L, -V) + 0.35);
+        vec3 lit = albedo * (ambientCol + lightCol * (wrapDiffuse * 1.45)) + lightCol * spec;
+        vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
+        lit += atmosphereColor * (rim * 0.32);
+        return lit;
       }
     `;
     window.MONOLITH_SURFACE_GLSL = MONOLITH_SURFACE_GLSL;
@@ -836,11 +850,6 @@ const FLIGHT_STATES = {
             vec3 bitangent = normalize(cross(N, tangent));
 
             vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * 2.2) - bitangent * (dh_dy * 2.2));
-            vec3 perturbedN_view = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
-
-            float NdotL = dot(perturbedN_view, L_view);
-            float wrapDiffuse = pow(max(0.0, (NdotL + 0.35) / 1.35), 1.45);
-            float rim = pow(1.0 - max(0.0, dot(perturbedN_view, V)), 2.8);
 
             // Sample true per-pixel elevation directly from global relief texture
             float normCenter = texture2D(u_globalElevation, vUv).r;
@@ -856,7 +865,7 @@ const FLIGHT_STATES = {
               float uNormX = abs(vLocalPos.x) / max(0.001, u_regionHalfSize.x);
               float uNormZ = abs(vLocalPos.z) / max(0.001, u_regionHalfSize.y);
               float inBox = max(uNormX, uNormZ);
-              if (inBox < 0.94) {
+              if (inBox < 0.985) {
                 discard;
               }
             }
@@ -864,23 +873,13 @@ const FLIGHT_STATES = {
             if (fragElev < 0.0) {
               baseColor = monolithOceanAlbedo(fragElev);
             } else {
-              float slopeMag = length(vec2(dh_dx, dh_dy)) * 80.0;
-              baseColor = monolithLandAlbedo(fragElev, smoothstep(0.06, 0.28, slopeMag));
+              float slopeMag = length(vec2(dh_dx, dh_dy));
+              float slopeRelief = smoothstep(0.005, 0.032, slopeMag);
+              baseColor = monolithLandAlbedo(fragElev, slopeRelief);
             }
 
-            // Specular glint on ocean surface
-            vec3 H = normalize(L_view + V);
-            float NdotH = max(0.0, dot(perturbedN_view, H));
-            float spec = pow(NdotH, 42.0) * isOcean * 0.52;
-
-            // Ambient + Directional lighting (Sculptural Contrast Harmonized)
-            vec3 lit = baseColor * (u_ambientColor + u_lightColor * (wrapDiffuse * 1.45)) + u_lightColor * spec;
-
-            // Celestial rim scattering: deep blue atmospheric halo on limb
-            vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
-            lit += atmosphereColor * (rim * 0.48);
-
             // Planetary continuous seismic wavefield expansion (Spherical Geodetic Propagation)
+            // Strict Anti-Game-VFX (GEMINI.md Rule 2): Physical normal shearing under moonlight, zero additive glowing rings
             if (u_simTime > 0.0) {
               float lat = 90.0 - vUv.y * 180.0;
               float lon = -180.0 + vUv.x * 360.0;
@@ -907,21 +906,21 @@ const FLIGHT_STATES = {
               float dtG = u_simTime - tSlipG;
               float waveRS = (dtG > 0.0) ? (u_vS * dtG) : -1.0;
               float distToFrontG = abs(effDistG - waveRS);
-              if (distToFrontG < 0.065 && dtG > 0.0) {
+              if (distToFrontG < 0.075 && dtG > 0.0) {
                 float waveEnvG = exp(-pow(distToFrontG / 0.038, 2.0)) * smoothstep(-0.02, 0.04, dtG - effDistG / u_vS);
                 float attenG = 1.0 / sqrt(max(0.12, effDistG * 3.5));
-                // Physical lunar reflection tilt on ocean swell vs bedrock slope
-                if (isOcean > 0.5) {
-                  // Ocean swell: fluid wave perturbation of surface normal reflecting celestial light
-                  vec3 waveNormalPerturb = perturbedN_view + vec3(sin(u_simTime * 2.0) * 0.15, 0.0, cos(u_simTime * 2.0) * 0.15) * waveEnvG;
-                  float oceanWaveSpec = pow(max(0.0, dot(normalize(waveNormalPerturb), H)), 32.0) * 0.65;
-                  lit += u_lightColor * (oceanWaveSpec * waveEnvG * attenG) + vec3(0.12, 0.28, 0.45) * (waveEnvG * attenG * 0.15);
-                } else {
-                  vec3 waveTone = vec3(0.38, 0.58, 0.82);
-                  lit += waveTone * (waveEnvG * attenG * 0.20);
-                }
+                vec2 waveDirG = (rEpiG > 0.0001) ? normalize(dEpiG) : vec2(0.0);
+
+                // Physical normal tilt on wave crest under moonlight
+                float wavePhase = (u_simTime - effDistG / u_vS) * 6.2831853 * u_dominantFreq;
+                float tiltMag = sin(wavePhase * 2.0) * waveEnvG * attenG * (isOcean > 0.5 ? 0.32 : 0.22);
+                vec3 waveTiltVec = normalize(tangent * waveDirG.x + bitangent * waveDirG.y);
+                perturbedWorldN = normalize(perturbedWorldN + waveTiltVec * tiltMag);
               }
             }
+
+            vec3 perturbedN_view = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
+            vec3 lit = computeMonolithLighting(baseColor, perturbedN_view, V, L_view, u_ambientColor, u_lightColor, isOcean);
 
             gl_FragColor = vec4(lit, 1.0);
           }
@@ -1102,6 +1101,7 @@ const FLIGHT_STATES = {
         varying float vDistHypo;
         varying float vDtS;
         varying float vDtP;
+        varying vec2 vDh;
 
         void main() {
           vUv = uv;
@@ -1154,6 +1154,7 @@ const FLIGHT_STATES = {
           // Seamless gradient blending: high-detail DEM smoothly transitions to global ETOPO gradient
           float dh_dx = mix(dh_dx_global, dh_dx_dem, edgeTaper);
           float dh_dy = mix(dh_dy_global, dh_dy_dem, edgeTaper);
+          vDh = vec2(dh_dx, dh_dy);
 
           // Local tangent-space normal on the curved patch
           vec3 localNormal = normalize(vec3(-dh_dx, 1.0, -dh_dy));
@@ -1322,6 +1323,7 @@ const FLIGHT_STATES = {
         varying float vDistHypo;
         varying float vDtS;
         varying float vDtP;
+        varying vec2 vDh;
 
         float hash(vec2 p) {
           return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -1338,37 +1340,18 @@ const FLIGHT_STATES = {
           vec3 V = normalize(vViewPos);
           vec3 L = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
 
-          float NdotL = dot(N, L);
-          float wrapDiffuse = pow(max(0.0, (NdotL + 0.32) / 1.32), 1.5);
-          vec3 H = normalize(L + V);
-          float spec = pow(max(0.0, dot(N, H)), 32.0) * max(0.0, NdotL);
-          float rim = pow(1.0 - max(0.0, dot(N, V)), 3.2) * max(0.0, dot(L, -V) + 0.35);
+          float grain = (hash(vUv * 3600.0) - 0.5) * 0.025;
 
-          float grain = hash(vUv * 3600.0) * 0.045;
+          // Unified Nocturnal Monolith Albedo:
+          // Slope relief matches the physical terrain angle (plain=0, mountain=1)
+          float slopeRelief = smoothstep(5.0, 32.0, vSlope);
+          vec3 baseAlbedo = (vElevation < 0.0)
+            ? monolithOceanAlbedo(vElevation)
+            : monolithLandAlbedo(vElevation, slopeRelief);
+          baseAlbedo = clamp(baseAlbedo + grain, 0.0, 1.0);
 
-          // -------------------------------------------------------------------
-          // BASE TERRAIN PBR ALBEDO (Sculptural Nocturnal Monolith)
-          // -------------------------------------------------------------------
-          float slopeScarp = smoothstep(18.0, 42.0, vSlope);
-          float alpinePeak = smoothstep(1100.0, 2100.0, vElevation);
-          vec3 indigoVoid   = vec3(0.045, 0.065, 0.095);
-          vec3 chiseledRock = vec3(0.145, 0.180, 0.230);
-          vec3 alpineSummit = vec3(0.240, 0.290, 0.360);
-          vec3 localAlbedo = mix(indigoVoid, chiseledRock, slopeScarp * 0.88);
-          localAlbedo = mix(localAlbedo, alpineSummit, alpinePeak * 0.85);
-          localAlbedo += (grain - 0.02) * 0.5;
-
-          // Seamless edge reconciliation with planetary foundation albedo
-          vec3 globeAlbedo = (vElevation < 0.0) ? monolithOceanAlbedo(vElevation) : monolithLandAlbedo(vElevation, smoothstep(0.06, 0.28, vSlope));
-          vec3 baseAlbedo = mix(globeAlbedo, localAlbedo, vEdgeTaper);
-
-          // Directional Moonlight & Ambient Lighting
-          vec3 lit = baseAlbedo * (u_ambientColor + u_lightColor * (wrapDiffuse * 1.45));
-          lit += u_lightColor * (spec * 0.05);
-
-          // Atmospheric horizon & rim scattering
-          vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
-          lit += atmosphereColor * (rim * 0.48);
+          // Shared gallery lighting: identical equations and tone response
+          vec3 lit = computeMonolithLighting(baseAlbedo, N, V, L, u_ambientColor, u_lightColor, 0.0);
 
           // Gallery Sculptural Mountain Crest Grazing Rim Light (Ridge Chiseled Definition)
           float crestFactor = smoothstep(14.0, 38.0, vSlope) * (0.35 + 0.65 * vRidgeConvexity);
@@ -1391,24 +1374,20 @@ const FLIGHT_STATES = {
               float isPlain = 1.0 - smoothstep(6.0, 20.0, vSlope);
 
               // 1. Mountain Ridge Dynamic Lunar Resonance (Ridge crests resonate in cool silver)
-              float surfaceRidgeStream = sWaveAmp * ridgeResonance * 1.8;
+              float surfaceRidgeStream = sWaveAmp * ridgeResonance * 1.5;
 
               // 2. High Summit Resonance (Alpine peaks catch moonlit glint)
-              float summitCondensation = smoothstep(950.0, 1800.0, vElevation) * sWaveAmp * 1.25;
+              float summitCondensation = smoothstep(950.0, 1800.0, vElevation) * sWaveAmp * 1.1;
 
-              // 3. Plain Acoustic Ground Ripples (Valleys and plains oscillate subtly)
-              float surfaceRipple = sin(6.2831853 * u_dominantFreq * dtS * 1.8) * sWaveAmp * isPlain * 0.35;
+              // Mountain ridge specular resonance under moonlight (Zero flat game-vfx glowing ring)
+              lit += vec3(0.68, 0.82, 0.96) * (surfaceRidgeStream * 0.35 * vEdgeTaper);
+              lit += vec3(0.85, 0.94, 1.00) * (summitCondensation * 0.30 * vEdgeTaper);
 
-              // Mountain ridge specular resonance under moonlight (NO flat game-vfx glowing ring!)
-              lit += vec3(0.58, 0.78, 0.98) * (surfaceRidgeStream * 0.65 * vEdgeTaper);
-              lit += vec3(0.85, 0.94, 1.00) * (summitCondensation * 0.55 * vEdgeTaper);
-              lit += vec3(0.20, 0.38, 0.60) * (surfaceRipple * 0.25 * vEdgeTaper);
-
-              // 4. P-Wave Precursor Shimmer (Swift, faint silver-cyan wavefront ahead of S-wave)
+              // 3. P-Wave Precursor Shimmer (Swift, faint silver-cyan wavefront ahead of S-wave)
               float dtP = vDtP;
               float pFrontPulse = exp(-pow(dtP / 0.45, 2.0)) * smoothstep(-0.08, 0.06, dtP) * u_modeP;
-              float pTrace = (ridgeResonance * 0.6 + isPlain * 0.2) * pFrontPulse * geomDecay * 0.35;
-              lit += vec3(0.70, 0.88, 1.00) * (pTrace * 0.30 * vEdgeTaper);
+              float pTrace = ridgeResonance * pFrontPulse * geomDecay * 0.35;
+              lit += vec3(0.70, 0.88, 1.00) * (pTrace * 0.18 * vEdgeTaper);
             }
           }
 
@@ -1843,7 +1822,7 @@ const FLIGHT_STATES = {
       entities.forEach((grp, idx) => {
         grp.traverse(child => {
           if (child.material) {
-            child.material.depthTest = false;
+            child.material.depthTest = true;
             child.material.depthWrite = false;
             child.renderOrder = 100;
           }
@@ -1865,8 +1844,10 @@ const FLIGHT_STATES = {
           // Safe centered arrangement
           const offsetCount = entities.length;
           const spreadFactor = offsetCount > 1 ? (idx - (offsetCount - 1) * 0.5) : 0;
-          const safeX = spreadFactor * 0.055;
-          const safeZ = (idx % 2 === 0 ? 0.030 : -0.015);
+          const centerX = (eventMeta?.isGlobalPlanetaryRelief && eventMeta.cameraPreset) ? (eventMeta.cameraPreset.targetX || 0.0) : 0.0;
+          const centerZ = (eventMeta?.isGlobalPlanetaryRelief && eventMeta.cameraPreset) ? (eventMeta.cameraPreset.targetZ || 0.0) : 0.0;
+          const safeX = centerX + spreadFactor * 0.045;
+          const safeZ = centerZ + (idx % 2 === 0 ? 0.020 : -0.015);
           grp.position.x = safeX;
           grp.position.z = safeZ;
           const m = getTerrainMetricsAt(safeX, safeZ);
@@ -1891,53 +1872,6 @@ const FLIGHT_STATES = {
           grp.updateMatrixWorld(true);
         }
       });
-
-      // Pairwise NDC De-Overlapping Pass: Guarantee zero screen-space collisions across co-visible semantic units
-      for (let pass = 0; pass < 5; pass++) {
-        for (let i = 0; i < entities.length; i++) {
-          for (let j = i + 1; j < entities.length; j++) {
-            const gA = entities[i];
-            const gB = entities[j];
-            const tA = gA.userData?.t_activation ?? 0;
-            const tB = gB.userData?.t_activation ?? 0;
-            
-            const wpA = new THREE.Vector3();
-            const wpB = new THREE.Vector3();
-            gA.getWorldPosition(wpA);
-            gB.getWorldPosition(wpB);
-            const ndcA = wpA.clone().project(evalCam);
-            const ndcB = wpB.clone().project(evalCam);
-
-            const dx = Math.abs(ndcA.x - ndcB.x);
-            const dy = Math.abs(ndcA.y - ndcB.y);
-            // Generous bounding threshold for atmospheric typography readability
-            if (dx < 0.48 && dy < 0.18) {
-              const dirX = (ndcA.x <= ndcB.x) ? -1.0 : 1.0;
-              const dirY = (ndcA.y >= ndcB.y) ? 1.0 : -1.0;
-              gA.position.x += dirX * 0.095;
-              gB.position.x -= dirX * 0.095;
-              gA.position.y = Math.max(0.060, gA.position.y + dirY * 0.055);
-              gB.position.y = Math.max(0.060, gB.position.y - dirY * 0.055);
-              gA.updateMatrixWorld(true);
-              gB.updateMatrixWorld(true);
-              if (gA.userData) {
-                gA.userData.worldPos = { x: gA.position.x, y: gA.position.y, z: gA.position.z };
-                if (gA.userData.cand) {
-                  gA.userData.cand.worldX = gA.position.x;
-                  gA.userData.cand.worldZ = gA.position.z;
-                }
-              }
-              if (gB.userData) {
-                gB.userData.worldPos = { x: gB.position.x, y: gB.position.y, z: gB.position.z };
-                if (gB.userData.cand) {
-                  gB.userData.cand.worldX = gB.position.x;
-                  gB.userData.cand.worldZ = gB.position.z;
-                }
-              }
-            }
-          }
-        }
-      }
     }
 
     window.getLivingMemoryDiagnostics = function(cam = camera) {
@@ -2978,22 +2912,22 @@ const FLIGHT_STATES = {
         const lc = unitDef.timing;
         const totalDuration = lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration + lc.residueDuration;
 
-        // Distance-adaptive screen-space scaling for guaranteed minimum legibility
+        // Guaranteed minimum legibility screen-space scaling (Strictly >= 22px on any screen/camera)
         if (u.sprite && camera) {
           const distToCam = camera.position.distanceTo(grp.position);
           const fovRad = (camera.fov || 45) * Math.PI / 180.0;
           const fovScale = 2.0 * Math.tan(fovRad * 0.5) * distToCam;
-          // Target angular screen height fraction (~0.038 gives ~40px on 1080p, ~20px on 540p)
+          // Target angular screen height fraction: 0.038 (~42px on 1080p, ~24px on 540p, ~84px on 4K)
           const targetWorldH = fovScale * 0.038;
-          const baseH = unitDef.visual.spriteH || 0.062;
-          const scaleMul = Math.max(0.85, Math.min(2.8, targetWorldH / baseH));
-          u.sprite.scale.set(unitDef.visual.spriteW * scaleMul, unitDef.visual.spriteH * scaleMul, 1.0);
+          const aspect = (unitDef.visual.spriteW || 0.235) / (unitDef.visual.spriteH || 0.062);
+          const targetWorldW = targetWorldH * aspect;
+          u.sprite.scale.set(targetWorldW, targetWorldH, 1.0);
           if (u.haloSprite) {
-            u.haloSprite.scale.set(unitDef.visual.spriteW * 1.35 * scaleMul, unitDef.visual.spriteH * 2.2 * scaleMul, 1.0);
+            u.haloSprite.scale.set(targetWorldW * 1.35, targetWorldH * 2.2, 1.0);
           }
 
-          // Atmospheric fog distance fade: smoothly dissolve when camera is far in orbit
-          const fogFactor = Math.max(0.0, Math.min(1.0, (3.2 - distToCam) / 1.6));
+          // Atmospheric fog distance fade: smoothly dissolve when camera pulls out to distant orbit
+          const fogFactor = Math.max(0.0, Math.min(1.0, (2.8 - distToCam) / 1.4));
           u.fogFactor = fogFactor;
         }
 
@@ -3201,9 +3135,11 @@ const FLIGHT_STATES = {
             const isHist = currentParsedEvent.recordType === 'historical' || currentParsedEvent.dynasty || (currentParsedEvent.century != null && currentParsedEvent.century < 20);
             let nextLine = "";
             if (isHist) {
-              const srcRef = bestEntity.unitDef.sourceReference || bestEntity.unitDef.source?.sourceReference || bestEntity.unitDef.source?.volumeOrSection;
-              const dateRef = currentParsedEvent.dateText || (currentParsedEvent.temporal?.gregorianDate ? `${currentParsedEvent.temporal.gregorianDate.substring(0, 4)}년` : "");
-              nextLine = srcRef ? `${srcRef}` : `${currentParsedEvent.sourceName || "사료 기록"} (${dateRef})`;
+              let srcRef = bestEntity.unitDef.sourceReference || bestEntity.unitDef.source?.sourceReference || bestEntity.unitDef.source?.volumeOrSection || currentParsedEvent.sourceName;
+              srcRef = (srcRef || "사료 기록").replace(/\s*\([^\)]*기상청[^\)]*\)/g, '').trim();
+              const yr = (currentParsedEvent.dateStr || currentParsedEvent.dateText || '').substring(0, 4);
+              const yrSuffix = yr && !srcRef.includes(yr) ? ` (${yr})` : '';
+              nextLine = `${srcRef}${yrSuffix}`;
             } else {
               const srcRef = bestEntity.unitDef.source?.sourceReference || bestEntity.unitDef.sourceReference || currentParsedEvent.primaryText?.documentSource || currentParsedEvent.sourceName;
               const hasYr = srcRef && /\(\d{4}\)|\b\d{4}년?\b/.test(srcRef);
