@@ -108,11 +108,24 @@ export class LivingSoundfieldEngine {
     this.compressor.attack.setValueAtTime(0.015, now);
     this.compressor.release.setValueAtTime(0.25, now);
 
+    // 30 Hz Sub-cut Highpass Filter (24 dB/oct slope via cascaded biquads) for hearing safety
+    this.subCutFilter1 = c.createBiquadFilter();
+    this.subCutFilter1.type = 'highpass';
+    this.subCutFilter1.frequency.setValueAtTime(30.0, now);
+    this.subCutFilter1.Q.setValueAtTime(0.7071, now);
+
+    this.subCutFilter2 = c.createBiquadFilter();
+    this.subCutFilter2.type = 'highpass';
+    this.subCutFilter2.frequency.setValueAtTime(30.0, now);
+    this.subCutFilter2.Q.setValueAtTime(0.7071, now);
+
     this.masterGain = c.createGain();
     const initialVol = this.isMuted ? 0.0 : this.masterVolume;
     this.masterGain.gain.setValueAtTime(initialVol, now);
 
-    this.compressor.connect(this.masterGain);
+    this.compressor.connect(this.subCutFilter1);
+    this.subCutFilter1.connect(this.subCutFilter2);
+    this.subCutFilter2.connect(this.masterGain);
     this.masterGain.connect(c.destination);
   }
 
