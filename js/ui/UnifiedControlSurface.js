@@ -1130,6 +1130,120 @@ export class UnifiedControlSurface {
           scholarBox.innerHTML = scholarHtml;
           scholarBox.style.display = 'block';
         }
+
+        // 3. 02-C Probabilistic Error Ellipse & Isoseismal Matrix (Phase D5)
+        const ellipseSection = document.getElementById('hist-ellipse-section');
+        if (ellipseSection) {
+          const ee = ev.errorEllipse;
+          const isos = ev.isoseismalContours || [];
+          if (ee) {
+            const svgHtml = this.generateErrorEllipseSVG(ee, isos);
+            let isoRows = '';
+            isos.forEach(iso => {
+              isoRows += `
+                <tr>
+                  <td class="hist-iso-mmi">${iso.mmi}</td>
+                  <td style="font-family:var(--font-mono);">${iso.semiMajorKm} km</td>
+                  <td style="color:var(--mist); font-size:9.5px;">${iso.label || ""} <span style="font-family:var(--font-mono); color:var(--brass); font-size:9px;">[${iso.attenuationEquation || ""}]</span></td>
+                </tr>
+              `;
+            });
+
+            ellipseSection.innerHTML = `
+              <div class="editorial-sec-header">02-C / 확률론적 진앙 오차 타원 및 8도 등진도 매트릭스 (MACROSEISMIC FIELD & CONFIDENCE ELLIPSE)</div>
+              <div class="editorial-formula-box" style="margin-bottom:8px;">
+                <div class="editorial-formula-main">\\chi^2 = (x' / a)^2 + (y' / b)^2 \\le ${ee.chiSquareCritical || 5.991} &nbsp;&nbsp;(신뢰수준 ${((ee.confidenceLevel || 0.95) * 100).toFixed(0)}%, 자유도 ν=${ee.degreesOfFreedom || 2}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${ee.flatness || 0.35}</div>
+                <div class="editorial-formula-sub">문헌 기록의 한계로 인해 역사지진 진앙은 점이 아닌 타원형 신뢰구간(Error Ellipse)으로만 기술되며, 3D 지형 표면에 황동색 파선으로 등각 투영됩니다.</div>
+              </div>
+              <div class="hist-ellipse-grid">
+                <div class="hist-ellipse-svg-box">
+                  ${svgHtml}
+                </div>
+                <div class="hist-ellipse-metrics-col">
+                  <div class="hist-ellipse-params-grid">
+                    <div class="hist-param-pill">
+                      <span class="hist-param-label">장축 반경 a</span>
+                      <span class="hist-param-val">${ee.semiMajorKm} km</span>
+                    </div>
+                    <div class="hist-param-pill">
+                      <span class="hist-param-label">단축 반경 b</span>
+                      <span class="hist-param-val">${ee.semiMinorKm} km</span>
+                    </div>
+                    <div class="hist-param-pill">
+                      <span class="hist-param-label">편향 주향 θ</span>
+                      <span class="hist-param-val">N ${ee.azimuthDeg}° E</span>
+                    </div>
+                    <div class="hist-param-pill">
+                      <span class="hist-param-label">편평률 f</span>
+                      <span class="hist-param-val">${ee.flatness}</span>
+                    </div>
+                  </div>
+                  <table class="hist-iso-table">
+                    <thead>
+                      <tr>
+                        <th>진도</th>
+                        <th>등진도 장축</th>
+                        <th>감진 현상 및 경험식</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${isoRows}
+                    </tbody>
+                  </table>
+                  <div style="font-size:9.5px; color:var(--mist); line-height:1.5; margin-top:2px;">
+                    ${ee.methodologyNotesKo || "8도 감진망 보고 관아 좌표 분산 및 지형 조건 공분산 행렬 역산 결과"}
+                  </div>
+                </div>
+              </div>
+            `;
+            ellipseSection.style.display = 'flex';
+          } else {
+            ellipseSection.style.display = 'none';
+          }
+        }
+      }
+
+      generateErrorEllipseSVG(ee, isos = []) {
+        const w = 240, h = 160;
+        const cx = w / 2, cy = h / 2;
+        const maxR = Math.max(ee.semiMajorKm * 2.4, (isos[0]?.semiMajorKm || 60) * 1.15);
+        const scale = (w * 0.40) / maxR;
+
+        const aPx = ee.semiMajorKm * scale;
+        const bPx = ee.semiMinorKm * scale;
+        const rotDeg = ee.azimuthDeg || 25.0;
+
+        let isoSvg = '';
+        for (let i = isos.length - 1; i >= 0; i--) {
+          const iso = isos[i];
+          const isoAPx = iso.semiMajorKm * scale;
+          const isoBPx = iso.semiMinorKm * scale;
+          const isoRot = iso.azimuthDeg || rotDeg;
+          isoSvg += `
+            <ellipse cx="${cx}" cy="${cy}" rx="${isoBPx}" ry="${isoAPx}" transform="rotate(${isoRot}, ${cx}, ${cy})" fill="rgba(135,151,172,0.03)" stroke="rgba(135,151,172,0.30)" stroke-dasharray="3 3" stroke-width="1"/>
+            <text x="${cx + isoBPx * 0.7}" y="${cy - isoAPx * 0.7}" fill="#8797AC" font-size="7.5" font-family="'SF Mono', Menlo, monospace" text-anchor="start">${iso.mmi}</text>
+          `;
+        }
+
+        return `
+          <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="width:100%; height:auto; display:block;">
+            <line x1="${cx}" y1="${cy - 70}" x2="${cx}" y2="${cy + 70}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2 2" stroke-width="0.8"/>
+            <line x1="${cx - 95}" y1="${cy}" x2="${cx + 95}" y2="${cy}" stroke="rgba(255,255,255,0.08)" stroke-dasharray="2 2" stroke-width="0.8"/>
+            <text x="${cx}" y="${cy - 62}" fill="#8797AC" font-size="8" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">N (0°)</text>
+
+            ${isoSvg}
+
+            <g transform="rotate(${rotDeg}, ${cx}, ${cy})">
+              <line x1="${cx}" y1="${cy - aPx}" x2="${cx}" y2="${cy + aPx}" stroke="#C89D54" stroke-width="1.2" stroke-dasharray="4 2"/>
+              <line x1="${cx - bPx}" y1="${cy}" x2="${cx + bPx}" y2="${cy}" stroke="#C89D54" stroke-width="0.8" opacity="0.6"/>
+              <ellipse cx="${cx}" cy="${cy}" rx="${bPx}" ry="${aPx}" fill="rgba(200,157,84,0.08)" stroke="#C89D54" stroke-width="1.6"/>
+            </g>
+
+            <circle cx="${cx}" cy="${cy}" r="3" fill="#EAE6DF" stroke="#10141D" stroke-width="1.5"/>
+            <text x="${cx}" y="${cy + 14}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">95% 신뢰 타원</text>
+            <text x="${cx + 4}" y="${cy - 6}" fill="#EAE6DF" font-size="8" font-family="'SF Mono', Menlo, monospace">θ=${rotDeg}°</text>
+          </svg>
+        `;
       }
 
       renderHistoricalGeophysics(ev) {

@@ -244,7 +244,7 @@ export class SeismicSourceModel {
   /**
    * Build factory for standard benchmark events
    */
-  static createBenchmarkSource(eventId) {
+  static createBenchmarkSource(eventId, eventMeta = null) {
     switch (eventId) {
       case 'global_2023_turkey':
         return new SeismicSourceModel({
@@ -412,7 +412,6 @@ export class SeismicSourceModel {
         });
 
       case 'hist_1681_0626':
-      default:
         // 1681 Yangyang (Historical Inferred):
         // STRICT RULE: No unverified fault plane or rupture directivity generated!
         // Radiation model is strictly an AZIMUTHALLY_NEUTRAL_VISUAL_APPROXIMATION.
@@ -429,8 +428,99 @@ export class SeismicSourceModel {
           uncertainty: 'Pre-instrumental historical record. Rupture geometry and fault plane are geologically unconfirmed; azimuthally neutral visual approximation applied.',
           velocityModel: REGIONAL_VELOCITY_MODELS.KOREA_PENINSULA,
           focalMechanism: null, // Explicitly NULL: Zero fake strike/dip/rake!
-          finiteFault: null    // Explicitly NULL: Zero fake fault plane!
+          finiteFault: null,    // Explicitly NULL: Zero fake fault plane!
+          errorEllipse: { semiMajorKm: 38.0, semiMinorKm: 24.0, azimuthDeg: 25.0 }
         });
+
+      case 'hist_1643_ulsan':
+        return new SeismicSourceModel({
+          eventId: 'hist_1643_ulsan',
+          sourceType: 'HISTORICAL_INFERRED',
+          radiationStatus: RadiationPatternStatus.AZIMUTHALLY_NEUTRAL_VISUAL_APPROXIMATION,
+          radiationNote: '조선왕조실록 및 승정원일기 8도 감진망 보고 기반 역사 역산 진앙 (울산단층/양산단층 남부 지질구조선)',
+          lat: 35.54,
+          lon: 129.35,
+          depthKm: 15.0,
+          magnitude: null,
+          magnitudeScale: 'UNVERIFIED_HISTORICAL',
+          uncertainty: '계측기 이전 문헌 기록 지진. 진앙 오차 타원 ±35 km; 등방성 방위각 중립 시각화 근사 적용.',
+          velocityModel: REGIONAL_VELOCITY_MODELS.KOREA_PENINSULA,
+          focalMechanism: null,
+          finiteFault: null,
+          errorEllipse: { semiMajorKm: 35.0, semiMinorKm: 22.0, azimuthDeg: 28.0 }
+        });
+
+      case 'hist_1518_seoul':
+        return new SeismicSourceModel({
+          eventId: 'hist_1518_seoul',
+          sourceType: 'HISTORICAL_INFERRED',
+          radiationStatus: RadiationPatternStatus.AZIMUTHALLY_NEUTRAL_VISUAL_APPROXIMATION,
+          radiationNote: '중종실록 한양도성 성첩 붕괴 및 팔도 감진 보고 역산 진앙 (추가령 구조곡)',
+          lat: 37.57,
+          lon: 126.98,
+          depthKm: 10.0,
+          magnitude: null,
+          magnitudeScale: 'UNVERIFIED_HISTORICAL',
+          uncertainty: '계측기 이전 문헌 기록 지진. 진앙 오차 타원 ±32 km; 등방성 방위각 중립 시각화 근사 적용.',
+          velocityModel: REGIONAL_VELOCITY_MODELS.KOREA_PENINSULA,
+          focalMechanism: null,
+          finiteFault: null,
+          errorEllipse: { semiMajorKm: 32.0, semiMinorKm: 20.0, azimuthDeg: 42.0 }
+        });
+
+      case 'hist_0779_gyeongju':
+        return new SeismicSourceModel({
+          eventId: 'hist_0779_gyeongju',
+          sourceType: 'HISTORICAL_INFERRED',
+          radiationStatus: RadiationPatternStatus.AZIMUTHALLY_NEUTRAL_VISUAL_APPROXIMATION,
+          radiationNote: '삼국사기 신라 혜공왕 15년 금성(경주) 가옥 도괴 및 100여 인 사망 기록 역산 진앙',
+          lat: 35.84,
+          lon: 129.22,
+          depthKm: 12.0,
+          magnitude: null,
+          magnitudeScale: 'UNVERIFIED_HISTORICAL',
+          uncertainty: '고대 신라 사료 지진. 진앙 오차 타원 ±48 km; 등방성 방위각 중립 시각화 근사 적용.',
+          velocityModel: REGIONAL_VELOCITY_MODELS.KOREA_PENINSULA,
+          focalMechanism: null,
+          finiteFault: null,
+          errorEllipse: { semiMajorKm: 48.0, semiMinorKm: 32.0, azimuthDeg: 25.0 }
+        });
+
+      default: {
+        // Universal Inferred Historical Event Handler
+        const extractNum = (val, fallback) => {
+          if (typeof val === 'number' && !isNaN(val)) return val;
+          if (typeof val === 'object' && val !== null && typeof val.v === 'number') return val.v;
+          if (typeof val === 'string' && !isNaN(parseFloat(val))) return parseFloat(val);
+          return fallback;
+        };
+
+        const lat = extractNum(eventMeta?.lat, extractNum(eventMeta?.errorEllipse?.centerLat, extractNum(eventMeta?.epicenter?.lat, 36.5)));
+        const lon = extractNum(eventMeta?.lon, extractNum(eventMeta?.errorEllipse?.centerLon, extractNum(eventMeta?.epicenter?.lon, 127.8)));
+        const depthKm = extractNum(eventMeta?.depthKm, extractNum(eventMeta?.focalDepth?.valKm, 12.0));
+        const errRadius = extractNum(eventMeta?.errorRadiusKm, 45.0);
+
+        return new SeismicSourceModel({
+          eventId: eventId || 'hist_inferred',
+          sourceType: 'HISTORICAL_INFERRED',
+          radiationStatus: RadiationPatternStatus.AZIMUTHALLY_NEUTRAL_VISUAL_APPROXIMATION,
+          radiationNote: '고문헌 감진망 보고 기반 역사 역산 진앙이며 단일 기계 계측점이 아님.',
+          lat: lat,
+          lon: lon,
+          depthKm: depthKm,
+          magnitude: null,
+          magnitudeScale: 'UNVERIFIED_HISTORICAL',
+          uncertainty: `역사 문헌 사료 기반. 진앙 오차 반경 ±${errRadius} km; 등방성 방위각 중립 시각화 근사.`,
+          velocityModel: REGIONAL_VELOCITY_MODELS.KOREA_PENINSULA,
+          focalMechanism: null,
+          finiteFault: null,
+          errorEllipse: eventMeta?.errorEllipse || {
+            semiMajorKm: errRadius,
+            semiMinorKm: errRadius * 0.65,
+            azimuthDeg: 25.0
+          }
+        });
+      }
     }
   }
 }

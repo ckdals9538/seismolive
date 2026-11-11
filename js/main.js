@@ -762,7 +762,11 @@ const FLIGHT_STATES = {
           // Regional DEM footprint half-extent in scene units
           u_regionCenter: { value: new THREE.Vector2(lat0, lon0) },
           u_regionHalfSize: { value: new THREE.Vector2(PHYSICAL_W_UNITS * 0.5, PHYSICAL_H_UNITS * 0.5) },
-          u_regionActive: { value: 0.0 }
+          u_regionActive: { value: 0.0 },
+          u_errorEllipseAxes: { value: new THREE.Vector2(0.0, 0.0) },
+          u_errorEllipseAngle: { value: 0.0 },
+          u_isoseismalRadii: { value: new THREE.Vector4(0.0, 0.0, 0.0, 0.0) },
+          u_hasErrorEllipse: { value: 0.0 }
         },
         vertexShader: `
           precision highp float;
@@ -820,6 +824,10 @@ const FLIGHT_STATES = {
           uniform vec2 u_regionCenter;
           uniform vec2 u_regionHalfSize;
           uniform float u_regionActive;
+          uniform vec2 u_errorEllipseAxes;
+          uniform float u_errorEllipseAngle;
+          uniform vec4 u_isoseismalRadii;
+          uniform float u_hasErrorEllipse;
 
           varying vec3 vWorldNormal;
           varying vec3 vViewPos;
@@ -926,6 +934,41 @@ const FLIGHT_STATES = {
 
             vec3 perturbedN_view = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
             vec3 lit = computeMonolithLighting(baseColor, perturbedN_view, V, L_view, u_ambientColor, u_lightColor, isOcean);
+
+            // Tier 0 Globe Historical Error Ellipse & Isoseismals (Phase D5)
+            if (u_hasErrorEllipse > 0.5 && u_errorEllipseAxes.x > 0.005) {
+              float cosThG = cos(-u_errorEllipseAngle);
+              float sinThG = sin(-u_errorEllipseAngle);
+              vec2 rotPG = vec2(dEpiG.x * cosThG - dEpiG.y * sinThG, dEpiG.x * sinThG + dEpiG.y * cosThG);
+
+              // 1. 95% Confidence Error Ellipse
+              float ellDistG = length(rotPG / max(vec2(0.001), u_errorEllipseAxes));
+              float distToEllG = abs(ellDistG - 1.0) * min(u_errorEllipseAxes.x, u_errorEllipseAxes.y);
+              float angleAzG = atan(rotPG.y, rotPG.x);
+              float stipple95G = step(0.32, fract(angleAzG * 24.0 / 6.2831853));
+              float line95G = exp(-pow(distToEllG / 0.0035, 2.0)) * stipple95G;
+              lit += vec3(0.78, 0.62, 0.33) * (line95G * 0.25);
+
+              // 2. Macroseismic Isoseismal Contours on Planetary Globe
+              if (u_isoseismalRadii.x > 0.01) {
+                float dIso8G = abs(length(rotPG / (u_errorEllipseAxes * (u_isoseismalRadii.x / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.x;
+                float stipple8G = step(0.40, fract(angleAzG * 16.0 / 6.2831853));
+                float line8G = exp(-pow(dIso8G / 0.0035, 2.0)) * stipple8G;
+                lit += vec3(0.68, 0.58, 0.40) * (line8G * 0.16);
+              }
+              if (u_isoseismalRadii.y > 0.01) {
+                float dIso7G = abs(length(rotPG / (u_errorEllipseAxes * (u_isoseismalRadii.y / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.y;
+                float stipple7G = step(0.45, fract(angleAzG * 12.0 / 6.2831853));
+                float line7G = exp(-pow(dIso7G / 0.0035, 2.0)) * stipple7G;
+                lit += vec3(0.53, 0.59, 0.67) * (line7G * 0.14);
+              }
+              if (u_isoseismalRadii.z > 0.01) {
+                float dIso6G = abs(length(rotPG / (u_errorEllipseAxes * (u_isoseismalRadii.z / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.z;
+                float stipple6G = step(0.50, fract(angleAzG * 10.0 / 6.2831853));
+                float line6G = exp(-pow(dIso6G / 0.0035, 2.0)) * stipple6G;
+                lit += vec3(0.45, 0.50, 0.58) * (line6G * 0.10);
+              }
+            }
 
             gl_FragColor = vec4(lit, 1.0);
           }
@@ -1042,6 +1085,10 @@ const FLIGHT_STATES = {
       u_globalHMin: { value: -11000.0 },
       u_globalHMax: { value: 9000.0 },
       u_uncertaintyRadiusUnits: { value: 0.45 },
+      u_errorEllipseAxes: { value: new THREE.Vector2(0.45, 0.28) },
+      u_errorEllipseAngle: { value: 0.436 },
+      u_isoseismalRadii: { value: new THREE.Vector4(0.0, 0.0, 0.0, 0.0) },
+      u_hasErrorEllipse: { value: 0.0 },
 
       // Interactive Geophysics-to-Wavefield Probe (Phase F1)
       u_probeDistUnits: { value: 0.0 },
@@ -1090,6 +1137,10 @@ const FLIGHT_STATES = {
         uniform float u_faultLength;
         uniform float u_ruptureVelocity;
         uniform float u_isFiniteFault;
+        uniform vec2 u_errorEllipseAxes;
+        uniform float u_errorEllipseAngle;
+        uniform vec4 u_isoseismalRadii;
+        uniform float u_hasErrorEllipse;
 
         varying vec2 vUv;
         varying vec3 vNormal;
@@ -1312,6 +1363,10 @@ const FLIGHT_STATES = {
         uniform float u_faultLength;
         uniform float u_ruptureVelocity;
         uniform float u_isFiniteFault;
+        uniform vec2 u_errorEllipseAxes;
+        uniform float u_errorEllipseAngle;
+        uniform vec4 u_isoseismalRadii;
+        uniform float u_hasErrorEllipse;
 
         varying vec2 vUv;
         varying vec3 vNormal;
@@ -1396,15 +1451,41 @@ const FLIGHT_STATES = {
             }
           }
 
-          // Historical Epicentral Uncertainty Topographic Contour (±errorRadiusKm)
-          if (u_uncertaintyRadiusUnits > 0.01) {
+          // Historical Probabilistic Error Ellipse & Isoseismal Field (Phase D5)
+          if (u_hasErrorEllipse > 0.5 && u_errorEllipseAxes.x > 0.005) {
             vec2 dEpi = vPhysicalCoords - u_epiPos;
-            float effEpicentralDist = length(dEpi);
-            float distToUnc = abs(effEpicentralDist - u_uncertaintyRadiusUnits);
-            float angleAz = atan(dEpi.y, dEpi.x);
-            float stipple = step(0.35, fract(angleAz * 18.0 / 6.2831853));
-            float contourLine = exp(-pow(distToUnc / 0.0045, 2.0)) * stipple * vEdgeTaper;
-            lit += vec3(0.78, 0.62, 0.33) * (contourLine * 0.15);
+            float cosTh = cos(-u_errorEllipseAngle);
+            float sinTh = sin(-u_errorEllipseAngle);
+            vec2 rotP = vec2(dEpi.x * cosTh - dEpi.y * sinTh, dEpi.x * sinTh + dEpi.y * cosTh);
+
+            // 1. 95% Confidence Error Ellipse (χ² = 5.991)
+            float ellDist = length(rotP / max(vec2(0.001), u_errorEllipseAxes));
+            float distToEll = abs(ellDist - 1.0) * min(u_errorEllipseAxes.x, u_errorEllipseAxes.y);
+            float angleAz = atan(rotP.y, rotP.x);
+            float stipple95 = step(0.32, fract(angleAz * 24.0 / 6.2831853));
+            float line95 = exp(-pow(distToEll / 0.0035, 2.0)) * stipple95 * vEdgeTaper;
+            // Archival brass hairline: #C89D54 (rgb: 0.78, 0.62, 0.33)
+            lit += vec3(0.78, 0.62, 0.33) * (line95 * 0.22);
+
+            // 2. Macroseismic Isoseismal Nested Contours (MMI VIII, VII, VI, V)
+            if (u_isoseismalRadii.x > 0.01) {
+              float dIso8 = abs(length(rotP / (u_errorEllipseAxes * (u_isoseismalRadii.x / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.x;
+              float stipple8 = step(0.40, fract(angleAz * 16.0 / 6.2831853));
+              float line8 = exp(-pow(dIso8 / 0.0035, 2.0)) * stipple8 * vEdgeTaper;
+              lit += vec3(0.68, 0.58, 0.40) * (line8 * 0.14);
+            }
+            if (u_isoseismalRadii.y > 0.01) {
+              float dIso7 = abs(length(rotP / (u_errorEllipseAxes * (u_isoseismalRadii.y / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.y;
+              float stipple7 = step(0.45, fract(angleAz * 12.0 / 6.2831853));
+              float line7 = exp(-pow(dIso7 / 0.0035, 2.0)) * stipple7 * vEdgeTaper;
+              lit += vec3(0.53, 0.59, 0.67) * (line7 * 0.12);
+            }
+            if (u_isoseismalRadii.z > 0.01) {
+              float dIso6 = abs(length(rotP / (u_errorEllipseAxes * (u_isoseismalRadii.z / u_errorEllipseAxes.x))) - 1.0) * u_isoseismalRadii.z;
+              float stipple6 = step(0.50, fract(angleAz * 10.0 / 6.2831853));
+              float line6 = exp(-pow(dIso6 / 0.0035, 2.0)) * stipple6 * vEdgeTaper;
+              lit += vec3(0.45, 0.50, 0.58) * (line6 * 0.09);
+            }
           }
 
           // 100% Solid Bedrock: Fully Opaque
@@ -2166,13 +2247,51 @@ const FLIGHT_STATES = {
         if (gu.u_isFiniteFault) gu.u_isFiniteFault.value = terrainUniforms.u_isFiniteFault.value;
       }
 
-      // Update Topographic Epicentral Uncertainty Contour (Historical vs Instrumental)
+      // Update Historical Epicentral Error Ellipse & Isoseismals (Phase D5)
       const isHistoricalRecord = !eventId.startsWith('inst_') && !eventId.startsWith('global_') && !eventId.startsWith('usgs_') && !eventId.includes('2016') && !eventId.includes('2017');
       if (isHistoricalRecord) {
-        const errKm = currentParsedEvent?.errorRadiusKm || 45.0;
-        terrainUniforms.u_uncertaintyRadiusUnits.value = (errKm * 1000.0) * METERS_TO_UNITS;
+        const ee = currentParsedEvent?.errorEllipse || {
+          semiMajorKm: currentParsedEvent?.errorRadiusKm || 45.0,
+          semiMinorKm: (currentParsedEvent?.errorRadiusKm || 45.0) * 0.65,
+          azimuthDeg: 25.0
+        };
+        const semiMajorUnits = (ee.semiMajorKm * 1000.0) * METERS_TO_UNITS;
+        const semiMinorUnits = (ee.semiMinorKm * 1000.0) * METERS_TO_UNITS;
+        const angleRad = (ee.azimuthDeg * Math.PI) / 180.0;
+
+        terrainUniforms.u_errorEllipseAxes.value.set(semiMajorUnits, semiMinorUnits);
+        terrainUniforms.u_errorEllipseAngle.value = angleRad;
+        terrainUniforms.u_hasErrorEllipse.value = 1.0;
+        terrainUniforms.u_uncertaintyRadiusUnits.value = semiMajorUnits;
+
+        // Extract nested isoseismal radii
+        const isos = currentParsedEvent?.isoseismalContours || [];
+        const iso8 = isos.find(i => i.mmi === 'VIII' || i.mmi === 'VIII~IX' || i.mmi === 'IX')?.semiMajorKm || (ee.semiMajorKm * 1.6);
+        const iso7 = isos.find(i => i.mmi === 'VII')?.semiMajorKm || (ee.semiMajorKm * 2.8);
+        const iso6 = isos.find(i => i.mmi === 'VI')?.semiMajorKm || (ee.semiMajorKm * 4.8);
+        const iso5 = isos.find(i => i.mmi === 'V')?.semiMajorKm || (ee.semiMajorKm * 7.5);
+
+        terrainUniforms.u_isoseismalRadii.value.set(
+          (iso8 * 1000.0) * METERS_TO_UNITS,
+          (iso7 * 1000.0) * METERS_TO_UNITS,
+          (iso6 * 1000.0) * METERS_TO_UNITS,
+          (iso5 * 1000.0) * METERS_TO_UNITS
+        );
+
+        if (tier0GlobeMesh && tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms) {
+          const gu = tier0GlobeMesh.material.uniforms;
+          if (gu.u_errorEllipseAxes) gu.u_errorEllipseAxes.value.set(semiMajorUnits, semiMinorUnits);
+          if (gu.u_errorEllipseAngle) gu.u_errorEllipseAngle.value = angleRad;
+          if (gu.u_hasErrorEllipse) gu.u_hasErrorEllipse.value = 1.0;
+          if (gu.u_isoseismalRadii) gu.u_isoseismalRadii.value.copy(terrainUniforms.u_isoseismalRadii.value);
+        }
       } else {
+        terrainUniforms.u_hasErrorEllipse.value = 0.0;
         terrainUniforms.u_uncertaintyRadiusUnits.value = 0.0;
+        if (tier0GlobeMesh && tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms) {
+          const gu = tier0GlobeMesh.material.uniforms;
+          if (gu.u_hasErrorEllipse) gu.u_hasErrorEllipse.value = 0.0;
+        }
       }
 
       // 4. Synchronize Unified Control Surface

@@ -63,7 +63,7 @@ export class WavefieldVisualOrchestrator {
     const eventId = eventMeta.eventId || eventMeta.id || 'hist_1681_0626';
 
     // Build authentic source representation
-    this.currentSource = SeismicSourceModel.createBenchmarkSource(eventId);
+    this.currentSource = SeismicSourceModel.createBenchmarkSource(eventId, eventMeta);
     this.wavefieldEngine = new UniversalWavefieldEngine(this.currentSource, {
       artisticGain: 1.8
     });
