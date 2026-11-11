@@ -830,6 +830,186 @@
       padding-top: 8px;
     }
 
+    /* Multi-Corpus Switcher Bar */
+    .hist-corpus-source-bar {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 2px;
+    }
+    .hist-source-pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 5px 10px;
+      background: rgba(255, 255, 255, 0.025);
+      border: 1px solid var(--hairline);
+      color: var(--mist);
+      cursor: pointer;
+      border-radius: 2px;
+      transition: all 0.16s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .hist-source-pill:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--hanji);
+    }
+    .hist-source-pill.active {
+      background: rgba(200, 157, 84, 0.12);
+      border-color: var(--brass);
+      color: var(--brass);
+      font-weight: 600;
+    }
+    .quote-archive-link {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--brass);
+      text-decoration: none;
+      border-bottom: 1px dotted var(--brass);
+      transition: opacity 0.16s ease;
+    }
+    .quote-archive-link:hover {
+      opacity: 0.8;
+    }
+
+    /* 8-Province Macroseismic County Network Table */
+    .hist-felt-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hist-felt-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-sans);
+      font-size: 11px;
+    }
+    .hist-felt-table th {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--mist);
+      font-weight: 500;
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--hairline);
+      letter-spacing: 0.04em;
+    }
+    .hist-felt-table td {
+      padding: 7px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--hanji);
+      vertical-align: top;
+      line-height: 1.5;
+    }
+    .hist-mmi-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 2px;
+      display: inline-block;
+      letter-spacing: 0.04em;
+    }
+    .hist-mmi-badge.extreme {
+      background: rgba(217, 78, 52, 0.15);
+      border: 1px solid rgba(217, 78, 52, 0.35);
+      color: #E57373;
+    }
+    .hist-mmi-badge.severe {
+      background: rgba(200, 157, 84, 0.15);
+      border: 1px solid rgba(200, 157, 84, 0.35);
+      color: var(--brass);
+    }
+    .hist-mmi-badge.moderate {
+      background: rgba(135, 151, 172, 0.15);
+      border: 1px solid rgba(135, 151, 172, 0.35);
+      color: var(--mist);
+    }
+
+    /* 4-Pillar Methodological Bias Corrections Grid */
+    .hist-methodology-section {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .hist-method-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .hist-method-card {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--hairline);
+      padding: 10px 12px;
+      border-radius: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .hist-method-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+    .hist-method-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--brass);
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .hist-method-tag {
+      font-family: var(--font-mono);
+      font-size: 8.5px;
+      color: var(--mist);
+      padding: 1px 4px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 2px;
+    }
+    .hist-method-body {
+      font-family: var(--font-sans);
+      font-size: 10.5px;
+      color: var(--hanji);
+      line-height: 1.55;
+    }
+
+    /* Geophysical Phenomena Deep-Dive & Chronology */
+    .hist-geophysics-container,
+    .hist-chronology-container,
+    .hist-gazetteer-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hist-chrono-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--hairline);
+      padding: 10px 12px;
+      border-radius: 2px;
+    }
+    .hist-chrono-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .hist-chrono-label {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--mist);
+      letter-spacing: 0.04em;
+    }
+    .hist-chrono-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--hanji);
+      font-weight: 500;
+    }
+
     /* Archival Sequence Chain */
     .sequence-chain-box {
       display: flex;

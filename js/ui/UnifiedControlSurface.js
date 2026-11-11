@@ -64,8 +64,9 @@ export class UnifiedControlSurface {
           if (btnLabel) btnLabel.textContent = "글로벌 관측 피드";
           this.activeFilter = 'global';
           
+          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
           const sub = document.getElementById('chronicle-subtitle-text');
-          if (sub && flightState === FLIGHT_STATES.ORBIT) {
+          if (sub && isOrbit) {
             sub.textContent = "USGS 현대 정밀 계측 지진을 선택하여 사료 및 탐사 주시를 확인하십시오";
           }
         } else if (cat === 'historical') {
@@ -81,8 +82,9 @@ export class UnifiedControlSurface {
           if (btnLabel) btnLabel.textContent = "한반도 사료 목록";
           this.activeFilter = 'all-historical';
 
+          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
           const sub = document.getElementById('chronicle-subtitle-text');
-          if (sub && flightState === FLIGHT_STATES.ORBIT) {
+          if (sub && isOrbit) {
             sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하여 원전 번역과 학술 역산을 확인하십시오";
           }
         } else {
@@ -93,8 +95,9 @@ export class UnifiedControlSurface {
           if (btnLabel) btnLabel.textContent = "아카이브 탐색";
           this.activeFilter = 'all';
 
+          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
           const sub = document.getElementById('chronicle-subtitle-text');
-          if (sub && flightState === FLIGHT_STATES.ORBIT) {
+          if (sub && isOrbit) {
             sub.textContent = "지구 표면의 지진 노드를 탐색하십시오 · [글로벌 계측] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
           }
         }
@@ -858,14 +861,19 @@ export class UnifiedControlSurface {
         // STRICT EPISTEMIC & DOMAIN SEPARATION:
         // Historical: 2 tabs (01 / 사료 원전 & 지진 기록 / 02 / 사료 연혁 & 학술 역산)
         // Instrumental: 2 tabs (01 / 단층 파쇄 & 지반 진동 (PGA) / 02 / 지구물리 탐사 & 파동 역학 (S-P · Snell))
+        // STRICT EPISTEMIC & DOMAIN SEPARATION:
+        // Historical: 3 tabs (01 / 사료 원전 & 8도 감진망 / 02 / 학술 역산 & 사료 비판 / 03 / 지구물리 현상 & 고증)
+        // Instrumental: 2 tabs (01 / 단층 파쇄 & 지반 진동 (PGA) / 02 / 지구물리 탐사 & 파동 역학 (S-P · Snell))
         const histTabBar = document.getElementById('historical-tab-bar');
         const instTabBar = document.getElementById('instrumental-tab-bar');
 
         if (isHist) {
           if (histTabBar) histTabBar.style.display = 'flex';
           if (instTabBar) instTabBar.style.display = 'none';
-          this.renderArchivalProvenance(canonicalEv);
-          const defaultHistTab = (this.activeDossierTab === 'hist_academic') ? 'hist_academic' : 'hist_corpus';
+          this.renderHistoricalDossier(canonicalEv);
+          const defaultHistTab = (this.activeDossierTab === 'hist_academic' || this.activeDossierTab === 'hist_geophysics')
+            ? this.activeDossierTab
+            : 'hist_corpus';
           this.setDossierTab(defaultHistTab);
         } else {
           if (histTabBar) histTabBar.style.display = 'none';
@@ -885,6 +893,7 @@ export class UnifiedControlSurface {
         const panes = {
           hist_corpus: document.getElementById('tab-pane-hist-corpus'),
           hist_academic: document.getElementById('tab-pane-hist-academic'),
+          hist_geophysics: document.getElementById('tab-pane-hist-geophysics'),
           inst_source: document.getElementById('tab-pane-inst-source'),
           inst_geophysics: document.getElementById('tab-pane-inst-geophysics')
         };
@@ -898,12 +907,355 @@ export class UnifiedControlSurface {
         if (scrollBody) scrollBody.scrollTop = 0;
       }
 
+      renderHistoricalDossier(ev) {
+        this.renderHistoricalCorpus(ev);
+        this.renderHistoricalAcademic(ev);
+        this.renderHistoricalGeophysics(ev);
+        this.renderArchivalProvenance(ev);
+      }
+
+      renderHistoricalCorpus(ev) {
+        const sourceBar = document.getElementById('hist-corpus-source-bar');
+        const quoteSourceEl = document.getElementById('selected-quote-source');
+        const quoteConfidenceEl = document.getElementById('selected-confidence');
+        const quoteTextEl = document.getElementById('selected-quote-text');
+        const hanjaRowEl = document.getElementById('selected-hanja-row');
+        const hanjaTextEl = document.getElementById('selected-quote-hanja');
+        const archiveLinkBtn = document.getElementById('selected-archive-link-btn');
+        const feltSection = document.getElementById('hist-felt-counties-section');
+
+        const linkedRecs = ev.linkedRecords || [];
+        if (sourceBar && linkedRecs.length > 0) {
+          sourceBar.innerHTML = '';
+          sourceBar.style.display = 'flex';
+
+          linkedRecs.forEach((rec, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'hist-source-pill' + (idx === 0 ? ' active' : '');
+            btn.innerHTML = `<span style="opacity:0.6;">[0${idx+1}]</span> ${rec.corpusTitleKo.split('(')[0].trim()}`;
+            btn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              sourceBar.querySelectorAll('.hist-source-pill').forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+
+              // Update quote card
+              if (quoteSourceEl) quoteSourceEl.textContent = `${rec.corpusTitleKo} · ${rec.volumeOrSection}`;
+              if (quoteConfidenceEl) quoteConfidenceEl.textContent = rec.roleInPassage || "1차 사료 공인 기록";
+              if (quoteTextEl) quoteTextEl.textContent = `"${rec.originalTranslationKo}"`;
+              if (hanjaRowEl && hanjaTextEl) {
+                if (rec.originalHanja) {
+                  hanjaRowEl.style.display = 'block';
+                  hanjaTextEl.textContent = `[원문] ${rec.originalHanja}`;
+                } else {
+                  hanjaRowEl.style.display = 'none';
+                }
+              }
+              if (archiveLinkBtn) {
+                if (rec.archiveUrl) {
+                  archiveLinkBtn.href = rec.archiveUrl;
+                  archiveLinkBtn.style.display = 'inline-block';
+                } else {
+                  archiveLinkBtn.style.display = 'none';
+                }
+              }
+            });
+            sourceBar.appendChild(btn);
+          });
+
+          // Set initial active record
+          const initialRec = linkedRecs[0];
+          if (quoteSourceEl) quoteSourceEl.textContent = `${initialRec.corpusTitleKo} · ${initialRec.volumeOrSection}`;
+          if (quoteConfidenceEl) quoteConfidenceEl.textContent = initialRec.roleInPassage || "1차 사료 공인 기록";
+          if (quoteTextEl) quoteTextEl.textContent = `"${initialRec.originalTranslationKo}"`;
+          if (hanjaRowEl && hanjaTextEl && initialRec.originalHanja) {
+            hanjaRowEl.style.display = 'block';
+            hanjaTextEl.textContent = `[원문] ${initialRec.originalHanja}`;
+          }
+          if (archiveLinkBtn && initialRec.archiveUrl) {
+            archiveLinkBtn.href = initialRec.archiveUrl;
+            archiveLinkBtn.style.display = 'inline-block';
+          }
+        } else if (sourceBar) {
+          sourceBar.style.display = 'none';
+        }
+
+        // Render 8-Province Macroseismic County Network
+        if (feltSection) {
+          const counties = ev.feltCounties || [];
+          if (counties.length > 0) {
+            let tableHtml = `
+              <div class="editorial-sec-header">01-B / 8도 광역 감진 고을 네트워크 (HUMAN SENSOR NETWORK)</div>
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--mist); margin-bottom:8px; line-height:1.6;">
+                조선 8도 고을 수령 및 백성의 목격 사료를 바탕으로 복원된 거시 진도(MMI) 및 거리별 지진동 감쇠 데이터
+              </div>
+              <div style="overflow-x:auto;">
+                <table class="hist-felt-table">
+                  <thead>
+                    <tr>
+                      <th style="width:22%;">관측 고을 (사료 지명)</th>
+                      <th style="width:22%;">현대 행정구역</th>
+                      <th style="width:12%;">진앙 거리</th>
+                      <th style="width:14%;">추정 MMI</th>
+                      <th>사료 실측 피해 및 거시 현상</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+            `;
+            counties.forEach(c => {
+              const mmiStr = String(c.intensityMMI || "");
+              let badgeCls = "moderate";
+              if (mmiStr.includes("VIII") || mmiStr.includes("IX") || mmiStr.includes("X")) {
+                badgeCls = "extreme";
+              } else if (mmiStr.includes("VII") || mmiStr.includes("VI")) {
+                badgeCls = "severe";
+              }
+              tableHtml += `
+                <tr>
+                  <td><strong style="color:var(--hanji); font-weight:600;">${c.countyKo}</strong></td>
+                  <td style="color:var(--mist); font-size:10px;">${c.modernLocation}</td>
+                  <td style="font-family:var(--font-mono); color:var(--brass);">${c.distanceKm} km</td>
+                  <td><span class="hist-mmi-badge ${badgeCls}">${c.intensityMMI}</span></td>
+                  <td style="font-size:10.5px; color:var(--hanji-muted);">${c.phenomenonKo}</td>
+                </tr>
+              `;
+            });
+            tableHtml += `
+                  </tbody>
+                </table>
+              </div>
+            `;
+            feltSection.innerHTML = tableHtml;
+            feltSection.style.display = 'flex';
+          } else {
+            feltSection.style.display = 'none';
+          }
+        }
+      }
+
+      renderHistoricalAcademic(ev) {
+        const methodSection = document.getElementById('hist-methodology-section');
+        const scholarBox = document.getElementById('dossier-scholar-comparison');
+
+        // 1. 4-Pillar Methodological Bias Corrections
+        if (methodSection) {
+          const mc = ev.methodologicalCorrections;
+          if (mc) {
+            methodSection.innerHTML = `
+              <div class="editorial-sec-header">02-A / 사료 비판 4대 학술 보정 체계 (METHODOLOGICAL CORRECTIONS)</div>
+              <div style="font-family:var(--font-mono); font-size:10px; color:var(--mist); line-height:1.6; margin-bottom:4px;">
+                문헌 기록의 정성적 수사와 조선시대 보고 체계의 특성을 현대 과학 데이터로 엄밀하게 전환하기 위해 적용된 4대 비판 기준
+              </div>
+              <div class="hist-method-grid">
+                <div class="hist-method-card">
+                  <div class="hist-method-card-header">
+                    <span class="hist-method-title">01 / 가옥 구조 취약성 보정</span>
+                    <span class="hist-method-tag">${mc.structuralVulnerability?.status || "VERIFIED"}</span>
+                  </div>
+                  <div class="hist-method-body">${mc.structuralVulnerability?.analysisKo || ""}</div>
+                </div>
+                <div class="hist-method-card">
+                  <div class="hist-method-card-header">
+                    <span class="hist-method-title">02 / 천인감응설 수사 배제</span>
+                    <span class="hist-method-tag">${mc.tianRenFilter?.status || "AUDITED"}</span>
+                  </div>
+                  <div class="hist-method-body">${mc.tianRenFilter?.analysisKo || ""}</div>
+                </div>
+                <div class="hist-method-card">
+                  <div class="hist-method-card-header">
+                    <span class="hist-method-title">03 / 시공간 일괄 보고 분리</span>
+                    <span class="hist-method-tag">${mc.batchSeparation?.status || "RESOLVED"}</span>
+                  </div>
+                  <div class="hist-method-body">${mc.batchSeparation?.analysisKo || ""}</div>
+                </div>
+                <div class="hist-method-card">
+                  <div class="hist-method-card-header">
+                    <span class="hist-method-title">04 / 치소 중심 편향 극복</span>
+                    <span class="hist-method-tag">${mc.seatBiasOffset?.status || "CORRECTED"}</span>
+                  </div>
+                  <div class="hist-method-body">${mc.seatBiasOffset?.analysisKo || ""}</div>
+                </div>
+              </div>
+            `;
+            methodSection.style.display = 'flex';
+          } else {
+            methodSection.style.display = 'none';
+          }
+        }
+
+        // 2. Multi-Scholar Comparison & Epistemic Principles
+        if (scholarBox) {
+          const interps = ev.interpretations || ev.scientificEstimates || [];
+          let scholarHtml = `
+            <div class="editorial-sec-header">02-B / 복수 지진학자 경험식 및 규모 추정 매트릭스 (SCHOLAR INVERSION)</div>
+            <div class="editorial-formula-box" style="margin-bottom:8px;">
+              <div class="editorial-formula-main">Gutenberg-Richter 경험식: M = 1.0 + (2/3) × I₀ &nbsp;·&nbsp; Utsu 유감반경: M = -3.0 + 3.8 log₁₀(R_v)</div>
+              <div class="editorial-formula-sub">계측기 이전 지진은 단일 확정 규모(magnitude: null)가 존재하지 않으며, 진도(MMI)와 유감 반경에 따른 복수 학자의 경험적 추정 범위만 존재합니다.</div>
+            </div>
+          `;
+
+          if (Array.isArray(interps) && interps.length > 0 && (interps[0].authorOrInstitution || interps[0].author)) {
+            scholarHtml += `<div style="display:flex; flex-direction:column; gap:6px; margin-bottom:8px;">`;
+            interps.forEach(it => {
+              const authorName = it.authorOrInstitution
+                ? `${it.authorOrInstitution}${it.publicationYear ? ` (${it.publicationYear})` : ''}`
+                : it.author;
+              const em = it.estimatedMagnitude;
+              const mBest = em?.best ? `M ${Number(em.best).toFixed(1)}` : '규모 범위 산정';
+              const mMin = em?.min ?? (Array.isArray(em?.range) ? em.range[0] : null);
+              const mMax = em?.max ?? (Array.isArray(em?.range) ? em.range[1] : null);
+              const mRange = (mMin != null && mMax != null) ? ` (범위 M ${Number(mMin).toFixed(1)}~${Number(mMax).toFixed(1)})` : '';
+              const mmiRoman = it.maxIntensityMMI?.roman || it.maxIntensityMMI;
+              const mmiStr = (typeof mmiRoman === 'string') ? ` · MMI ${mmiRoman}` : '';
+              const basisStr = it.epicenter?.basis || it.maxIntensityMMI?.intensityBasis || it.methodology || '사료 진도 기반 역산';
+              const errKm = it.epicenter?.errorRadiusKm ? ` (오차 ±${it.epicenter.errorRadiusKm}km)` : '';
+
+              scholarHtml += `
+                <div style="background:rgba(255,255,255,0.02); border:1px solid var(--hairline); padding:7px 10px; border-radius:2px; display:flex; flex-direction:column; gap:2px;">
+                  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+                    <strong style="color:var(--hanji); font-size:11px;">${authorName}</strong>
+                    <span style="color:var(--brass); font-family:var(--font-mono); font-size:10.5px; font-weight:600;">${mBest}${mRange}${mmiStr}</span>
+                  </div>
+                  <div style="color:var(--mist); font-size:10px; line-height:1.5;">${basisStr}${errKm}</div>
+                </div>
+              `;
+            });
+            scholarHtml += `</div>`;
+          }
+
+          scholarHtml += `
+            <div style="font-size:10px; color:var(--mist); border-top:1px solid rgba(255,255,255,0.06); padding-top:6px; line-height:1.65;">
+              <strong style="color:var(--brass);">[인식론적 원칙 & 사료 데이터 거버넌스]</strong> 역사 사료에는 지진계 계측 파형이 존재하지 않으므로 단일 규모를 인위적으로 날조하지 않고 <code style="color:var(--hanji);">magnitude: null</code>을 봉인하며, 진원 깊이 또한 확정하지 않고 <code style="color:var(--hanji);">depth: null</code>로 보존합니다. 3D 시각화 시에만 한반도 상부지각 표준 참조 깊이(12.0km)와 등방성 파동 모델을 적용합니다.
+            </div>
+          `;
+          scholarBox.innerHTML = scholarHtml;
+          scholarBox.style.display = 'block';
+        }
+      }
+
+      renderHistoricalGeophysics(ev) {
+        const geoContainer = document.getElementById('hist-geophysics-container');
+        const chronoContainer = document.getElementById('hist-chronology-container');
+        const gazetteerContainer = document.getElementById('hist-gazetteer-container');
+
+        // 1. Geophysical Phenomena Deep-Dive
+        if (geoContainer) {
+          const gp = ev.geophysicalPhenomena;
+          if (gp) {
+            let paramsHtml = '';
+            if (Array.isArray(gp.parameters)) {
+              gp.parameters.forEach(p => {
+                paramsHtml += `
+                  <div class="metric-summary-item" style="flex:1 1 45%;">
+                    <span class="metric-s-label">${p.label}</span>
+                    <span class="metric-s-val" style="font-size:11px;">${p.value}</span>
+                  </div>
+                `;
+              });
+            }
+
+            geoContainer.innerHTML = `
+              <div class="editorial-sec-header">03-A / 사료 속 지구물리 이상 현상의 과학적 규명 (${gp.type || "PHYSICS"})</div>
+              <div class="editorial-formula-box">
+                <div class="editorial-formula-main">${gp.titleKo}: ${gp.equation || ""}</div>
+                ${gp.subFormula ? `<div class="editorial-formula-sub">${gp.subFormula}</div>` : ''}
+              </div>
+              <div class="metric-summary-strip" style="flex-wrap:wrap; margin-top:4px;">
+                ${paramsHtml}
+              </div>
+              <p class="editorial-narrative" style="margin-top:6px; font-size:11.5px; color:var(--hanji-muted); line-height:1.7;">
+                ${gp.narrativeKo || ""}
+              </p>
+            `;
+            geoContainer.style.display = 'flex';
+          } else {
+            geoContainer.style.display = 'none';
+          }
+        }
+
+        // 2. Astronomical & Chronological Precision
+        if (chronoContainer) {
+          const ac = ev.astronomicalChronology;
+          if (ac) {
+            chronoContainer.innerHTML = `
+              <div class="editorial-sec-header">03-B / 정밀 천문 역법 환산 (CHRONOLOGY)</div>
+              <div class="hist-chrono-grid">
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">왕대 연호</span>
+                  <span class="hist-chrono-val">${ac.reignTitle || "미상"}</span>
+                </div>
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">음력 일자</span>
+                  <span class="hist-chrono-val">${ac.lunarDate || "미상"}</span>
+                </div>
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">일진 (干支)</span>
+                  <span class="hist-chrono-val">${ac.sexagenaryDay || "미상"}</span>
+                </div>
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">십이지시 (時)</span>
+                  <span class="hist-chrono-val">${ac.doubleHour || "미상"}</span>
+                </div>
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">서력 정밀 환산</span>
+                  <span class="hist-chrono-val" style="color:var(--brass);">${ac.solarCalendar || "미상"}</span>
+                </div>
+                <div class="hist-chrono-item">
+                  <span class="hist-chrono-label">시간 불확실도</span>
+                  <span class="hist-chrono-val" style="font-size:9.5px; color:var(--mist);">${ac.timePrecisionKo || "일 단위 확정"}</span>
+                </div>
+              </div>
+            `;
+            chronoContainer.style.display = 'flex';
+          } else {
+            chronoContainer.style.display = 'none';
+          }
+        }
+
+        // 3. Historical Gazetteer
+        if (gazetteerContainer) {
+          const gaz = ev.historicalGazetteer || [];
+          if (gaz.length > 0) {
+            let gazRows = '';
+            gaz.forEach(g => {
+              gazRows += `
+                <tr>
+                  <td><strong style="color:var(--hanji);">${g.ancientKo}</strong></td>
+                  <td style="color:var(--brass); font-size:10px;">${g.modernAdmin}</td>
+                  <td style="color:var(--mist); font-size:10px;">${g.role}</td>
+                  <td style="font-family:var(--font-mono); font-size:10px; color:var(--hanji-muted);">${g.distanceToEpicenter}</td>
+                </tr>
+              `;
+            });
+            gazetteerContainer.innerHTML = `
+              <div class="editorial-sec-header">03-C / 사료 고지명 지명사전 (TOPONYMY & GAZETTEER)</div>
+              <div style="overflow-x:auto;">
+                <table class="hist-felt-table">
+                  <thead>
+                    <tr>
+                      <th>사료 고지명</th>
+                      <th>현대 행정구역 매핑</th>
+                      <th>당시 행정·군사 역할</th>
+                      <th>진앙 상대 위치</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${gazRows}
+                  </tbody>
+                </table>
+              </div>
+            `;
+            gazetteerContainer.style.display = 'flex';
+          } else {
+            gazetteerContainer.style.display = 'none';
+          }
+        }
+      }
+
       renderArchivalProvenance(ev) {
         const histEl = document.getElementById('selected-archive-history');
         const uncertEl = document.getElementById('selected-archive-uncertainty');
         const seqBox = document.getElementById('dossier-sequence-chain');
         const seqSteps = document.getElementById('dossier-sequence-steps');
-        const scholarBox = document.getElementById('dossier-scholar-comparison');
         if (!histEl || !uncertEl) return;
 
         const evId = String(ev.id || ev.eventId || "");
@@ -923,7 +1275,7 @@ export class UnifiedControlSurface {
           uncertEl.textContent = "진앙 결정오차 ±0.8 km · 지진계 가속도 센서(PGA) 실측 · S-P 파두 도달시각 마이크로초 정밀 역산";
         }
 
-        // 1. Sequence Chain Bar (Foreshock -> Mainshock -> Aftershock)
+        // Sequence Chain Bar (Foreshock -> Mainshock -> Aftershock)
         if (seqBox && seqSteps) {
           seqSteps.innerHTML = '';
           let sequenceItems = [];
@@ -958,40 +1310,6 @@ export class UnifiedControlSurface {
             });
           } else {
             seqBox.style.display = 'none';
-          }
-        }
-
-        // 2. Multi-Scholar Interpretation & Epistemic Separation Box (Calm Tone-on-Tone)
-        if (scholarBox) {
-          if (isHist) {
-            const interps = rawHist.interpretations || rawHist.scientificEstimates || [];
-            let interpHtml = `<div style="color:#C2A882; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:6px;">역사 사료 학술 역산 및 복수 연구자 비교</div>`;
-            if (Array.isArray(interps) && interps.length > 0 && (interps[0].authorOrInstitution || interps[0].author)) {
-              interpHtml += `<div style="display:flex; flex-direction:column; gap:4px; margin-bottom:6px;">`;
-              interps.forEach(it => {
-                const authorName = it.authorOrInstitution
-                  ? `${it.authorOrInstitution}${it.publicationYear ? ` (${it.publicationYear})` : ''}`
-                  : it.author;
-                const em = it.estimatedMagnitude;
-                const mBest = em?.best ? `M ${Number(em.best).toFixed(1)}` : '규모 미산정';
-                const mMin = em?.min ?? (Array.isArray(em?.range) ? em.range[0] : null);
-                const mMax = em?.max ?? (Array.isArray(em?.range) ? em.range[1] : null);
-                const mRange = (mMin != null && mMax != null) ? ` (범위 ${mMin}~${mMax})` : '';
-                const mmiRoman = it.maxIntensityMMI?.roman || it.maxIntensityMMI;
-                const mmiStr = (typeof mmiRoman === 'string') ? ` · MMI ${mmiRoman}` : '';
-                const basisStr = it.epicenter?.basis || it.maxIntensityMMI?.intensityBasis || it.methodology || '감진지역 기반 역산';
-                interpHtml += `<div>• <strong style="color:#EAE6DF;">${authorName}:</strong> <span style="color:#BAC3CE;">${mBest}${mRange}${mmiStr}</span> — <span style="color:#7A8999;">${basisStr}</span></div>`;
-              });
-              interpHtml += `</div>`;
-            }
-            interpHtml += `<div style="font-size:10px; color:#8B99A8; border-top:1px solid rgba(255,255,255,0.06); padding-top:6px; line-height:1.65;">` +
-              `[인식론적 원칙] 역사 사료에는 지진계 계측 기록이 존재하지 않으므로 진원 깊이(null)와 단층면해(null)를 인위적으로 확정하지 않으며, 3D 파동 시연 시에만 상부지각 표준 참조 깊이(12.0km)와 방위각 중립(등방성) 모델을 적용합니다.</div>`;
-            scholarBox.innerHTML = interpHtml;
-            scholarBox.style.display = 'block';
-          } else {
-            scholarBox.innerHTML = `<div style="color:#8FAEC8; font-family:'SF Mono',Menlo,monospace; font-size:10px; font-weight:600; letter-spacing:0.04em; margin-bottom:4px;">정밀 계측 지진 실측 검증</div>` +
-              `<div style="font-size:10.5px; color:#BAC3CE; line-height:1.65;">3성분(Z·N·E) 광대역 속도 지진계 및 가속도계(PGA) 파형 역산을 통해 진원 깊이, 지진 모멘트(Mw), Double-Couple 단층면해(주향·경사·면선각)가 실측 검증된 사건입니다.</div>`;
-            scholarBox.style.display = 'block';
           }
         }
       }

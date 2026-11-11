@@ -155,10 +155,13 @@
         <!-- Historical Dossier Tab Bar (2 Calm Archival Tabs) -->
         <div class="dossier-tab-bar" id="historical-tab-bar" role="tablist">
           <button class="dossier-tab-btn active" data-dossier-tab="hist_corpus">
-            <span class="dossier-tab-dot"></span> 01 / 사료 원전 & 지진 기록
+            <span class="dossier-tab-dot"></span> 01 / 사료 원전 & 8도 감진망
           </button>
           <button class="dossier-tab-btn" data-dossier-tab="hist_academic">
-            <span class="dossier-tab-dot"></span> 02 / 사료 연혁 & 학술 역산
+            <span class="dossier-tab-dot"></span> 02 / 학술 역산 & 사료 비판
+          </button>
+          <button class="dossier-tab-btn" data-dossier-tab="hist_geophysics">
+            <span class="dossier-tab-dot"></span> 03 / 지구물리 현상 & 고증
           </button>
         </div>
 
@@ -175,26 +178,50 @@
 
       <!-- Scrollable Content Viewport -->
       <div class="selected-scroll-body" id="selected-scroll-body">
-        <!-- 1. Historical Pane 1: Corpus & Quote -->
+        <!-- 1. Historical Pane 1: Corpus & Macroseismic Network -->
         <div class="dossier-tab-content" id="tab-pane-hist-corpus">
-          <div class="selected-quote-card">
+          <!-- Multi-Corpus Switcher Bar -->
+          <div class="hist-corpus-source-bar" id="hist-corpus-source-bar" style="display:none;"></div>
+
+          <div class="selected-quote-card" id="selected-quote-card">
             <div class="quote-header">
               <span class="quote-source-label" id="selected-quote-source">삼국사기 · 조선왕조실록</span>
-              <span class="quote-confidence-badge" id="selected-confidence">1차 사료 공인 기록</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="quote-confidence-badge" id="selected-confidence">1차 사료 공인 기록</span>
+                <a href="#" target="_blank" rel="noopener noreferrer" class="quote-archive-link" id="selected-archive-link-btn" style="display:none;">사료 원문 DB ↗</a>
+              </div>
             </div>
             <p class="quote-text" id="selected-quote-text">"사료 원문 번역이 이곳에 표시됩니다."</p>
             <div class="quote-hanja-row" id="selected-hanja-row" style="display:none;">
               <span class="hanja-text" id="selected-quote-hanja"></span>
             </div>
           </div>
+
+          <!-- 8-Province Macroseismic County Network -->
+          <div class="hist-felt-section" id="hist-felt-counties-section">
+            <!-- Dynamically populated: felt counties, MMI intensity, and macroseismic phenomena -->
+          </div>
+
+          <!-- Archival Sequence Chain Box -->
           <div class="sequence-chain-box" id="dossier-sequence-chain" style="display:none;">
             <div class="sequence-chain-title" id="dossier-sequence-title">연속 지진 시퀀스 (전진 · 본진 · 여진 기록 연결)</div>
             <div class="sequence-chain-steps" id="dossier-sequence-steps"></div>
           </div>
         </div>
 
-        <!-- 2. Historical Pane 2: Archival Provenance & Scholar Comparison -->
+        <!-- 2. Historical Pane 2: Academic Inversion & Methodological Bias Corrections -->
         <div class="dossier-tab-content" id="tab-pane-hist-academic" style="display:none;">
+          <!-- 4-Pillar Archival Bias Corrections -->
+          <div class="hist-methodology-section" id="hist-methodology-section">
+            <!-- Dynamically populated: 4 methodological correction cards -->
+          </div>
+
+          <!-- Multi-Scholar Comparison & Empirical Formulas -->
+          <div class="scholar-compare-box" id="dossier-scholar-comparison">
+            <!-- Populated dynamically with multi-scholar interpretations & epistemic breakdown -->
+          </div>
+
+          <!-- Archival Provenance Box -->
           <div class="archival-provenance-box" id="selected-archival-provenance">
             <div class="provenance-detail-row">
               <span class="p-label">사료 수록 연혁</span>
@@ -205,8 +232,23 @@
               <span class="p-val" id="selected-archive-uncertainty">진앙 추정오차 ±25 km · 12간지각 시각제 환산</span>
             </div>
           </div>
-          <div class="scholar-compare-box" id="dossier-scholar-comparison">
-            <!-- Populated dynamically with multi-scholar interpretations & epistemic breakdown -->
+        </div>
+
+        <!-- 3. Historical Pane 3: Geophysical Phenomena & Historical Chronology -->
+        <div class="dossier-tab-content" id="tab-pane-hist-geophysics" style="display:none;">
+          <!-- Geophysical Phenomena Deep-Dive -->
+          <div class="hist-geophysics-container" id="hist-geophysics-container">
+            <!-- Dynamically populated: Tsunami hydrodynamics, Liquefaction geotechnics, Rockfalls -->
+          </div>
+
+          <!-- Astronomical & Chronological Precision -->
+          <div class="hist-chronology-container" id="hist-chronology-container">
+            <!-- Dynamically populated: Reign title, Sexagenary cycle, Lunar/Solar date, Double-hour -->
+          </div>
+
+          <!-- Historical Gazetteer -->
+          <div class="hist-gazetteer-container" id="hist-gazetteer-container">
+            <!-- Dynamically populated: Ancient toponyms vs modern geography -->
           </div>
         </div>
 
