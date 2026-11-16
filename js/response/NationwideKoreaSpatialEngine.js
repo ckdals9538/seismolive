@@ -29,7 +29,10 @@ import { HANYANG_CAMPUS_WALK_GRAPH } from './HanyangCampusWalkData.js';
 import {
   polygonArea2D,
   buildDynamicFacilityFromPoint,
-  doesSegmentIntersectOBBXZ
+  doesSegmentIntersectOBBXZ,
+  enrichWalkGraphWithSeismicRisk,
+  evaluateDestinationMcdaScore,
+  solveCampusWalkGraph
 } from './CampusWalkRouter.js';
 import { sampleGridHeightAt } from './LocalSpatialMapLayer.js';
 import {
@@ -689,6 +692,11 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
 
   const originEN = defaultOrigin ? [defaultOrigin.east_m, defaultOrigin.north_m] : [0, 0];
 
+  // Enrich road network with genuine building-height facade collapse & urban canyon risk profiles
+  if (walkGraph.edges.length > 0 && obbBuildingsFloat32.length > 0) {
+    enrichWalkGraphWithSeismicRisk(walkGraph, obbBuildingsFloat32);
+  }
+
   // Provider 6: Facility / Destination Candidates with honest multi-dimensional evaluation
   const facilityEval = FacilityProvider.discoverAndEvaluateCandidates(elements, {
     anchorLat,
@@ -704,8 +712,60 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     officialShelters: opts.officialShelters || []
   });
 
-  const rankedShelters = facilityEval.candidates;
-  const primaryCandidate = facilityEval.primaryCandidate;
+  let rankedShelters = facilityEval.candidates;
+  let primaryCandidate = facilityEval.primaryCandidate;
+
+  // Initial MCDA ranking across reachable top candidates using real routed risk cost (prevents cross-river traps)
+  if (defaultOrigin && walkGraph.edges.length > 0 && rankedShelters.length > 0) {
+    const startXZ = [defaultOrigin.east_m, -defaultOrigin.north_m];
+    const sampler = (e, n) => sampleGridHeightAt(terrainGrid, e, n);
+    const evalPool = rankedShelters.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE).slice(0, 8);
+    if (evalPool.length > 0) {
+      const scored = evalPool.map((c) => {
+        const sol = solveCampusWalkGraph({
+          startXZ,
+          goalXZ: [c.east_m, -c.north_m],
+          excludeStairs: false,
+          buildingOBBs: obbBuildingsFloat32,
+          customWalkGraph: walkGraph,
+          elevationSampler: sampler,
+          targetShelterId: c.id || 'SHELTER',
+          waterPolygons,
+          waterways,
+          originCentroidXZ: [defaultOrigin.east_m, defaultOrigin.north_m],
+          originExclusionRadius: 0
+        });
+        const mcda = evaluateDestinationMcdaScore(c, sol);
+        return { cand: c, sol, mcda };
+      });
+      scored.sort((a, b) => a.mcda.totalScore - b.mcda.totalScore);
+      const best = scored[0];
+      if (best && best.mcda.reachable) {
+        const bestIds = new Map(scored.map((s, idx) => [s.cand.id, { idx, s }]));
+        rankedShelters = [...rankedShelters]
+          .map((c) => {
+            const m = bestIds.get(c.id);
+            if (!m) return c;
+            return {
+              ...c,
+              dimensions: {
+                ...(c.dimensions || {}),
+                distanceMeters: Math.round(m.s.mcda.physicalWalkMeters),
+                mcdaScore: m.s.mcda.totalScore,
+                routeAudit: m.s.sol.routeAudit || null,
+                mcdaSummaryKo: m.s.mcda.summaryKo
+              }
+            };
+          })
+          .sort((a, b) => {
+            const sa = bestIds.get(a.id)?.s?.mcda?.totalScore ?? 1e9 + (a.dimensions?.distanceMeters || 99999);
+            const sb = bestIds.get(b.id)?.s?.mcda?.totalScore ?? 1e9 + (b.dimensions?.distanceMeters || 99999);
+            return sa - sb;
+          });
+        primaryCandidate = rankedShelters[0];
+      }
+    }
+  }
   const reachableCandidates = rankedShelters.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE);
 
   // Build Initial Facility Package ONLY if walkable road data & a viable candidate exist

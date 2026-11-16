@@ -153,23 +153,206 @@ export const WALK_ROUTING_WEIGHTS = Object.freeze({
     pedestrian: 0.96,
     living_street: 1.0,
     steps: 1.15,
-    path: 1.05,
-    cycleway: 1.06,
-    service: 1.12,
-    residential: 1.12,
-    secondary: 1.24,
-    primary: 1.28,
-    crossing: 1.04
+    path: 1.04,
+    cycleway: 1.04,
+    service: 1.06,
+    residential: 1.04,
+    secondary: 1.05,
+    primary: 1.08,
+    crossing: 1.02
   }),
   uphillGainPerMeter: 0.35,
   steepRampAccessibleSlopeThreshold: 0.14,
   steepRampAccessiblePenalty: 1.35,
-  debrisRiskMultiplierGain: 0.14,
-  bridgeInspectionMultiplier: 1.08,
+  stairCautionGain: 0.18,
+  // Urban-seismic engineering corridor parameters (Hirokawa & Osaragi / ATC-138 facade debris envelope)
+  debrisFallRatioOfHeight: 0.45,
+  debrisRiskMultiplierGain: 0.90,
+  bilateralCanyonGain: 1.15,
+  narrowCorridorThresholdM: 6.5,
+  narrowCorridorMaxGain: 0.35,
+  bridgeInspectionMultiplier: 1.45,
+  bridgeFixedInspectionMeters: 160.0,
   alternativeEdgePenalty: 2.6,
   maxStartSnapMeters: 260,
   maxGoalSnapMeters: 260
 });
+
+const GRAPH_OBB_RISK_CACHE = new WeakMap();
+
+/**
+ * Compute smooth shaking intensity weighting gamma from estimated MMI (when available).
+ * Never fabricates MMI when unknown; null defaults cleanly to baseline 1.0.
+ */
+export function computeShakingIntensityFactor(shakingMmi = null) {
+  if (!Number.isFinite(Number(shakingMmi))) return 1.0;
+  const mmi = Number(shakingMmi);
+  return Number(Math.max(0.75, Math.min(1.80, 0.75 + Math.max(0, mmi - 5.0) * 0.22)).toFixed(3));
+}
+
+function estimateDefaultHighwayWidthMeters(hw = 'footway') {
+  switch (String(hw || 'footway')) {
+    case 'primary':
+    case 'trunk':
+      return 22.0;
+    case 'secondary':
+      return 16.0;
+    case 'tertiary':
+      return 12.0;
+    case 'residential':
+      return 8.0;
+    case 'pedestrian':
+      return 9.0;
+    case 'living_street':
+    case 'service':
+      return 5.5;
+    case 'steps':
+      return 3.2;
+    default:
+      return 4.2;
+  }
+}
+
+/**
+ * Compute perpendicular signed clearance from segment AB midpoint/quarters to nearby OBBs,
+ * yielding asymmetric left/right facade falling-debris hazard, bilateral canyon blockage,
+ * and effective street clear width.
+ */
+function computeSegmentSeismicProfile(uXZ, vXZ, spatialOBBs, hw, isBridge, explicitWidthM = null, baseEdgeDebris = 0) {
+  const dx = vXZ[0] - uXZ[0];
+  const dz = vXZ[1] - uXZ[1];
+  const segLen = Math.hypot(dx, dz);
+  const defaultWidth = Number.isFinite(explicitWidthM) && explicitWidthM > 0
+    ? explicitWidthM
+    : estimateDefaultHighwayWidthMeters(hw);
+
+  if (!spatialOBBs || spatialOBBs.all.length === 0 || segLen < 0.2) {
+    const fallbackDebris = Math.max(baseEdgeDebris || 0, isBridge ? 0.25 : 0.05);
+    return {
+      debrisRisk: fallbackDebris,
+      canyonRisk: 0,
+      corridorWidthM: defaultWidth,
+      tallestAdjacentH: 0
+    };
+  }
+
+  const ux = dx / segLen;
+  const uz = dz / segLen;
+  // Unit normal pointing left of u->v
+  const nx = -uz;
+  const nz = ux;
+  const midX = (uXZ[0] + vXZ[0]) * 0.5;
+  const midZ = (uXZ[1] + vXZ[1]) * 0.5;
+  const searchPad = Math.max(36.0, segLen * 0.5 + 24.0);
+  const candidates = querySpatialOBBsInBounds(
+    spatialOBBs,
+    midX - searchPad, midZ - searchPad, midX + searchPad, midZ + searchPad,
+    null, 0, null
+  );
+
+  let leftThreat = 0;
+  let rightThreat = 0;
+  let minLeftClear = 18.0;
+  let minRightClear = 18.0;
+  let tallestH = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const ob = candidates[i];
+    const ocx = ob.east_m;
+    const ocz = -ob.north_m;
+    const relX = ocx - midX;
+    const relZ = ocz - midZ;
+    const along = relX * ux + relZ * uz;
+    if (Math.abs(along) > segLen * 0.55 + ob.boundR + 4.0) continue;
+
+    // Oriented bounding projection onto street normal direction
+    const cosY = Math.cos(ob.yaw_rad || 0);
+    const sinY = Math.sin(ob.yaw_rad || 0);
+    const hx = (ob.width_m || 10) * 0.5;
+    const hz = (ob.depth_m || 10) * 0.5;
+    // Project local axes onto street normal (nx, nz): Three.js yaw rotation aligns local X with (cosY, -sinY), Z with (sinY, cosY)
+    const projExtent = Math.abs(nx * cosY - nz * sinY) * hx + Math.abs(nx * sinY + nz * cosY) * hz;
+    const signedCenterLat = relX * nx + relZ * nz;
+    const perpClearance = Math.max(0.4, Math.abs(signedCenterLat) - projExtent);
+    if (perpClearance > 34.0) continue;
+
+    const h = Math.max(4.0, Number(ob.height_m) || 8.5);
+    if (h > tallestH) tallestH = h;
+    const fallReach = Math.max(4.5, Math.min(28.0, h * WALK_ROUTING_WEIGHTS.debrisFallRatioOfHeight));
+    const threat = Math.max(0, 1.0 - perpClearance / fallReach);
+
+    if (signedCenterLat >= 0) {
+      if (threat > leftThreat) leftThreat = threat;
+      if (perpClearance < minLeftClear) minLeftClear = perpClearance;
+    } else {
+      if (threat > rightThreat) rightThreat = threat;
+      if (perpClearance < minRightClear) minRightClear = perpClearance;
+    }
+  }
+
+  const maxSideThreat = Math.max(leftThreat, rightThreat);
+  const canyonRisk = (leftThreat > 0.12 && rightThreat > 0.12)
+    ? Math.min(1.0, Math.sqrt(leftThreat * rightThreat) * 1.5)
+    : 0;
+  const geomWidth = Math.max(2.2, Math.min(30.0, minLeftClear + minRightClear));
+  const corridorWidthM = Number.isFinite(explicitWidthM) && explicitWidthM > 0
+    ? Math.min(geomWidth, explicitWidthM)
+    : Math.min(defaultWidth * 1.35, geomWidth);
+
+  return {
+    debrisRisk: Number(Math.max(isBridge ? 0.25 : 0.0, maxSideThreat, (baseEdgeDebris || 0) * 0.35).toFixed(3)),
+    canyonRisk: Number(canyonRisk.toFixed(3)),
+    corridorWidthM: Number(corridorWidthM.toFixed(1)),
+    tallestAdjacentH: Number(tallestH.toFixed(1))
+  };
+}
+
+/**
+ * Enrich compiled adjacency edges with genuine geometric Urban-Seismic risk attributes
+ * (cached per walkGraph x OBB spatial index).
+ */
+export function enrichWalkGraphWithSeismicRisk(walkGraph, buildingOBBs) {
+  const source = walkGraph || HANYANG_CAMPUS_WALK_GRAPH;
+  const compiled = getOrCompileWalkAdjacency(source);
+  const spatialOBBs = getSpatialOBBIndex(buildingOBBs);
+  const cacheKeyObj = spatialOBBs || compiled;
+  let perGraphCache = GRAPH_OBB_RISK_CACHE.get(compiled);
+  if (perGraphCache && perGraphCache.has(cacheKeyObj)) {
+    return perGraphCache.get(cacheKeyObj);
+  }
+  if (!perGraphCache) {
+    perGraphCache = new WeakMap();
+    GRAPH_OBB_RISK_CACHE.set(compiled, perGraphCache);
+  }
+
+  const { nodes, adj } = compiled;
+  const explicitWidths = source.edgeWidths || null;
+  const edgeMetricsByKey = new Map();
+
+  for (let u = 0; u < adj.length; u++) {
+    const nu = nodes[u];
+    if (!nu) continue;
+    const uXZ = [nu[1], -nu[2]];
+    const list = adj[u];
+    for (let i = 0; i < list.length; i++) {
+      const e = list[i];
+      if (edgeMetricsByKey.has(e.edgeKey)) continue;
+      const nv = nodes[e.to];
+      if (!nv) continue;
+      const vXZ = [nv[1], -nv[2]];
+      const prof = computeSegmentSeismicProfile(
+        uXZ, vXZ, spatialOBBs, e.hw, e.isBridge,
+        explicitWidths?.[e.edgeIdx] ?? null, e.debrisRisk
+      );
+      edgeMetricsByKey.set(e.edgeKey, prof);
+      const revKey = `${nv[0]}->${nu[0]}`;
+      edgeMetricsByKey.set(revKey, prof);
+    }
+  }
+
+  perGraphCache.set(cacheKeyObj, edgeMetricsByKey);
+  return edgeMetricsByKey;
+}
 
 export function getOrCompileWalkAdjacency(walkGraph) {
   const source = walkGraph || HANYANG_CAMPUS_WALK_GRAPH;
@@ -187,8 +370,8 @@ export function getOrCompileWalkAdjacency(walkGraph) {
     const dy = (nv[3] ?? 0) - (nu[3] ?? 0);
     const bridgeFlag = Boolean(isBridge || hw === 'bridge');
     const crossFlag = Boolean(isCrossing || hw === 'crossing');
-    adj[u].push({ to: v, dist, dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nu[0]}->${nv[0]}` });
-    adj[v].push({ to: u, dist, dy: -dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nv[0]}->${nu[0]}` });
+    adj[u].push({ to: v, edgeIdx: idx, dist, dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nu[0]}->${nv[0]}` });
+    adj[v].push({ to: u, edgeIdx: idx, dist, dy: -dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nv[0]}->${nu[0]}` });
   }
   const compiled = { nodes, edges, adj };
   GRAPH_ADJ_CACHE.set(source, compiled);
@@ -609,6 +792,34 @@ function findNearestEdgeProjectionsXZ(
  *   targetNodeId: string
  * }}
  */
+function computeSegmentAStarMultiplier(edgeObj, prof, {
+  seismicDebrisAware = true,
+  shakingGamma = 1.0,
+  excludeStairs = false,
+  ignoreBridgePenalty = false
+} = {}) {
+  let mult = seismicDebrisAware ? getHighwayWalkMultiplier(edgeObj.hw) : 1.0;
+  if (edgeObj.isBridge && !ignoreBridgePenalty) {
+    mult *= WALK_ROUTING_WEIGHTS.bridgeInspectionMultiplier;
+  }
+  if (excludeStairs && edgeObj.dist > 1.0 && Math.abs(edgeObj.dy || 0) / edgeObj.dist > WALK_ROUTING_WEIGHTS.steepRampAccessibleSlopeThreshold) {
+    mult *= WALK_ROUTING_WEIGHTS.steepRampAccessiblePenalty;
+  }
+  if (seismicDebrisAware) {
+    if (edgeObj.hasStairs) mult += WALK_ROUTING_WEIGHTS.stairCautionGain;
+    const effDebris = prof ? prof.debrisRisk : (edgeObj.debrisRisk || 0);
+    const effCanyon = prof ? prof.canyonRisk : 0;
+    const corrW = prof ? prof.corridorWidthM : estimateDefaultHighwayWidthMeters(edgeObj.hw);
+    if (effDebris > 0) mult += effDebris * WALK_ROUTING_WEIGHTS.debrisRiskMultiplierGain * shakingGamma;
+    if (effCanyon > 0) mult += effCanyon * WALK_ROUTING_WEIGHTS.bilateralCanyonGain * shakingGamma;
+    if (corrW < WALK_ROUTING_WEIGHTS.narrowCorridorThresholdM) {
+      const narrowFrac = (WALK_ROUTING_WEIGHTS.narrowCorridorThresholdM - corrW) / WALK_ROUTING_WEIGHTS.narrowCorridorThresholdM;
+      mult += narrowFrac * WALK_ROUTING_WEIGHTS.narrowCorridorMaxGain;
+    }
+  }
+  return mult;
+}
+
 export function solveCampusWalkGraph(options = {}) {
   const {
     startXZ = [73.68, -41.98],
@@ -621,6 +832,8 @@ export function solveCampusWalkGraph(options = {}) {
     originExclusionRadius = 0.0,
     originCentroidXZ = startXZ,
     seismicDebrisAware = true,
+    shakingMmi = null,
+    ignoreBridgePenalty = false,
     blockedEdges = null,
     avoidPolygons = null,
     waterPolygons = [],
@@ -662,6 +875,11 @@ export function solveCampusWalkGraph(options = {}) {
 
   const spatialOBBs = getSpatialOBBIndex(buildingOBBs);
   const excludeRad2 = originExclusionRadius > 0 ? originExclusionRadius * originExclusionRadius : 0;
+
+  // Enrich walk edges once per (walkGraph x buildingOBBs) for genuine Urban-Seismic risk modeling
+  const activeWalkSource = customWalkGraph || HANYANG_CAMPUS_WALK_GRAPH;
+  const edgeSeismicMap = seismicDebrisAware ? enrichWalkGraphWithSeismicRisk(activeWalkSource, buildingOBBs) : null;
+  const shakingGamma = computeShakingIntensityFactor(shakingMmi);
 
   // Push start point cleanly outside any containing neighbor/origin OBB unless Hanyang legacy bypass is active
   const safeStartXZ = (spatialOBBs && spatialOBBs.all.length > 0 && excludeRad2 <= 0)
@@ -742,11 +960,16 @@ export function solveCampusWalkGraph(options = {}) {
   };
 
   let validatedGoalEntries = 0;
+  let minGoalSnapDist = Infinity;
   for (const gCand of goalCands) {
-    if (validatedGoalEntries >= 10 && gCand.dist > 95.0) break;
+    // Prevent distant straight-line SHElTER_INGRESS portals from leaping past intermediate road network segments
+    if (validatedGoalEntries > 0 && gCand.dist > Math.max(45.0, minGoalSnapDist + 38.0)) break;
     const goalIngressChainXZ = tryVisibilityDetourXZ(gCand.xz, safeGoalXZ, localGoalOBBs, waterPolygons, waterways);
     if (!goalIngressChainXZ) continue;
     const ingressLen = measureChainLen(goalIngressChainXZ);
+    if (validatedGoalEntries === 0 && ingressLen < minGoalSnapDist) {
+      minGoalSnapDist = gCand.dist;
+    }
 
     if (gCand.kind === 'node') {
       validatedGoalEntries++;
@@ -773,10 +996,13 @@ export function solveCampusWalkGraph(options = {}) {
           return;
         }
         const subLen = Math.hypot(gCand.xz[0] - endXZ[0], gCand.xz[1] - endXZ[1]);
+        const gProf = edgeSeismicMap?.get(eo.keyUV);
+        const gMult = computeSegmentAStarMultiplier(eo, gProf, { seismicDebrisAware, shakingGamma, excludeStairs, ignoreBridgePenalty });
+        const gBridgeFix = (eo.isBridge && !ignoreBridgePenalty) ? WALK_ROUTING_WEIGHTS.bridgeFixedInspectionMeters * shakingGamma : 0;
         registerGoalForNode(endIdx, {
           idx: endIdx,
           goalIngressChainXZ,
-          goalIngressLen: ingressLen + subLen * getHighwayWalkMultiplier(eo.hw),
+          goalIngressLen: ingressLen + subLen * gMult + gBridgeFix,
           rawSubLen: subLen,
           virtualEdge: {
             fromIdx: endIdx,
@@ -804,11 +1030,16 @@ export function solveCampusWalkGraph(options = {}) {
   const validStartEdgeProjs = [];
   const collectStarts = (activeWaterways) => {
     let validatedStartEntries = 0;
+    let minStartSnapDist = Infinity;
     for (const sCand of startCands) {
-      if (validatedStartEntries >= 8 && sCand.dist > 55.0) break;
+      // Prevent distant straight-line PORTAL_APPROACH segments from skipping real road edges & seismic weights
+      if (validatedStartEntries > 0 && sCand.dist > Math.max(45.0, minStartSnapDist + 38.0)) break;
       const portalChainXZ = tryVisibilityDetourXZ(safeStartXZ, sCand.xz, localPortalOBBs, waterPolygons, activeWaterways);
       if (!portalChainXZ) continue;
       const portalLen = measureChainLen(portalChainXZ);
+      if (validatedStartEntries === 0 && portalLen < minStartSnapDist) {
+        minStartSnapDist = sCand.dist;
+      }
 
       if (sCand.kind === 'node') {
         validatedStartEntries++;
@@ -835,10 +1066,13 @@ export function solveCampusWalkGraph(options = {}) {
             return;
           }
           const subLen = Math.hypot(endXZ[0] - sCand.xz[0], endXZ[1] - sCand.xz[1]);
+          const sProf = edgeSeismicMap?.get(eo.keyUV);
+          const sMult = computeSegmentAStarMultiplier(eo, sProf, { seismicDebrisAware, shakingGamma, excludeStairs, ignoreBridgePenalty });
+          const sBridgeFix = (eo.isBridge && !ignoreBridgePenalty) ? WALK_ROUTING_WEIGHTS.bridgeFixedInspectionMeters * shakingGamma : 0;
           validStarts.push({
             idx: endIdx,
             portalChainXZ,
-            portalLen: portalLen + subLen * getHighwayWalkMultiplier(eo.hw),
+            portalLen: portalLen + subLen * sMult + sBridgeFix,
             rawPortalLen: portalLen,
             virtualEdge: {
               toIdx: endIdx,
@@ -881,7 +1115,10 @@ export function solveCampusWalkGraph(options = {}) {
       if (activeAvoid.length > 0 && segHitsAvoidPoly(sProj.xz[0], sProj.xz[1], gProj.xz[0], gProj.xz[1])) {
         continue;
       }
-      const totalScore = sProj.portalLen * 1.4 + segLen * getHighwayWalkMultiplier(sProj.edgeObj.hw) + gProj.ingressLen * 1.3;
+      const dProf = edgeSeismicMap?.get(sProj.edgeObj.keyUV);
+      const dMult = computeSegmentAStarMultiplier(sProj.edgeObj, dProf, { seismicDebrisAware, shakingGamma, excludeStairs, ignoreBridgePenalty });
+      const dBridgeFix = (sProj.edgeObj.isBridge && !ignoreBridgePenalty) ? WALK_ROUTING_WEIGHTS.bridgeFixedInspectionMeters * shakingGamma : 0;
+      const totalScore = sProj.portalLen * 1.4 + segLen * dMult + dBridgeFix + gProj.ingressLen * 1.3;
       if (!directCandidate || totalScore < directCandidate.totalScore) {
         directCandidate = { sProj, gProj, segLen, totalScore };
       }
@@ -894,7 +1131,8 @@ export function solveCampusWalkGraph(options = {}) {
 
   // Single unified Multi-Source -> Multi-Goal A* over spatially hashed OBBs
   const n = nodes.length;
-  const hCost = (idx) => Math.hypot(nodes[idx][1] - safeGoalXZ[0], -nodes[idx][2] - safeGoalXZ[1]);
+  // Multiply admissible Euclidean lower bound by lowest possible surface multiplier (0.95) for global optimality
+  const hCost = (idx) => Math.hypot(nodes[idx][1] - safeGoalXZ[0], -nodes[idx][2] - safeGoalXZ[1]) * 0.95;
 
   const runAStarPass = (allowOverhangFallback, ignoreWaterwayCenterline = false) => {
     const activeWaterways = ignoreWaterwayCenterline ? [] : waterways;
@@ -971,20 +1209,18 @@ export function solveCampusWalkGraph(options = {}) {
           continue;
         }
 
-        let mult = getHighwayWalkMultiplier(edge.hw);
-        if (edge.isBridge) mult *= WALK_ROUTING_WEIGHTS.bridgeInspectionMultiplier;
-        if (excludeStairs && edge.dist > 1.0 && Math.abs(edge.dy) / edge.dist > WALK_ROUTING_WEIGHTS.steepRampAccessibleSlopeThreshold) {
-          mult *= WALK_ROUTING_WEIGHTS.steepRampAccessiblePenalty;
-        }
-        if (seismicDebrisAware && edge.debrisRisk > 0) {
-          mult *= (1.0 + edge.debrisRisk * WALK_ROUTING_WEIGHTS.debrisRiskMultiplierGain);
+        const prof = edgeSeismicMap?.get(edge.edgeKey);
+        let mult = computeSegmentAStarMultiplier(edge, prof, { seismicDebrisAware, shakingGamma, excludeStairs, ignoreBridgePenalty });
+        let fixedBridgeEntry = 0.0;
+        if (edge.isBridge && !ignoreBridgePenalty && (!prevEdge[u] || !prevEdge[u].isBridge)) {
+          fixedBridgeEntry = WALK_ROUTING_WEIGHTS.bridgeFixedInspectionMeters * shakingGamma;
         }
         if (penalizeEdgeKeys && penalizeEdgeKeys.has(edge.edgeKey)) {
           mult *= overlapPenaltyMultiplier;
         }
         const overhangPenalty = hitsOBB ? (edge.dist * 26.0 + 110.0) : 0.0;
         const uphill = Math.max(0, edge.dy) * WALK_ROUTING_WEIGHTS.uphillGainPerMeter;
-        const nextCost = dist[u] + edge.dist * mult + uphill + overhangPenalty;
+        const nextCost = dist[u] + edge.dist * mult + uphill + overhangPenalty + fixedBridgeEntry;
 
         if (nextCost < dist[edge.to]) {
           dist[edge.to] = nextCost;
@@ -1039,6 +1275,10 @@ export function solveCampusWalkGraph(options = {}) {
       });
       totalDist += sProj.portalLen;
     }
+    const dirProf = edgeSeismicMap?.get(sProj.edgeObj.keyUV);
+    const dirDebris = dirProf ? dirProf.debrisRisk : (sProj.edgeObj.debrisRisk ?? 0);
+    const dirCanyon = dirProf ? dirProf.canyonRisk : 0;
+    const dirWidth = dirProf ? dirProf.corridorWidthM : estimateDefaultHighwayWidthMeters(sProj.edgeObj.hw);
     if (segLen > 0.4) {
       outEdges.push({
         edgeId: `OSM_SEG_${sProj.edgeIdx}`,
@@ -1048,7 +1288,7 @@ export function solveCampusWalkGraph(options = {}) {
         hasStairs: sProj.edgeObj.hasStairs,
         isWheelchairPassable: !sProj.edgeObj.hasStairs,
         highway: sProj.edgeObj.hw,
-        hazardRisk: sProj.edgeObj.debrisRisk > 0.45 ? 'MODERATE' : (sProj.edgeObj.hasStairs ? 'HIGH' : 'LOW'),
+        hazardRisk: dirDebris > 0.45 ? 'MODERATE' : (sProj.edgeObj.hasStairs ? 'HIGH' : 'LOW'),
         branch: branchLabel,
         waypoints: subdivideAndElevateChainXZ([sProj.xz, gProj.xz], elevationSampler, 8.0, 0.42, sProj.edgeObj.isBridge)
       });
@@ -1075,15 +1315,31 @@ export function solveCampusWalkGraph(options = {}) {
         if (!prev || Math.hypot(prev[0] - wp[0], prev[2] - wp[2]) > 0.05) waypoints3D.push(wp);
       }
     }
+    const dirBridgeCount = sProj.edgeObj.isBridge ? 1 : 0;
     return {
       portalIdx: sProj.u,
       goalIdx: gProj.v,
       found: true,
       totalDistanceMeters: Number(totalDist.toFixed(1)),
+      effectiveRiskCostMeters: Number(directCandidate.totalScore.toFixed(1)),
       totalStairsDistanceMeters: 0,
       hasStairs: false,
       stairFlightCount: 0,
       isStepFree: true,
+      routeAudit: {
+        physicalDistanceMeters: Number(totalDist.toFixed(1)),
+        effectiveRiskCostMeters: Number(directCandidate.totalScore.toFixed(1)),
+        addedRiskEquivalentMeters: Number(Math.max(0, directCandidate.totalScore - totalDist).toFixed(1)),
+        meanDebrisRisk: Number(dirDebris.toFixed(3)),
+        maxDebrisRisk: Number(dirDebris.toFixed(3)),
+        highDebrisMeters: Number((dirDebris >= 0.45 ? segLen : 0).toFixed(1)),
+        canyonMeters: Number((dirCanyon >= 0.25 ? segLen : 0).toFixed(1)),
+        narrowAlleyMeters: Number((dirWidth < WALK_ROUTING_WEIGHTS.narrowCorridorThresholdM ? segLen : 0).toFixed(1)),
+        bridgeCount: dirBridgeCount,
+        bridgeMeters: Number((sProj.edgeObj.isBridge ? segLen : 0).toFixed(1)),
+        meanCorridorWidthM: Number(dirWidth.toFixed(1)),
+        shakingIntensityFactor: shakingGamma
+      },
       edges: outEdges,
       waypoints3D,
       startNodeId: `OSM_NODE_${nodes[sProj.u][0]}`,
@@ -1271,15 +1527,67 @@ export function solveCampusWalkGraph(options = {}) {
     }
   }
 
+  // Compute physical & seismic route audit metrics across ALL traversed road sub-edges (start virtual + graph + goal virtual)
+  let weightedDebrisSum = 0;
+  let weightedWidthSum = 0;
+  let auditedRoadLen = 0;
+  let maxDebris = 0;
+  let highDebrisMeters = 0;
+  let canyonMeters = 0;
+  let narrowAlleyMeters = 0;
+  let bridgeMeters = 0;
+  let bridgeCount = 0;
+  let prevOnBridge = false;
+  const auditSeg = (edgeObj, segLen) => {
+    if (!edgeObj || !(segLen > 0)) return;
+    const prof = edgeSeismicMap?.get(edgeObj.edgeKey || edgeObj.keyUV);
+    const dRisk = prof ? prof.debrisRisk : (edgeObj.debrisRisk ?? 0);
+    const cRisk = prof ? prof.canyonRisk : 0;
+    const wClear = prof ? prof.corridorWidthM : estimateDefaultHighwayWidthMeters(edgeObj.hw);
+    auditedRoadLen += segLen;
+    weightedDebrisSum += dRisk * segLen;
+    weightedWidthSum += wClear * segLen;
+    if (dRisk > maxDebris) maxDebris = dRisk;
+    if (dRisk >= 0.45) highDebrisMeters += segLen;
+    if (cRisk >= 0.25) canyonMeters += segLen;
+    if (wClear < WALK_ROUTING_WEIGHTS.narrowCorridorThresholdM) narrowAlleyMeters += segLen;
+    if (edgeObj.isBridge) {
+      bridgeMeters += segLen;
+      if (!prevOnBridge) bridgeCount++;
+    }
+    prevOnBridge = Boolean(edgeObj.isBridge);
+  };
+  if (chosenStart?.virtualEdge) auditSeg(chosenStart.virtualEdge.edgeObj, chosenStart.virtualEdge.subLen);
+  for (let ei = 0; ei < rawEdges.length; ei++) auditSeg(rawEdges[ei].edge, rawEdges[ei].edge.dist || 0);
+  if (gInfo?.virtualEdge) auditSeg(gInfo.virtualEdge.edgeObj, gInfo.virtualEdge.subLen);
+
+  const effectiveRiskCost = Number((bestSolution.totalScore || totalDist).toFixed(1));
+  const routeAudit = {
+    physicalDistanceMeters: Number(totalDist.toFixed(1)),
+    effectiveRiskCostMeters: effectiveRiskCost,
+    addedRiskEquivalentMeters: Number(Math.max(0, effectiveRiskCost - totalDist).toFixed(1)),
+    meanDebrisRisk: Number((auditedRoadLen > 0 ? weightedDebrisSum / auditedRoadLen : 0).toFixed(3)),
+    maxDebrisRisk: Number(maxDebris.toFixed(3)),
+    highDebrisMeters: Number(highDebrisMeters.toFixed(1)),
+    canyonMeters: Number(canyonMeters.toFixed(1)),
+    narrowAlleyMeters: Number(narrowAlleyMeters.toFixed(1)),
+    bridgeCount,
+    bridgeMeters: Number(bridgeMeters.toFixed(1)),
+    meanCorridorWidthM: Number((auditedRoadLen > 0 ? weightedWidthSum / auditedRoadLen : 8.0).toFixed(1)),
+    shakingIntensityFactor: shakingGamma
+  };
+
   return {
     portalIdx,
     goalIdx,
     found: true,
     totalDistanceMeters: Number(totalDist.toFixed(1)),
+    effectiveRiskCostMeters: effectiveRiskCost,
     totalStairsDistanceMeters: Number(totalStairDist.toFixed(1)),
     hasStairs: stairFlights > 0,
     stairFlightCount: stairFlights,
     isStepFree: stairFlights === 0,
+    routeAudit,
     edges: outEdges,
     waypoints3D,
     startNodeId: `OSM_NODE_${nodes[portalIdx][0]}`,
@@ -1393,71 +1701,38 @@ export function decomposePolygonToOBBs(ptsEN, heightMeters = 12.0) {
  * Construct a dynamic provenance-tagged FacilityPackage from ANY selected 3D building
  * OBB (supports arbitrary clicked buildings in Hanyang or nationwide OSM regions).
  */
-export function buildDynamicFacilityFromPoint({
-  buildingId = 'DYNAMIC_BLDG',
-  name = '선택 건축물',
-  unitNumber = '',
+/**
+ * Pick an unblocked exterior street-facing exit doorway for any selected building OBB.
+ * Excludes the origin building footprint itself so narrow wings/corners never false-block portals.
+ */
+export function buildNeutralStreetExit({
   east_m = 0,
   north_m = 0,
   width_m = 28,
   depth_m = 20,
   yaw_rad = 0,
   height_m = 18,
-  anchor = { lat: 37.555815, lon: 127.045053, h: 42.0 },
   walkGraph = null,
   buildingOBBs = REAL_OSM_BUILDINGS_FLAT,
-  shelter = null,
-  waterPolygons = [],
-  waterways = [],
-  indoorScope = 'HEIGHT_ONLY_3D',
-  elevationSampler = sampleTerrainHeight
+  preferredTargetXZ = null
 } = {}) {
-  const groundY = Number(((typeof elevationSampler === 'function' ? elevationSampler(east_m, north_m) : 0) || 0).toFixed(2));
-  const totalLevels = Math.max(1, Math.min(30, Math.round(height_m / 3.6)));
-  const floorHeightMeters = 3.6;
-  const hasIndoorData = indoorScope === 'PROVISIONAL_FLOORPLAN' || indoorScope === 'VERIFIED_INDOOR';
-  const defaultFloor = hasIndoorData ? Math.min(totalLevels, Math.max(2, Math.round(totalLevels * 0.5))) : 1;
-  const targetY = groundY + (defaultFloor - 1) * floorHeightMeters;
-
   const centerX = east_m;
   const centerZ = -north_m;
   const obbObj = { east_m, north_m, width_m, depth_m, yaw_rad, height_m, boundR: Math.hypot(width_m, depth_m) * 0.5 };
   const corners = getExpandedOBBCornersXZ(obbObj, 0.0);
-  const footprint = [...corners, corners[0]].map(p => Object.freeze([Number(p[0].toFixed(2)), Number(p[1].toFixed(2))]));
-
-  const hasValidShelter = Boolean(
-    shelter && (shelter.localCenter || shelter.positionThree || (typeof shelter.east_m === 'number' && typeof shelter.north_m === 'number'))
-  );
-  const shelterXZ = hasValidShelter
-    ? (shelter.localCenter
-      ? [shelter.localCenter[0], shelter.localCenter[2]]
-      : (shelter.positionThree
-        ? [shelter.positionThree[0], shelter.positionThree[2]]
-        : [shelter.east_m, -shelter.north_m]))
-    : null;
-  const shelterY = shelterXZ
-    ? Number(
-      (shelter?.localCenter?.[1] ??
-        shelter?.positionThree?.[1] ??
-        (typeof elevationSampler === 'function' ? elevationSampler(shelterXZ[0], -shelterXZ[1]) : groundY) ??
-        groundY).toFixed(2)
-    )
-    : groundY;
-
   const spatialIdx = getSpatialOBBIndex(buildingOBBs);
   const allNearOBBs = querySpatialOBBsInBounds(
     spatialIdx,
     centerX - 75, centerZ - 75, centerX + 75, centerZ + 75,
     null, 0, null
   );
-  // Exclude ONLY the exact clicked OBB footprint when picking exterior doorway candidates; neighbor wings/buildings stay active
+  // Exclude ONLY the clicked origin OBB footprint itself
   const nearOBBs = allNearOBBs.filter(ob =>
     !(Math.hypot(ob.east_m - obbObj.east_m, ob.north_m - obbObj.north_m) < 0.25 &&
       Math.abs(ob.width_m - obbObj.width_m) < 0.25 &&
       Math.abs(ob.depth_m - obbObj.depth_m) < 0.25)
   );
 
-  // Collect local road/footway segments around building so doorway selection strongly prefers street-facing exits
   const gNodes = walkGraph?.nodes || [];
   const gEdges = walkGraph?.edges || [];
   const localRoadSegs = [];
@@ -1497,48 +1772,175 @@ export function buildDynamicFacilityFromPoint({
     for (const pushOut of [3.2, 6.2]) {
       const fx = mx + ux * pushOut;
       const fz = mz + uz * pushOut;
-      const blocked = allNearOBBs.length > 0 && isPointInsideAnyOBB([fx, fz], allNearOBBs, 0.35);
+      const blocked = nearOBBs.length > 0 && isPointInsideAnyOBB([fx, fz], nearOBBs, 0.35);
       const streetDist = distToNearestStreet(fx, fz);
-      const outDist = shelterXZ ? Math.hypot(mx - shelterXZ[0], mz - shelterXZ[1]) : Math.hypot(mx - centerX, mz - centerZ);
+      const outDist = preferredTargetXZ ? Math.hypot(mx - preferredTargetXZ[0], mz - preferredTargetXZ[1]) : 0;
       exitCandidates.push({
-        mx, mz, fx, fz, vx: ux, vz: uz, blocked,
-        score: streetDist * 1.85 + outDist * 0.25 + (pushOut > 4.0 ? 3.5 : 0)
+        mx, mz, fx, fz, vx: ux, vz: uz, blocked, streetDist,
+        score: streetDist * 2.2 + outDist * 0.06 + (pushOut > 4.0 ? 3.5 : 0)
       });
     }
-    // Also test corner exit candidates for L-shaped/tight courtyard buildings
     const cx = a[0] - centerX, cz = a[1] - centerZ;
     const cLen = Math.max(1e-6, Math.hypot(cx, cz));
     const cux = cx / cLen, cuz = cz / cLen;
     const cfx = a[0] + cux * 3.8, cfz = a[1] + cuz * 3.8;
-    const cBlocked = allNearOBBs.length > 0 && isPointInsideAnyOBB([cfx, cfz], allNearOBBs, 0.35);
+    const cBlocked = nearOBBs.length > 0 && isPointInsideAnyOBB([cfx, cfz], nearOBBs, 0.35);
     const cStreetDist = distToNearestStreet(cfx, cfz);
-    const cOutDist = shelterXZ ? Math.hypot(a[0] - shelterXZ[0], a[1] - shelterXZ[1]) : cLen;
+    const cOutDist = preferredTargetXZ ? Math.hypot(a[0] - preferredTargetXZ[0], a[1] - preferredTargetXZ[1]) : 0;
     exitCandidates.push({
-      mx: a[0], mz: a[1], fx: cfx, fz: cfz, vx: cux, vz: cuz, blocked: cBlocked,
-      score: cStreetDist * 1.85 + cOutDist * 0.25 + 2.0
+      mx: a[0], mz: a[1], fx: cfx, fz: cfz, vx: cux, vz: cuz, blocked: cBlocked, streetDist: cStreetDist,
+      score: cStreetDist * 2.2 + cOutDist * 0.06 + 2.0
     });
   }
   exitCandidates.sort((a, b) => (a.blocked === b.blocked ? a.score - b.score : (a.blocked ? 1 : -1)));
-
   const bestExit = exitCandidates[0];
-  const doorXZ = [bestExit.mx, bestExit.mz];
-  const vecOutX = bestExit.vx;
-  const vecOutZ = bestExit.vz;
-  const normOut = 1.0;
   const footwayXZ = bestExit.blocked
-    ? pushPointOutsideSpatialOBBs([bestExit.fx, bestExit.fz], spatialIdx, 1.5, null, 0, shelterXZ)
+    ? pushPointOutsideSpatialOBBs([bestExit.fx, bestExit.fz], spatialIdx, 1.5, [centerX, centerZ], Math.min(28, obbObj.boundR + 1.5), preferredTargetXZ)
     : [bestExit.fx, bestExit.fz];
+
+  return {
+    corners,
+    nearOBBs,
+    bestExit,
+    doorXZ: [bestExit.mx, bestExit.mz],
+    footwayXZ,
+    vecOutX: bestExit.vx,
+    vecOutZ: bestExit.vz,
+    streetExitCount: exitCandidates.filter(c => !c.blocked).length
+  };
+}
+
+/**
+ * Paper-grade Seismic Multi-Criteria Destination Objective J(S | o) in risk-equivalent meters (lower is better).
+ * Integrates verified walkable path distance, facade collapse/canyon exposure, bridge crossings,
+ * destination standoff & capacity, official designation reliability, and waterway proximity hazard.
+ */
+export function evaluateDestinationMcdaScore(candidate, walkSol, options = {}) {
+  if (!walkSol || !walkSol.found || !(walkSol.totalDistanceMeters > 0)) {
+    return {
+      reachable: false,
+      totalScore: Infinity,
+      physicalWalkMeters: Infinity,
+      riskCostMeters: Infinity,
+      summaryKo: '보행 연결 경로 없음'
+    };
+  }
+  const dims = candidate?.dimensions || {};
+  const audit = walkSol.routeAudit || {};
+  const physicalWalkMeters = walkSol.totalDistanceMeters;
+  const riskCostMeters = Number.isFinite(audit.effectiveRiskCostMeters)
+    ? audit.effectiveRiskCostMeters
+    : (walkSol.effectiveRiskCostMeters || physicalWalkMeters);
+
+  const clearanceM = Number.isFinite(dims.clearanceRadiusMeters) ? dims.clearanceRadiusMeters : 15;
+  const areaSqM = candidate?.justification?.areaSqMeters || candidate?.geometry?.areaSqMeters || 0;
+  const isOfficial = dims.officialDesignation && !String(dims.officialDesignation).includes('UNCONFIRMED');
+  const isOsmAssembly = Boolean(candidate?.facilityType === 'LOCAL_DESIGNATED' || candidate?.isOsmAssemblyTagged);
+  const nearWater = Boolean(dims.waterProximityCaution);
+
+  // Destination safety / hazard adjustments (all expressed cleanly in equivalent meters)
+  const waterPenaltyMeters = (nearWater && !isOfficial) ? 75 : 0;
+  const standoffPenaltyMeters = clearanceM < 6 ? 85 : clearanceM < 12 ? 30 : 0;
+  const officialBonusMeters = isOfficial ? 75 : isOsmAssembly ? 22 : 0;
+  const standoffBonusMeters = clearanceM > 8 ? Math.min(40, (clearanceM - 8) * 1.6) : 0;
+  const areaBonusMeters = areaSqM >= 1500 ? Math.min(25, Math.sqrt(areaSqM) * 0.25) : 0;
+
+  const destHazardPenaltyMeters = waterPenaltyMeters + standoffPenaltyMeters;
+  const destSafetyBonusMeters = Number((officialBonusMeters + standoffBonusMeters + areaBonusMeters).toFixed(1));
+  const totalScore = Number(Math.max(1, riskCostMeters + destHazardPenaltyMeters - destSafetyBonusMeters).toFixed(1));
+
+  const debrisPct = Math.round((audit.meanDebrisRisk || 0) * 100);
+  const bridges = audit.bridgeCount || 0;
+  const widthM = audit.meanCorridorWidthM || 8.0;
+  const summaryKo = `실보행 ${Math.round(physicalWalkMeters)}m (위험등가 ${Math.round(riskCostMeters)}m) · 붕괴위험 ${debrisPct}% · 교량 ${bridges}회 · 평균폭 ${widthM}m · 이격 ${Math.round(clearanceM)}m`;
+
+  return {
+    reachable: true,
+    totalScore,
+    physicalWalkMeters,
+    riskCostMeters,
+    bridgeCount: bridges,
+    bridgePenaltyMeters: bridges * WALK_ROUTING_WEIGHTS.bridgeFixedInspectionMeters,
+    debrisExposurePct: debrisPct,
+    highDebrisMeters: audit.highDebrisMeters || 0,
+    canyonMeters: audit.canyonMeters || 0,
+    meanCorridorWidthM: widthM,
+    waterPenaltyMeters,
+    standoffPenaltyMeters,
+    destHazardPenaltyMeters,
+    destSafetyBonusMeters,
+    summaryKo
+  };
+}
+
+export function buildDynamicFacilityFromPoint({
+  buildingId = 'DYNAMIC_BLDG',
+  name = '선택 건축물',
+  unitNumber = '',
+  east_m = 0,
+  north_m = 0,
+  width_m = 28,
+  depth_m = 20,
+  yaw_rad = 0,
+  height_m = 18,
+  anchor = { lat: 37.555815, lon: 127.045053, h: 42.0 },
+  walkGraph = null,
+  buildingOBBs = REAL_OSM_BUILDINGS_FLAT,
+  shelter = null,
+  waterPolygons = [],
+  waterways = [],
+  indoorScope = 'HEIGHT_ONLY_3D',
+  shakingMmi = null,
+  elevationSampler = sampleTerrainHeight
+} = {}) {
+  const groundY = Number(((typeof elevationSampler === 'function' ? elevationSampler(east_m, north_m) : 0) || 0).toFixed(2));
+  const totalLevels = Math.max(1, Math.min(30, Math.round(height_m / 3.6)));
+  const floorHeightMeters = 3.6;
+  const hasIndoorData = indoorScope === 'PROVISIONAL_FLOORPLAN' || indoorScope === 'VERIFIED_INDOOR';
+  const defaultFloor = hasIndoorData ? Math.min(totalLevels, Math.max(2, Math.round(totalLevels * 0.5))) : 1;
+  const targetY = groundY + (defaultFloor - 1) * floorHeightMeters;
+
+  const centerX = east_m;
+  const centerZ = -north_m;
+
+  const hasValidShelter = Boolean(
+    shelter && (shelter.localCenter || shelter.positionThree || (typeof shelter.east_m === 'number' && typeof shelter.north_m === 'number'))
+  );
+  const shelterXZ = hasValidShelter
+    ? (shelter.localCenter
+      ? [shelter.localCenter[0], shelter.localCenter[2]]
+      : (shelter.positionThree
+        ? [shelter.positionThree[0], shelter.positionThree[2]]
+        : [shelter.east_m, -shelter.north_m]))
+    : null;
+  const shelterY = shelterXZ
+    ? Number(
+      (shelter?.localCenter?.[1] ??
+        shelter?.positionThree?.[1] ??
+        (typeof elevationSampler === 'function' ? elevationSampler(shelterXZ[0], -shelterXZ[1]) : groundY) ??
+        groundY).toFixed(2)
+    )
+    : groundY;
+
+  const exitSpec = buildNeutralStreetExit({
+    east_m, north_m, width_m, depth_m, yaw_rad, height_m,
+    walkGraph, buildingOBBs, preferredTargetXZ: shelterXZ
+  });
+  const { corners, bestExit, doorXZ, footwayXZ, vecOutX, vecOutZ } = exitSpec;
+  const footprint = [...corners, corners[0]].map(p => Object.freeze([Number(p[0].toFixed(2)), Number(p[1].toFixed(2))]));
+  const normOut = 1.0;
   const footwayY = Number(((typeof elevationSampler === 'function' ? elevationSampler(footwayXZ[0], -footwayXZ[1]) : groundY) + 0.25).toFixed(2));
 
   // Only bypass strict building OBB collision for legacy Hanyang Engineering I calibrated courtyard
   const originBypassRad = buildingId === 'BLDG_212_ENG1' ? 32.0 : 0.0;
   const targetShelterId = shelter?.shelterId || shelter?.id || null;
-  const emptySol = { found: false, totalDistanceMeters: 0, hasStairs: false, edges: [], targetNodeId: null };
+  const emptySol = { found: false, totalDistanceMeters: 0, hasStairs: false, edges: [], targetNodeId: null, routeAudit: null };
   const shortestSol = hasValidShelter
     ? solveCampusWalkGraph({
       startXZ: footwayXZ,
       goalXZ: shelterXZ,
       excludeStairs: false,
+      shakingMmi,
       buildingOBBs,
       customWalkGraph: walkGraph,
       elevationSampler,
@@ -1549,11 +1951,29 @@ export function buildDynamicFacilityFromPoint({
       originExclusionRadius: originBypassRad
     })
     : emptySol;
+  const naiveShortestSol = (hasValidShelter && shortestSol.found && buildingId !== 'BLDG_212_ENG1')
+    ? solveCampusWalkGraph({
+      startXZ: footwayXZ,
+      goalXZ: shelterXZ,
+      excludeStairs: false,
+      seismicDebrisAware: false,
+      ignoreBridgePenalty: true,
+      buildingOBBs,
+      customWalkGraph: walkGraph,
+      elevationSampler,
+      targetShelterId,
+      waterPolygons,
+      waterways,
+      originCentroidXZ: [centerX, centerZ],
+      originExclusionRadius: originBypassRad
+    })
+    : shortestSol;
   const stepFreeSol = hasValidShelter
     ? solveCampusWalkGraph({
       startXZ: footwayXZ,
       goalXZ: shelterXZ,
       excludeStairs: true,
+      shakingMmi,
       buildingOBBs,
       customWalkGraph: walkGraph,
       elevationSampler,
@@ -1572,6 +1992,7 @@ export function buildDynamicFacilityFromPoint({
       startXZ: footwayXZ,
       goalXZ: shelterXZ,
       excludeStairs: false,
+      shakingMmi,
       buildingOBBs,
       customWalkGraph: walkGraph,
       elevationSampler,
@@ -1632,7 +2053,7 @@ export function buildDynamicFacilityFromPoint({
     packageId: `FACILITY_${buildingId}`,
     hasIndoorData,
     indoorScope,
-    dynamicOriginMeta: Object.freeze({ id: buildingId, name, east_m, north_m, height_m }),
+    dynamicOriginMeta: Object.freeze({ id: buildingId, name, east_m, north_m, width_m, depth_m, yaw_rad, height_m }),
     anchor: Object.freeze({ lat: anchor.lat, lon: anchor.lon, h: anchor.h ?? 42.0 }),
     buildingMetadata: Object.freeze({
       id: buildingId,
@@ -1712,9 +2133,32 @@ export function buildDynamicFacilityFromPoint({
       })
     }) : null,
     routeBaselines: Object.freeze({
-      PATH_SHORTEST_RAPID: Object.freeze({ name: `${name} 보행 경로`, targetLengthMeters: shortestSol.found ? shortestSol.totalDistanceMeters : 0, hasStairs: shortestSol.hasStairs, isWheelchairPassable: !shortestSol.hasStairs, provenance: 'PROVISIONAL' }),
-      PATH_STEP_FREE_DETOUR: Object.freeze({ name: `${name} 계단 회피 경로`, targetLengthMeters: stepFreeSol.found ? stepFreeSol.totalDistanceMeters : 0, hasStairs: false, isWheelchairPassable: true, provenance: 'PROVISIONAL' }),
-      PATH_ALTERNATIVE: Object.freeze({ name: `${name} 대체 보행 경로`, targetLengthMeters: altSol.found ? altSol.totalDistanceMeters : 0, hasStairs: altSol.hasStairs, isWheelchairPassable: !altSol.hasStairs, provenance: 'PROVISIONAL' })
+      PATH_SHORTEST_RAPID: Object.freeze({
+        name: `${name} 지진 안전 최적 경로`,
+        targetLengthMeters: shortestSol.found ? shortestSol.totalDistanceMeters : 0,
+        hasStairs: shortestSol.hasStairs,
+        isWheelchairPassable: !shortestSol.hasStairs,
+        provenance: 'PROVISIONAL',
+        routeAudit: shortestSol.routeAudit || null,
+        naiveShortestMeters: naiveShortestSol?.found ? naiveShortestSol.totalDistanceMeters : null,
+        naiveDebrisMeters: naiveShortestSol?.routeAudit?.highDebrisMeters ?? null
+      }),
+      PATH_STEP_FREE_DETOUR: Object.freeze({
+        name: `${name} 계단 회피 경로`,
+        targetLengthMeters: stepFreeSol.found ? stepFreeSol.totalDistanceMeters : 0,
+        hasStairs: false,
+        isWheelchairPassable: true,
+        provenance: 'PROVISIONAL',
+        routeAudit: stepFreeSol.routeAudit || null
+      }),
+      PATH_ALTERNATIVE: Object.freeze({
+        name: `${name} 대체 보행 경로`,
+        targetLengthMeters: altSol.found ? altSol.totalDistanceMeters : 0,
+        hasStairs: altSol.hasStairs,
+        isWheelchairPassable: !altSol.hasStairs,
+        provenance: 'PROVISIONAL',
+        routeAudit: altSol.routeAudit || null
+      })
     }),
     routeDisplayNames: Object.freeze({
       shortestLineName: `Path_Shortest_${buildingId}`,

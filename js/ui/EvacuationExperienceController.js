@@ -20,7 +20,12 @@ import { HanyangResponseAdapter } from '../response/HanyangResponseAdapter.js';
 import { GlobalLocalCameraTransition, CAMERA_STAGES } from '../response/GlobalLocalCameraTransition.js';
 import { ResponseUIAdapter } from '../response/ResponseUIAdapter.js';
 import { PedestrianRoutingEngine, LINK_STATE } from '../response/PedestrianRoutingEngine.js';
-import { buildDynamicFacilityFromPoint, solveCampusWalkGraph } from '../response/CampusWalkRouter.js';
+import {
+  buildDynamicFacilityFromPoint,
+  buildNeutralStreetExit,
+  evaluateDestinationMcdaScore,
+  solveCampusWalkGraph
+} from '../response/CampusWalkRouter.js';
 import {
   DATA_PROVENANCE_SOURCE,
   DEFAULT_HANYANG_FACILITY_PACKAGE,
@@ -179,6 +184,7 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
           <span class="dq-badge" id="dq-destination-badge">목적지 상태 대기</span>
         </div>
         <div id="evac-context-drawer" aria-hidden="true">
+          <div class="impact-sub" id="mcda-routing-audit-line">경로 선정 근거: 대피 경로 산출 대기 중</div>
           <div class="impact-sub" id="quake-impact-line">관측 · 사료 · 교육용 가정 구분 및 거리·방위 산출 대기 중</div>
           <div class="dq-lim-text" id="dq-limitation-summary">위치 선택 시 실제 도로망·개활 공간 데이터를 조회합니다</div>
         </div>
@@ -201,7 +207,7 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
         <button type="button" class="ctrl-btn active" id="btn-stage-campus" title="선택된 대피 동선 구간 확대 보기">경로 집중</button>
         <button type="button" class="ctrl-btn dev-only-control" id="btn-stage-bldg" title="출발 지점 구조 확인">내 건물</button>
         <span class="top-divider"></span>
-        <button type="button" class="ctrl-btn active" id="btn-route-shortest" title="최단 도보 거리 기준 경로">최단</button>
+        <button type="button" class="ctrl-btn active" id="btn-route-shortest" title="건물 외벽 낙하물 반경 · 협소 골목 · 교량 위험 · 대피지 이격을 반영한 지진 안전 최적 경로">안전최적</button>
         <button type="button" class="ctrl-btn" id="btn-route-stepfree" title="계단·단차를 피해 평지로 돌아가는 경로">계단회피</button>
         <button type="button" class="ctrl-btn" id="btn-route-alt" title="보행망 기반 우회 대안 경로 전환" style="display:none;">우회</button>
         <span class="top-divider"></span>
@@ -901,11 +907,17 @@ export class EvacuationExperienceController {
       return;
     }
     row.innerHTML = cands.slice(0, 4).map((c, idx) => {
-      const st = c.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
+      const unreachable = Boolean(c.dimensions?._unreachableFromOrigin) || c.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE;
+      const st = unreachable ? CANDIDATE_STATUS.UNAVAILABLE : (c.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL));
       const dotCls = st === CANDIDATE_STATUS.CONFIRMED ? 'is-confirmed' : (st === CANDIDATE_STATUS.UNAVAILABLE ? 'is-unavail' : 'is-conditional');
-      const distTxt = Number.isFinite(c.dimensions?.distanceMeters) ? `${c.dimensions.distanceMeters}m` : '미상';
+      const distTxt = unreachable
+        ? '단절'
+        : (Number.isFinite(c.dimensions?.distanceMeters) ? `${c.dimensions.distanceMeters}m` : '미상');
+      const mcdaTitle = c.dimensions?.mcdaSummaryKo
+        ? `title="${escapeHtml(c.dimensions.mcdaSummaryKo)}"`
+        : '';
       return `
-        <button type="button" class="candidate-pill-btn ${idx === this.selectedCandidateIndex ? 'active' : ''}" data-cand-idx="${idx}" ${st === CANDIDATE_STATUS.UNAVAILABLE ? 'disabled' : ''}>
+        <button type="button" class="candidate-pill-btn ${idx === this.selectedCandidateIndex ? 'active' : ''}" data-cand-idx="${idx}" ${mcdaTitle} ${unreachable ? 'disabled' : ''}>
           <span class="cand-dot ${dotCls}" aria-hidden="true"></span>
           <span class="cand-name">${escapeHtml(c.name)}</span>
           <span class="cand-dist">${escapeHtml(distTxt)}</span>
@@ -917,6 +929,13 @@ export class EvacuationExperienceController {
         this.selectDestinationCandidate(Number(btn.dataset.candIdx));
       });
     });
+  }
+
+  _getActiveShakingMmi() {
+    const smMmi = this.activeSeismicCtx?.officialProducts?.shakemap?.maxMmi;
+    if (Number.isFinite(Number(smMmi))) return Number(smMmi);
+    const estMmi = this.activeSeismicCtx?.estimatedMmi;
+    return Number.isFinite(Number(estMmi)) ? Number(estMmi) : null;
   }
 
   _buildFacilitySpec(orig, targetShelter) {
@@ -940,13 +959,15 @@ export class EvacuationExperienceController {
       waterways: this.activeSpatialPkg.terrainAndHydrology?.waterways || [],
       shelter: targetShelter || null,
       destinationStatus: targetShelter?.candidateStatus || (isHanyang ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL),
+      shakingMmi: this._getActiveShakingMmi(),
       elevationSampler: (e, n) => sampleGridHeightAt(this.activeSpatialPkg.terrainGrid, e, n)
     });
   }
 
   /**
-   * Recalculate distances from the selected building/origin to all shelter candidates,
-   * re-sort closest-first, update bottom pills, and route to the true shortest reachable shelter.
+   * Evaluate candidate destinations via neutral exterior portal & Seismic Multi-Criteria
+   * Optimization (walk distance + facade collapse/canyon exposure + bridge risk + shelter safety),
+   * eliminating across-river Euclidean traps and routing failure misordering.
    */
   selectShortestOriginAndBuildFacility(originMeta, opts = {}) {
     const pkg = this.activeSpatialPkg;
@@ -968,9 +989,10 @@ export class EvacuationExperienceController {
         : 99999;
       return {
         ...c,
-        dimensions: { ...(c.dimensions || {}), distanceMeters: euclid },
+        dimensions: { ...(c.dimensions || {}), distanceMeters: euclid, _unreachableFromOrigin: false },
         _euclidMeters: euclid,
-        _sortMeters: c.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE ? Infinity : euclid
+        _routedMeters: Infinity,
+        _mcdaScore: Infinity
       };
     });
     withEuclid.sort((a, b) => {
@@ -990,62 +1012,104 @@ export class EvacuationExperienceController {
       return null;
     }
 
-    // Build initial facility around closest straight-line shelter to obtain clean exterior doorway point
-    const dyn0 = this._buildFacilitySpec(originMeta, firstValid);
-    const footwayNode = dyn0?.outdoorGraph?.nodes?.find?.(n => n.id === dyn0.defaultOutdoorEgressNodeId);
-    const footwayXZ = footwayNode?.localPos ? [footwayNode.localPos[0], footwayNode.localPos[2]] : [originE, -originN];
-    const dyn0Dist = dyn0?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters || 0;
+    const bWidth = originMeta?.width_m || 18;
+    const bDepth = originMeta?.depth_m || 18;
     const isLegacyHanyang212 = originMeta?.id === 'BLDG_212_ENG1';
+    const originBypassRad = isLegacyHanyang212
+      ? 32.0
+      : (originMeta?.originHasBuilding === false ? 0.0 : Math.min(28.0, Math.hypot(bWidth, bDepth) * 0.52 + 2.5));
+
+    // Step 1: Neutral street-adjacent doorway without cross-river Euclidean shelter bias
+    const exitSpec = buildNeutralStreetExit({
+      east_m: originE,
+      north_m: originN,
+      width_m: bWidth,
+      depth_m: bDepth,
+      yaw_rad: originMeta?.yaw_rad || 0,
+      height_m: originMeta?.height_m || 18,
+      walkGraph: this.activeWalkGraph,
+      buildingOBBs: pkg.obbBuildingsFloat32,
+      preferredTargetXZ: null
+    });
     const evalSampler = (e, n) => sampleGridHeightAt(pkg.terrainGrid, e, n);
+    const shakingMmi = this._getActiveShakingMmi();
+    const waterPolys = pkg.terrainAndHydrology?.waterPolygons || [];
+    const waterways = pkg.terrainAndHydrology?.waterways || [];
 
-    // Admissible branch-and-bound: check alternative closer candidates ONLY when straight-line euclid < bestWalkDist
-    let bestWalkDist = dyn0Dist > 0 ? dyn0Dist : Infinity;
-    firstValid._routedMeters = bestWalkDist;
-    if (dyn0Dist > 0) firstValid.dimensions.distanceMeters = Math.round(dyn0Dist);
+    // Step 2: Evaluate top 10 closest candidates + any confirmed official shelters cleanly on graph
+    const availList = withEuclid.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE);
+    const evalSet = new Set(availList.slice(0, 10));
+    availList.forEach(c => {
+      if (c.candidateStatus === CANDIDATE_STATUS.CONFIRMED && evalSet.size < 14) {
+        evalSet.add(c);
+      }
+    });
 
-    const reachableTop = withEuclid.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE).slice(0, 4);
-    for (let i = 1; i < reachableTop.length; i++) {
-      const cand = reachableTop[i];
-      if (cand._euclidMeters >= bestWalkDist) break;
-      const sol = solveCampusWalkGraph({
-        startXZ: footwayXZ,
+    for (const cand of evalSet) {
+      let sol = solveCampusWalkGraph({
+        startXZ: exitSpec.footwayXZ,
         goalXZ: [cand.east_m, -cand.north_m],
         excludeStairs: false,
+        shakingMmi,
         buildingOBBs: pkg.obbBuildingsFloat32,
         customWalkGraph: this.activeWalkGraph,
         elevationSampler: evalSampler,
         targetShelterId: cand.officialId || cand.id || 'SHELTER',
-        waterPolygons: pkg.terrainAndHydrology?.waterPolygons || [],
-        waterways: pkg.terrainAndHydrology?.waterways || [],
+        waterPolygons: waterPolys,
+        waterways,
         originCentroidXZ: [originE, originN],
-        originExclusionRadius: isLegacyHanyang212 ? 32.0 : 0.0
+        originExclusionRadius: originBypassRad
       });
+      // Fallback: if single street portal lies on wrong side of an enclosed block, test origin perimeter
+      if (!sol.found && originBypassRad > 0) {
+        sol = solveCampusWalkGraph({
+          startXZ: [originE, -originN],
+          goalXZ: [cand.east_m, -cand.north_m],
+          excludeStairs: false,
+          shakingMmi,
+          buildingOBBs: pkg.obbBuildingsFloat32,
+          customWalkGraph: this.activeWalkGraph,
+          elevationSampler: evalSampler,
+          targetShelterId: cand.officialId || cand.id || 'SHELTER',
+          waterPolygons: waterPolys,
+          waterways,
+          originCentroidXZ: [originE, originN],
+          originExclusionRadius: originBypassRad
+        });
+      }
+
       if (sol.found && sol.totalDistanceMeters > 0) {
+        const mcda = evaluateDestinationMcdaScore(cand, sol, { shakingMmi });
         cand._routedMeters = sol.totalDistanceMeters;
+        cand._mcdaScore = mcda.totalScore;
         cand.dimensions.distanceMeters = Math.round(sol.totalDistanceMeters);
-        if (sol.totalDistanceMeters < bestWalkDist) bestWalkDist = sol.totalDistanceMeters;
+        cand.dimensions.mcdaScore = mcda.totalScore;
+        cand.dimensions.routeAudit = sol.routeAudit || null;
+        cand.dimensions.mcdaSummaryKo = mcda.summaryKo;
+        cand.dimensions._unreachableFromOrigin = false;
       } else {
         cand._routedMeters = Infinity;
+        cand._mcdaScore = Infinity;
+        cand.dimensions._unreachableFromOrigin = true;
+        cand.dimensions.mcdaSummaryKo = '선택 건물에서 도보 연결 경로 미확인(하천·단절)';
       }
     }
 
     withEuclid.sort((a, b) => {
-      const aUnavail = a.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE;
-      const bUnavail = b.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE;
+      const aUnavail = a.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE || a.dimensions._unreachableFromOrigin;
+      const bUnavail = b.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE || b.dimensions._unreachableFromOrigin;
       if (aUnavail !== bUnavail) return aUnavail ? 1 : -1;
-      const aKey = Number.isFinite(a._routedMeters) ? a._routedMeters : (a._routedMeters === Infinity ? 1e8 + a._euclidMeters : a._euclidMeters);
-      const bKey = Number.isFinite(b._routedMeters) ? b._routedMeters : (b._routedMeters === Infinity ? 1e8 + b._euclidMeters : b._euclidMeters);
+      const aKey = Number.isFinite(a._mcdaScore) ? a._mcdaScore : (1e7 + a._euclidMeters);
+      const bKey = Number.isFinite(b._mcdaScore) ? b._mcdaScore : (1e7 + b._euclidMeters);
       return aKey - bKey;
     });
 
-    pkg.sheltersAndFacilities = withEuclid.map(({ _euclidMeters, _routedMeters, _sortMeters, ...clean }) => clean);
+    pkg.sheltersAndFacilities = withEuclid.map(({ _euclidMeters, _routedMeters, _mcdaScore, ...clean }) => clean);
     this.selectedCandidateIndex = 0;
 
     const winner = pkg.sheltersAndFacilities[0];
     this.activeShelterJustification = winner?.justification || null;
-    const winnerPkg = (winner?.id && winner.id === firstValid.id && dyn0)
-      ? dyn0
-      : this._buildFacilitySpec(originMeta, winner);
+    const winnerPkg = this._buildFacilitySpec(originMeta, winner);
 
     if (winnerPkg) {
       this.switchToDynamicFacility(winnerPkg, opts);
@@ -1960,6 +2024,7 @@ export class EvacuationExperienceController {
     }
 
     const deltaEl = this._el('route-delta-note');
+    const activeAudit = shortest?.routeAudit || this.activeSpatialPkg?.sheltersAndFacilities?.[this.selectedCandidateIndex]?.dimensions?.routeAudit || null;
     if (deltaEl) {
       if (!this.activeFacilityPkg) {
         deltaEl.textContent = '';
@@ -1967,10 +2032,38 @@ export class EvacuationExperienceController {
         deltaEl.textContent = `계단 ${Math.round(stairDist)}m 회피 중`;
       } else if (this.activeAltRouteIndex > 0) {
         deltaEl.textContent = '우회 대안 경로 활성';
+      } else if (activeAudit) {
+        const debrisPct = Math.round((activeAudit.meanDebrisRisk || 0) * 100);
+        const brTxt = activeAudit.bridgeCount > 0 ? `교량 ${activeAudit.bridgeCount}회` : '교량 0회';
+        const naiveDelta = (shortest?.naiveShortestMeters && shortest.targetLengthMeters - shortest.naiveShortestMeters >= 8)
+          ? ` · 위험우회 +${Math.round(shortest.targetLengthMeters - shortest.naiveShortestMeters)}m`
+          : '';
+        deltaEl.textContent = `낙하위험 ${debrisPct}% · ${brTxt}${naiveDelta}`;
       } else if (hasStairFreeAlt) {
         deltaEl.textContent = `계단 ${Math.round(stairDist)}m 포함`;
       } else {
         deltaEl.textContent = '평탄 보행 · 계단 없음';
+      }
+    }
+
+    const auditLine = this._el('mcda-routing-audit-line');
+    if (auditLine) {
+      const selCand = this.activeSpatialPkg?.sheltersAndFacilities?.[this.selectedCandidateIndex];
+      const clr = selCand?.dimensions?.clearanceRadiusMeters;
+      if (activeAudit) {
+        const debrisPct = Math.round((activeAudit.meanDebrisRisk || 0) * 100);
+        const canyonStr = activeAudit.canyonMeters > 0 ? `협소협곡(H/W) ${Math.round(activeAudit.canyonMeters)}m` : '양측협곡 위험 없음';
+        const bypassNote = (shortest?.naiveShortestMeters && shortest.targetLengthMeters - shortest.naiveShortestMeters >= 8)
+          ? ` · 단순최단(${Math.round(shortest.naiveShortestMeters)}m) 대비 낙하·교량 리스크 회피`
+          : '';
+        auditLine.textContent =
+          `선정 근거(MCDA): 실보행 ${Math.round(activeAudit.physicalDistanceMeters)}m (위험등가 ${Math.round(activeAudit.effectiveRiskCostMeters)}m) · ` +
+          `외벽붕괴위험 ${debrisPct}% · ${canyonStr} · 교량 ${activeAudit.bridgeCount || 0}회 · 평균 가로폭 ${activeAudit.meanCorridorWidthM}m` +
+          `${Number.isFinite(clr) ? ` · 목적지 이격 ${clr}m` : ''}${bypassNote}`;
+      } else if (this.activeFacilityPkg) {
+        auditLine.textContent = `선정 근거: 실보행 ${Math.round(shortest?.targetLengthMeters || 0)}m · 보행 네트워크 기반 경로 산출`;
+      } else {
+        auditLine.textContent = '선정 근거: 대피 경로 산출 대기 중';
       }
     }
   }

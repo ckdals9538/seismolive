@@ -977,6 +977,7 @@ export class RoadNetworkProvider {
     const nodeIdxById = new Map();
     const nodes = [];
     const edges = [];
+    const edgeWidths = [];
 
     const addNode = (osmId, e, n) => {
       if (nodeIdxById.has(osmId)) return nodeIdxById.get(osmId);
@@ -992,6 +993,13 @@ export class RoadNetworkProvider {
       const hasStairs = hw === 'steps' ? 1 : 0;
       const crossingInt = hw === 'crossing' ? 1 : 0;
       const debrisRisk = w.isBridge ? 0.25 : hw === 'footway' || hw === 'pedestrian' || hw === 'steps' ? 0.08 : 0.14;
+      const parsedW = parseFloat(String(w.tags.width || w.tags.est_width || '').replace(/[^0-9.]/g, ''));
+      const parsedLanes = parseFloat(String(w.tags.lanes || '').replace(/[^0-9.]/g, ''));
+      const widthHint = (Number.isFinite(parsedW) && parsedW >= 1.2 && parsedW <= 45)
+        ? Number(parsedW.toFixed(1))
+        : (Number.isFinite(parsedLanes) && parsedLanes >= 1 && parsedLanes <= 10)
+          ? Number((parsedLanes * 3.2 + (w.tags.sidewalk && w.tags.sidewalk !== 'no' ? 3.0 : 0)).toFixed(1))
+          : null;
       for (let i = 1; i < w.pts.length; i++) {
         const [e0, n0, id0] = w.pts[i - 1];
         const [e1, n1, id1] = w.pts[i];
@@ -1005,10 +1013,11 @@ export class RoadNetworkProvider {
         const u = addNode(id0, e0, n0);
         const v = addNode(id1, e1, n1);
         edges.push([u, v, Number(dist.toFixed(2)), hw, hasStairs, debrisRisk, w.isBridge ? 1 : 0, crossingInt]);
+        edgeWidths.push(widthHint);
       }
     }
 
-    const walkGraph = { anchor: { lat: anchorLat, lon: anchorLon }, nodes, edges };
+    const walkGraph = { anchor: { lat: anchorLat, lon: anchorLon }, nodes, edges, edgeWidths };
 
     return {
       denseRoadNetwork,
@@ -1086,7 +1095,8 @@ export class FacilityProvider {
       let cE = null, cN = null, area = null, ptsEN = null;
 
       if (el.type === 'node' && osmNodes.has(el.id)) {
-        if (tags.emergency !== 'assembly_point' && tags.social_facility !== 'shelter' && tags.amenity !== 'shelter') continue;
+        // Strictly exclude OSM amenity=shelter (rain/busstop/park gazebos) unless explicitly marked emergency assembly_point or social_facility=shelter
+        if (tags.emergency !== 'assembly_point' && tags.social_facility !== 'shelter') continue;
         const nd = osmNodes.get(el.id);
         cE = nd.e;
         cN = nd.n;
@@ -1176,18 +1186,23 @@ export class FacilityProvider {
       if (insideBldg) continue;
 
       let clearanceMeters = 80;
+      let tallestSurroundingH = 0;
       for (const b of obbRawList) {
-        const cl = Math.max(0, Math.hypot(b.east_m - c.east_m, b.north_m - c.north_m) - Math.hypot(b.width_m, b.depth_m) * 0.45);
-        if (cl < clearanceMeters) clearanceMeters = cl;
+        const distEdge = Math.max(0, Math.hypot(b.east_m - c.east_m, b.north_m - c.north_m) - Math.hypot(b.width_m, b.depth_m) * 0.45);
+        if (distEdge < clearanceMeters) clearanceMeters = distEdge;
+        if (distEdge < Math.max(12, (b.height_m || 8.5) * 0.65) && (b.height_m || 8.5) > tallestSurroundingH) {
+          tallestSurroundingH = b.height_m || 8.5;
+        }
       }
 
-      // Check graph reachability from origin
+      // Check graph reachability from origin AND whether the site touches walkable road topology at all
       let nearestNodeIdx = -1;
       let snapDistMeters = Infinity;
       for (let i = 0; i < nodes.length; i++) {
         const d = Math.hypot(nodes[i][1] - c.east_m, nodes[i][2] - c.north_m);
         if (d < snapDistMeters) { snapDistMeters = d; nearestNodeIdx = i; }
       }
+      const hasLocalRoadAccess = Boolean(nodes.length > 0 && nearestNodeIdx >= 0 && snapDistMeters <= 200);
       const graphConnected = Boolean(originComponent && nearestNodeIdx >= 0 && snapDistMeters <= 160 && originComponent.has(nearestNodeIdx));
       const linearDistMeters = Math.round(Math.hypot(c.east_m - originEN[0], c.north_m - originEN[1]));
 
@@ -1196,7 +1211,7 @@ export class FacilityProvider {
         waterPolygons.some(wp => (wp.outer || wp).some(p => Math.hypot(p[0] - c.east_m, p[1] - c.north_m) < 45));
 
       const distPenalty = linearDistMeters * 0.03;
-      const status = !graphConnected
+      const status = !hasLocalRoadAccess
         ? CANDIDATE_STATUS.UNAVAILABLE
         : (c.isOfficialDesignated ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
 
@@ -1211,8 +1226,10 @@ export class FacilityProvider {
           : 'UNKNOWN (개방 여부 현장 확인 필요)',
         distanceMeters: linearDistMeters,
         graphConnected,
+        hasLocalRoadAccess,
         snapDistanceMeters: Number.isFinite(snapDistMeters) ? Math.round(snapDistMeters) : null,
         clearanceRadiusMeters: Math.round(clearanceMeters),
+        tallestSurroundingHeightM: Math.round(tallestSurroundingH),
         waterProximityCaution: nearWater,
         seismicImpactStatus: impactStatus,
         confidenceLabel: c.isOfficialDesignated
@@ -1223,10 +1240,10 @@ export class FacilityProvider {
       const selectionReason = c.isOfficialDesignated
         ? (graphConnected
             ? `${c.sourceName || '행정안전부 공식 지정'} 대피장소로 확인되었으며 보행망 연결이 가능합니다. 재난 당시 개방 상태는 현장 확인이 필요합니다.`
-            : `${c.sourceName || '행정안전부 공식 지정'} 대피장소이나 출발 지점과 연결되는 보행 네트워크가 확인되지 않았습니다.`)
-        : (graphConnected
-            ? `보행망으로 연결 가능한 ${c.areaSqMeters ? `면적 약 ${c.areaSqMeters.toLocaleString()}㎡ ` : ''}개활 후보(이격 ${Math.round(clearanceMeters)}m)입니다. 단, 공식 대피소 지정 여부 및 개방 상태는 현장 확인이 필요한 조건부(CONDITIONAL) 후보입니다.`
-            : '후보 공간은 존재하나 출발 지점으로부터 연결된 보행 네트워크가 확인되지 않았습니다.');
+            : `${c.sourceName || '행정안전부 공식 지정'} 대피장소이나 출발 지점 기준 연결 여부를 확인 중입니다.`)
+        : (hasLocalRoadAccess
+            ? `보행망으로 연결 가능한 ${c.areaSqMeters ? `면적 약 ${c.areaSqMeters.toLocaleString()}㎡ ` : ''}개활 후보(이격 ${Math.round(clearanceMeters)}m${tallestSurroundingH > 0 ? ` · 인접 건물 최고 ${Math.round(tallestSurroundingH)}m` : ''})입니다. 단, 공식 대피소 지정 여부 및 개방 상태는 현장 확인이 필요한 조건부(CONDITIONAL) 후보입니다.`
+            : '후보 공간은 존재하나 주변 보행 네트워크 접속 노드가 확인되지 않았습니다.');
 
       evaluated.push({
         id: c.id,
@@ -1240,7 +1257,7 @@ export class FacilityProvider {
         positionThree: [Number(c.east_m.toFixed(2)), Number(y.toFixed(2)), Number((-c.north_m).toFixed(2))],
         east_m: c.east_m,
         north_m: c.north_m,
-        priority: Math.max(10, Math.round((graphConnected ? 65 : 15) + (c.isOfficialDesignated ? 35 : 0) + (c.isOsmAssemblyTagged ? 20 : 0) + Math.min(20, clearanceMeters * 0.5) - distPenalty)),
+        priority: Math.max(10, Math.round((graphConnected ? 65 : hasLocalRoadAccess ? 25 : 10) + (c.isOfficialDesignated ? 35 : 0) + (c.isOsmAssemblyTagged ? 20 : 0) + Math.min(20, clearanceMeters * 0.5) - distPenalty)),
         provenance: c.isOfficialDesignated ? VERIFICATION_STATUS.VERIFIED : VERIFICATION_STATUS.PROVISIONAL,
         provenanceLabel: c.isOfficialDesignated
           ? '행정안전부 공식 지정 대피장소 (현장 개방 별도 확인)'
@@ -1252,6 +1269,7 @@ export class FacilityProvider {
           areaSqMeters: c.areaSqMeters,
           capacityEstimate: c.capacityOverride ?? (c.areaSqMeters ? Math.round((c.areaSqMeters * 0.45) / 1.65) : null),
           clearanceRadiusMeters: Math.round(clearanceMeters),
+          tallestSurroundingHeightM: Math.round(tallestSurroundingH),
           provenanceLabel: c.isOfficialDesignated
             ? '공식 지진옥외대피장소 지정 확인 · 개방 현장 확인 필요'
             : (c.isOsmAssemblyTagged ? 'OSM 집결지 태그 · 개방 미확인' : '개활지·운동장 추출 (공식 대피소 지정 미확인)'),
@@ -1263,14 +1281,14 @@ export class FacilityProvider {
       });
     }
 
-    // Sort reachable candidates first, then official/assembly tags & clearance
+    // Retain up to 24 distinct regional shelters across all banks/quadrants (>= 85m spacing)
     evaluated.sort((a, b) => b.priority - a.priority);
     const deduped = [];
     for (const c of evaluated) {
-      if (!deduped.some(prev => Math.hypot(prev.east_m - c.east_m, prev.north_m - c.north_m) < 120)) {
+      if (!deduped.some(prev => Math.hypot(prev.east_m - c.east_m, prev.north_m - c.north_m) < 85)) {
         deduped.push(c);
       }
-      if (deduped.length >= 6) break;
+      if (deduped.length >= 24) break;
     }
 
     const confirmedCount = deduped.filter(c => c.candidateStatus === CANDIDATE_STATUS.CONFIRMED).length;
