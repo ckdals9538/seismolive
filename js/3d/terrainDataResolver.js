@@ -134,16 +134,17 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
 
 /**
  * Load global elevation & bathymetry DataTexture from UNORM16 binary
- * Planetary ETOPO 2022 relief: -11,000m to +9,000m
+ * Planetary ETOPO 2022 relief: -11,000m to +9,000m (supports 2048 & 4096 tiers)
  */
-let cachedGlobalTexture = null;
+const globalTextureCache = new Map();
 
 export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain/bathymetry/global_etopo_elevation_2048_unorm16.bin', width = 2048, height = 1024) {
   const T = resolveThree(THREE);
-  if (cachedGlobalTexture) return cachedGlobalTexture;
+  const cacheKey = `${binUrl}|${width}x${height}`;
+  if (globalTextureCache.has(cacheKey)) return globalTextureCache.get(cacheKey);
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 7000);
+  const timeoutId = setTimeout(() => controller.abort(), 9000);
   try {
     const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
     const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
@@ -154,14 +155,45 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
     const buffer = await response.arrayBuffer();
     const uint16View = new Uint16Array(buffer);
     const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.RepeatWrapping);
-    cachedGlobalTexture = texture;
+    globalTextureCache.set(cacheKey, texture);
     return texture;
   } catch (err) {
     clearTimeout(timeoutId);
     console.warn('[Global Relief] Fallback to procedural planetary texture:', err.message);
     const texture = packNormalizedValueToRgbaTexture(T, 0.55, width, height, T.RepeatWrapping);
-    cachedGlobalTexture = texture;
+    globalTextureCache.set(cacheKey, texture);
     return texture;
+  }
+}
+
+/**
+ * Load Korean Peninsula 15 arc-second Macro DEM & East Sea Bathymetry (960x1080, 33-42N, 124-132E, -3500m..+2500m).
+ * Eliminates regional square seams by embedding high-resolution Korean topography directly onto the WGS84 Globe.
+ */
+let cachedKoreaMacroTexture = null;
+
+export async function loadKoreaMacroElevationTexture(THREE, binUrl = 'assets/terrain/bathymetry/korea_macro_elevation_unorm16.bin', width = 960, height = 1080) {
+  const T = resolveThree(THREE);
+  if (cachedKoreaMacroTexture) return cachedKoreaMacroTexture;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 7000);
+  try {
+    const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
+    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
+    clearTimeout(timeoutId);
+    if (!response.ok) {
+      throw new Error(`Failed to load Korea macro relief binary: ${response.status}`);
+    }
+    const buffer = await response.arrayBuffer();
+    const uint16View = new Uint16Array(buffer);
+    const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.ClampToEdgeWrapping);
+    cachedKoreaMacroTexture = texture;
+    return texture;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn('[Korea Macro Relief] Optional overlay unavailable, using global ETOPO only:', err.message);
+    return null;
   }
 }
 

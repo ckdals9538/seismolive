@@ -28,9 +28,11 @@
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
       loadGlobalElevationTexture,
+      loadKoreaMacroElevationTexture,
       packUnorm16ToRgbaTexture,
       packNormalizedValueToRgbaTexture
     } from './3d/terrainDataResolver.js?v=5.5';
+    import { buildTectonicBoundaryGroup, disposeTectonicBoundaryGroup } from './data/tectonicBoundaries.js?v=6.0';
     import {
       SeismicSourceModel,
       VelocityModelStatus,
@@ -119,8 +121,14 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     let orbitDwellTimer = 0.0;
     let cachedLandCanvasTexture = null;
     let globalElevationTexture = null;
+    let koreaMacroTexture = null;
+    let globalTexSizeVec = new THREE.Vector2(2048, 1024);
     let celestialStarsMesh = null;
     let atmosphereGlowMesh = null;
+    let tectonicBoundaryGroup = null;
+    let regionalDemReady = false;
+    let showIsoseismalContours = 0.0;
+    let hasTsunamiMode = 0.0;
     const discoveryNodes = [];
     window.discoveryNodes = discoveryNodes;
     let hoveredBeacon = null;
@@ -227,12 +235,31 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxDistance = 400.0;
-    controls.minDistance = 20.0;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.65;
+    controls.zoomSpeed = 0.85;
+    controls.panSpeed = 0.65;
+    controls.screenSpacePanning = false;
+    controls.maxDistance = 360.0;
+    controls.minDistance = 18.0;
     if (THREE.TOUCH) {
       controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
     }
+
+    let isUserInteracting = false;
+    let performanceCameraLockedByUser = false;
+    let lastInteractionMs = 0;
+    controls.addEventListener('start', () => {
+      isUserInteracting = true;
+      lastInteractionMs = performance.now();
+      if (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA) {
+        performanceCameraLockedByUser = true;
+      }
+    });
+    controls.addEventListener('end', () => {
+      isUserInteracting = false;
+      lastInteractionMs = performance.now();
+    });
 
     window.camera = camera;
     window.controls = controls;
@@ -437,10 +464,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
     // ORBITAL-TO-LOCAL CONTINUOUS FLIGHT CONTROLLER
     // -------------------------------------------------------------------------
+    const flightUpAxis = new THREE.Vector3(0, 1, 0);
     let pendingLocalCityFlight = null;
 
     async function startDescentFlight(targetEventId, flightOpts = {}) {
       console.log(`[Flight Controller] Initiating descent flight to: ${targetEventId}`);
+      performanceCameraLockedByUser = false;
       if (!flightOpts.preservePendingLocalCity) {
         pendingLocalCityFlight = null;
       }
@@ -481,7 +510,10 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       camera.position.set(newCamThree[0], newCamThree[1], newCamThree[2]);
       controls.target.set(newTargetThree[0], newTargetThree[1], newTargetThree[2]);
+      const prevDampStart = controls.enableDamping;
+      controls.enableDamping = false;
       controls.update();
+      controls.enableDamping = prevDampStart;
 
       controls.enabled = false;
       flightStartPos.copy(camera.position);
@@ -551,6 +583,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           scene.fog.density = THREE.MathUtils.lerp(0.0001, 0.015, ease);
         }
 
+        if (terrainUniforms?.u_regionFade) {
+          const fadeVal = regionalDemReady ? THREE.MathUtils.smoothstep(ease, 0.28, 0.94) : 0.0;
+          terrainUniforms.u_regionFade.value = fadeVal;
+          if (terrainMesh) terrainMesh.visible = regionalDemReady && fadeVal > 0.02;
+        }
+
         discoveryNodes.forEach(n => { n.group.visible = (ease < 0.65); });
 
         if (flightProgress >= 1.0) {
@@ -561,6 +599,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
             pendingLocalCityFlight = null;
             flightState = FLIGHT_STATES.ORBIT;
             exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;
+            if (terrainMesh) terrainMesh.visible = false;
+            if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
             document.body.classList.add('in-local-evac-mode');
             exhibitionModeManager.enterLocalResponseMode(req.stage, {
               ...req,
@@ -576,14 +616,22 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           window.simTime = 0.0;
           isPlaying = true;
           exhibitionAppContext.isPlaying = isPlaying;
+          performanceCameraLockedByUser = false;
+          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = regionalDemReady ? 1.0 : 0.0;
+          if (terrainMesh) terrainMesh.visible = regionalDemReady;
           if (orchestrator?.seekToTime) orchestrator.seekToTime(0.0);
           controlSurface?.updatePerformanceTime?.(0.0, currentMaxSimTime);
           controls.target.copy(flightEndLookAt);
-          controls.minDistance = 0.04;
-          controls.maxDistance = 6.0;
-          controls.maxPolarAngle = Math.PI * 0.465;
+          controls.minDistance = 0.10;
+          controls.maxDistance = 5.5;
+          controls.minPolarAngle = 0.08;
+          controls.maxPolarAngle = Math.PI * 0.43;
+          controls.screenSpacePanning = false;
           controls.enabled = true;
+          const prevDampPerf = controls.enableDamping;
+          controls.enableDamping = false;
           controls.update();
+          controls.enableDamping = prevDampPerf;
           if (livingSoundfield && !livingSoundfield.isMuted) {
             livingSoundfield.triggerEventRupture(currentParsedEvent.eventId);
           }
@@ -612,24 +660,40 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           scene.fog.density = THREE.MathUtils.lerp(0.015, 0.0001, ease);
         }
 
+        if (terrainUniforms?.u_regionFade) {
+          const fadeVal = regionalDemReady ? (1.0 - THREE.MathUtils.smoothstep(ease, 0.0, 0.68)) : 0.0;
+          terrainUniforms.u_regionFade.value = fadeVal;
+          if (terrainMesh) terrainMesh.visible = regionalDemReady && fadeVal > 0.02;
+        }
+
         discoveryNodes.forEach(n => { n.group.visible = (ease > 0.35); });
 
         if (flightProgress >= 1.0) {
           flightProgress = 1.0;
           flightState = FLIGHT_STATES.ORBIT;
           exhibitionAppContext.flightState = flightState;
+          performanceCameraLockedByUser = false;
+          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
+          if (terrainMesh) terrainMesh.visible = false;
           controls.target.copy(flightEndLookAt);
-          controls.minDistance = 20.0;
-          controls.maxDistance = 400.0;
-          controls.maxPolarAngle = Math.PI;
+          controls.minDistance = 18.0;
+          controls.maxDistance = 360.0;
+          controls.minPolarAngle = 0.0;
+          controls.maxPolarAngle = Math.PI * 0.92;
+          controls.screenSpacePanning = false;
           controls.enabled = true;
+          const prevDampPerf = controls.enableDamping;
+          controls.enableDamping = false;
           controls.update();
+          controls.enableDamping = prevDampPerf;
           orbitDwellTimer = 0.0;
           updateHUDForFlight('orbit');
         }
       } else if (flightState === FLIGHT_STATES.ORBIT) {
-        if (!controls.state || controls.state === -1) {
-          camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.0003);
+        if (!isUserInteracting && (performance.now() - lastInteractionMs) > 2500) {
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(flightUpAxis, 0.00025);
+          camera.position.add(controls.target);
         }
         if (autonomousMode) {
           orbitDwellTimer += dt;
@@ -638,14 +702,15 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           }
         }
       } else if (flightState === FLIGHT_STATES.PERFORMANCE) {
-        // Subtle gallery camera breathing drift when user is not manually interacting
-        if (!controls.state || controls.state === -1) {
-          const driftSpeed = 0.00035;
-          const driftAngle = Math.sin(simTime * 0.12) * driftSpeed;
-          camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), driftAngle);
-          // Very gentle vertical breathing synced with long-period seismic swell
-          camera.position.y += Math.cos(simTime * 0.08) * 0.00008;
-          controls.update();
+        // Subtle gallery camera breathing ONLY before user takes manual OrbitControls control
+        if (!isUserInteracting && !performanceCameraLockedByUser) {
+          const driftAngle = Math.sin(simTime * 0.12) * 0.00028;
+          camera.position.sub(controls.target);
+          camera.position.applyAxisAngle(flightUpAxis, driftAngle);
+          camera.position.add(controls.target);
+          if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        controls.update();
+      }
         }
 
         if (simTime >= 28.0 && simTime < 34.0) {
@@ -780,6 +845,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       const mat = new THREE.ShaderMaterial({
         uniforms: {
           u_globalElevation: { value: globalElevationTexture },
+          u_globalTexSize: { value: globalTexSizeVec },
+          u_koreaMacro: { value: koreaMacroTexture },
+          u_hasKoreaMacro: { value: koreaMacroTexture ? 1.0 : 0.0 },
           u_globalHMin: { value: -11000.0 },
           u_globalHMax: { value: 9000.0 },
           u_metersToUnits: { value: WGS84.METERS_TO_UNITS },
@@ -791,6 +859,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           u_vP: { value: 6.0 * 1000.0 * WGS84.METERS_TO_UNITS },
           u_vS: { value: 3.5 * 1000.0 * WGS84.METERS_TO_UNITS },
           u_dominantFreq: { value: 1.0 },
+          u_physicalDisplacement: { value: paramDisplacementScale },
           u_faultLength: { value: 0.0 },
           u_faultStrike: { value: 0.0 },
           u_ruptureVelocity: { value: 2.8 * 1000.0 * WGS84.METERS_TO_UNITS },
@@ -802,7 +871,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           u_errorEllipseAxes: { value: new THREE.Vector2(0.0, 0.0) },
           u_errorEllipseAngle: { value: 0.0 },
           u_isoseismalRadii: { value: new THREE.Vector4(0.0, 0.0, 0.0, 0.0) },
-          u_hasErrorEllipse: { value: 0.0 }
+          u_hasErrorEllipse: { value: 0.0 },
+          u_showIsoseismalContours: { value: showIsoseismalContours },
+          u_hasTsunamiMode: { value: hasTsunamiMode }
         },
         vertexShader: TIER0_GLOBE_VERTEX_SHADER,
         fragmentShader: TIER0_GLOBE_FRAGMENT_SHADER,
@@ -893,6 +964,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       // Phase E: Continuous Planetary Elevation Foundation (NOAA ETOPO 2022)
       u_globalElevation: { value: null },
+      u_globalTexSize: { value: globalTexSizeVec },
+      u_koreaMacro: { value: null },
+      u_hasKoreaMacro: { value: 0.0 },
       u_globalHMin: { value: -11000.0 },
       u_globalHMax: { value: 9000.0 },
       u_uncertaintyRadiusUnits: { value: 0.45 },
@@ -900,6 +974,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       u_errorEllipseAngle: { value: 0.436 },
       u_isoseismalRadii: { value: new THREE.Vector4(0.0, 0.0, 0.0, 0.0) },
       u_hasErrorEllipse: { value: 0.0 },
+      u_regionFade: { value: 0.0 },
+      u_showIsoseismalContours: { value: 0.0 },
 
       // Interactive Geophysics-to-Wavefield Probe (Phase F1)
       u_probeDistUnits: { value: 0.0 },
@@ -910,7 +986,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
     const integratedTerrainMat = new THREE.ShaderMaterial({
       uniforms: terrainUniforms,
-      transparent: false,
+      transparent: true,
       depthWrite: true,
       polygonOffset: true,
       polygonOffsetFactor: -2,
@@ -1049,17 +1125,28 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       const rx = fx - x0;
       const ry = fy - y0;
 
-      const n00 = data[y0 * W + x0];
-      const n10 = data[y0 * W + x1];
-      const n01 = data[y1 * W + x0];
-      const n11 = data[y1 * W + x1];
+      // Support RGBA8-packed UNORM16 DataTextures (4 bytes per texel: R=hi, G=lo) as well as float arrays
+      const isRgba8 = (data instanceof Uint8Array || data instanceof Uint8ClampedArray) && data.length >= W * H * 4;
+      const readNorm = (px, py) => {
+        const idx = py * W + px;
+        if (isRgba8) {
+          const o = idx * 4;
+          return ((data[o] << 8) | data[o + 1]) / 65535.0;
+        }
+        return data[idx];
+      };
+
+      const n00 = readNorm(x0, y0);
+      const n10 = readNorm(x1, y0);
+      const n01 = readNorm(x0, y1);
+      const n11 = readNorm(x1, y1);
       const norm = (n00 * (1 - rx) + n10 * rx) * (1 - ry) + (n01 * (1 - rx) + n11 * rx) * ry;
       const meters = currentHMin + norm * (currentHMax - currentHMin);
 
-      const nL = data[y0 * W + Math.max(0, x0 - 1)];
-      const nR = data[y0 * W + Math.min(W - 1, x1 + 1)];
-      const nD = data[Math.max(0, y0 - 1) * W + x0];
-      const nU = data[Math.min(H - 1, y1 + 1) * W + x0];
+      const nL = readNorm(Math.max(0, x0 - 1), y0);
+      const nR = readNorm(Math.min(W - 1, x1 + 1), y0);
+      const nD = readNorm(x0, Math.max(0, y0 - 1));
+      const nU = readNorm(x0, Math.min(H - 1, y1 + 1));
       const dh_dx = ((nR - nL) * (currentHMax - currentHMin)) / (2.0 * 73.0);
       const dh_dy = ((nU - nD) * (currentHMax - currentHMin)) / (2.0 * 46.0);
       const gradMag = Math.sqrt(dh_dx * dh_dx + dh_dy * dh_dy);
@@ -1281,6 +1368,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       let curW = PHYSICAL_W_UNITS;
       let curH = PHYSICAL_H_UNITS;
 
+      regionalDemReady = false;
+      const inCloseStage = (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA || flightState === FLIGHT_STATES.DESCEND);
+
       if (eventMeta.demBinUrl) {
         try {
           const regionalTex = await loadRegionalDEMTexture(THREE, eventMeta.demBinUrl, eventMeta.width, eventMeta.height);
@@ -1298,11 +1388,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           waterMat.uniforms.u_demTexture.value = regionalTex;
           terrainUniforms.u_hMin.value = eventMeta.hMin;
           terrainUniforms.u_hMax.value = eventMeta.hMax;
-          if (terrainMesh) {
-            terrainMesh.visible = true;
-            terrainMesh.renderOrder = 2;
-          }
-          if (waterMesh) waterMesh.visible = false;
+          regionalDemReady = true;
         } catch (err) {
           console.warn('[Regional DEM Loader] Fallback to existing DEM texture:', err);
         }
@@ -1318,7 +1404,6 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           (curH * WGS84.METERS_PER_UNIT) / eventMeta.height
         );
 
-        // Asynchronously build staging geometries with the new epicenter's WGS84 curvature
         if (terrainMesh) {
           const segW = (qualityMode === 'CLASSROOM') ? 540 : 900;
           const segH = (qualityMode === 'CLASSROOM') ? 432 : 720;
@@ -1326,15 +1411,16 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           const oldTerrainGeo = terrainMesh.geometry;
           terrainMesh.geometry = stagingTerrainGeo;
           if (oldTerrainGeo) oldTerrainGeo.dispose();
-          terrainMesh.visible = true;
+          terrainMesh.visible = regionalDemReady && (inCloseStage || Boolean(snapCamera));
           terrainMesh.renderOrder = 2;
         }
+        terrainUniforms.u_regionFade.value = (regionalDemReady && (inCloseStage || snapCamera)) ? 1.0 : 0.0;
         if (waterMesh) {
           waterMesh.visible = false;
         }
       } else {
-        // GLOBAL PLANETARY RELIEF (NOAA ETOPO 2022 Continuous Globe)
-        // Hide local regional patch so NO false Korean mountains or floating box appear!
+        // GLOBAL PLANETARY RELIEF (NOAA ETOPO 2022 + Korea Macro Continuous Globe)
+        terrainUniforms.u_regionFade.value = 0.0;
         if (terrainMesh) terrainMesh.visible = false;
         if (waterMesh) waterMesh.visible = false;
       }
@@ -1358,6 +1444,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       const ellipsoidLabel = document.getElementById('ellipsoid-label');
       if (ellipsoidLabel) ellipsoidLabel.textContent = `WGS84 Spheroid (${lat0.toFixed(1)}°N Polar Tilt)`;
 
+      hasTsunamiMode = (
+        Boolean(currentParsedEvent?.tsunamiDefinite) ||
+        Boolean(currentParsedEvent?.seaDrawbackRecorded) ||
+        eventId.includes('1681') ||
+        eventId.includes('tohoku')
+      ) ? 1.0 : 0.0;
+
       const stagingGlobeMesh = createTier0WGS84Ellipsoid(lat0, lon0);
       stagingGlobeMesh.renderOrder = 1;
       if (tier0GlobeMesh) {
@@ -1372,10 +1465,20 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (gu.u_regionActive) gu.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
         if (gu.u_regionCenter) gu.u_regionCenter.value.set(lat0, lon0);
         if (gu.u_regionHalfSize) gu.u_regionHalfSize.value.set(curW * 0.5, curH * 0.5);
+        if (gu.u_hasTsunamiMode) gu.u_hasTsunamiMode.value = hasTsunamiMode;
+        if (gu.u_showIsoseismalContours) gu.u_showIsoseismalContours.value = showIsoseismalContours;
       }
       scene.add(tier0GlobeMesh);
       window.tier0GlobeMesh = tier0GlobeMesh;
       window.archivalEntities = archivalEntities;
+
+      if (tectonicBoundaryGroup) {
+        scene.remove(tectonicBoundaryGroup);
+        disposeTectonicBoundaryGroup(tectonicBoundaryGroup);
+        tectonicBoundaryGroup = null;
+      }
+      tectonicBoundaryGroup = buildTectonicBoundaryGroup(THREE, lat0, lon0);
+      scene.add(tectonicBoundaryGroup);
 
       if (atmosphereGlowMesh) {
         scene.remove(atmosphereGlowMesh);
@@ -1440,6 +1543,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         const gu = tier0GlobeMesh.material.uniforms;
         if (gu.u_vP) gu.u_vP.value = terrainUniforms.u_vP.value;
         if (gu.u_vS) gu.u_vS.value = terrainUniforms.u_vS.value;
+        if (gu.u_dominantFreq) gu.u_dominantFreq.value = terrainUniforms.u_dominantFreq.value;
+        if (gu.u_physicalDisplacement) gu.u_physicalDisplacement.value = terrainUniforms.u_physicalDisplacement.value;
         if (gu.u_faultLength) gu.u_faultLength.value = terrainUniforms.u_faultLength.value;
         if (gu.u_faultStrike) gu.u_faultStrike.value = terrainUniforms.u_faultStrike.value;
         if (gu.u_ruptureVelocity) gu.u_ruptureVelocity.value = terrainUniforms.u_ruptureVelocity.value;
@@ -1542,14 +1647,21 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         targetShotLookAt.set(tx, ty, tz);
         if (snapCamera) {
           flightState = FLIGHT_STATES.PERFORMANCE;
-          controls.minDistance = 0.04;
-          controls.maxDistance = 6.0;
-          controls.maxPolarAngle = Math.PI * 0.465;
+          performanceCameraLockedByUser = false;
+          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = regionalDemReady ? 1.0 : 0.0;
+          if (terrainMesh) terrainMesh.visible = regionalDemReady;
+          controls.minDistance = 0.10;
+          controls.maxDistance = 5.5;
+          controls.minPolarAngle = 0.08;
+          controls.maxPolarAngle = Math.PI * 0.43;
+          controls.screenSpacePanning = false;
           discoveryNodes.forEach(n => { n.group.visible = false; });
           setDiscoveryBeaconsVisible(false);
           camera.position.set(cx, cy, cz);
           controls.target.set(tx, ty, tz);
-          controls.update();
+          if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        controls.update();
+      }
           updateHUDForFlight('performance');
           if (controlSurface) controlSurface.setState('PERFORMANCE', currentParsedEvent);
         }
@@ -1559,7 +1671,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       // 5. Spawn semantic units with physical S-wave wavefront synchronization
       const spawnerOptions = {
-        isRegionalActive: Boolean(terrainMesh && terrainMesh.visible),
+        isRegionalActive: regionalDemReady,
         getTerrainMetricsAt,
         physicalSizeUnits: terrainUniforms?.u_physicalSize?.value
       };
@@ -1804,12 +1916,28 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       if (!shot) return;
       currentShotKey = key;
       exhibitionAppContext.currentShotKey = key;
-      camera.position.copy(shot.pos);
-      controls.target.copy(shot.lookAt);
+      performanceCameraLockedByUser = false;
+
+      const isYangyangRef = !currentParsedEvent || String(currentParsedEvent.eventId || '').includes('1681');
+      if (isYangyangRef) {
+        camera.position.copy(shot.pos);
+        controls.target.copy(shot.lookAt);
+      } else {
+        // Re-center shot offsets dynamically around active event epicenter / cameraPreset
+        const yLook = SHOTS.monumental_continental_scale.lookAt;
+        const relTarget = shot.lookAt.clone().sub(yLook);
+        const relCam = shot.pos.clone().sub(shot.lookAt);
+        const anchoredTarget = targetShotLookAt.clone().add(relTarget);
+        camera.position.copy(anchoredTarget).add(relCam);
+        controls.target.copy(anchoredTarget);
+      }
+
       const isPortraitMobile = (typeof window !== 'undefined' && window.innerWidth <= 640 && (window.innerWidth / Math.max(1, window.innerHeight)) < 0.78);
       camera.fov = isPortraitMobile ? Math.min(54, shot.fov + 10) : shot.fov;
       camera.updateProjectionMatrix();
-      controls.update();
+      if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        controls.update();
+      }
       const viewLabel = document.getElementById('view-preset-label');
       if (viewLabel) viewLabel.textContent = shot.name;
       const shotOrder = ['monumental_continental_scale', 'epicenter_wave_corridor', 'lyrical_mountain_resonance', 'comprehensive_orchestration', 'closeup_alpine_spires', 'closeup_maritime_shelf'];
@@ -1821,6 +1949,18 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
     }
     window.applyCameraShot = applyCameraShot;
+
+    window.setShowIsoseismalContours = function(enabled) {
+      showIsoseismalContours = enabled ? 1.0 : 0.0;
+      if (terrainUniforms?.u_showIsoseismalContours) {
+        terrainUniforms.u_showIsoseismalContours.value = showIsoseismalContours;
+      }
+      if (tier0GlobeMesh?.material?.uniforms?.u_showIsoseismalContours) {
+        tier0GlobeMesh.material.uniforms.u_showIsoseismalContours.value = showIsoseismalContours;
+      }
+      return showIsoseismalContours > 0.5;
+    };
+    window.getShowIsoseismalContours = () => showIsoseismalContours > 0.5;
 
     // -------------------------------------------------------------------------
     // 6. TIMELINE, PLAYBACK SPEED, IMMERSIVE & QUALITY MODE CONTROLS
@@ -2536,13 +2676,26 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           if (lbl) lbl.textContent = '화질: 강의실 최적화 (Classroom 60fps)';
         }
 
-        // Parallel fetch: Global ETOPO elevation (4MB) + Fused Seorak-Donghae DEM (4.9MB)
-        const [loadedGlobalTex, loadedDemTex] = await Promise.all([
-          loadGlobalElevationTexture(THREE),
+        // Parallel fetch: Global ETOPO (4096 Desktop High / 2048 Mobile) + Korea 15s Macro DEM + Fused Seorak-Donghae DEM
+        const use4kGlobal = (typeof window !== 'undefined' && window.innerWidth > 640 && qualityMode === 'HIGH');
+        const gUrl = use4kGlobal
+          ? 'assets/terrain/bathymetry/global_etopo_elevation_4096_unorm16.bin'
+          : 'assets/terrain/bathymetry/global_etopo_elevation_2048_unorm16.bin';
+        const gW = use4kGlobal ? 4096 : 2048;
+        const gH = use4kGlobal ? 2048 : 1024;
+        globalTexSizeVec.set(gW, gH);
+
+        const [loadedGlobalTex, loadedKoreaMacroTex, loadedDemTex] = await Promise.all([
+          loadGlobalElevationTexture(THREE, gUrl, gW, gH),
+          loadKoreaMacroElevationTexture(THREE),
           loadFusedElevationTexture()
         ]);
         globalElevationTexture = loadedGlobalTex;
+        koreaMacroTexture = loadedKoreaMacroTex;
         terrainUniforms.u_globalElevation.value = globalElevationTexture;
+        terrainUniforms.u_globalTexSize.value.copy(globalTexSizeVec);
+        terrainUniforms.u_koreaMacro.value = koreaMacroTexture;
+        terrainUniforms.u_hasKoreaMacro.value = koreaMacroTexture ? 1.0 : 0.0;
         terrainUniforms.u_globalHMin.value = -11000.0;
         terrainUniforms.u_globalHMax.value = 9000.0;
         window.globalElevationTexture = globalElevationTexture;
@@ -2558,12 +2711,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         const terrainGeo = createWGS84CurvedPlaneGeometry(PHYSICAL_W_UNITS, PHYSICAL_H_UNITS, segW, segH, lat0, lon0);
         terrainMesh = new THREE.Mesh(terrainGeo, integratedTerrainMat);
         terrainMesh.renderOrder = 2;
+        terrainMesh.visible = false; // Keep Orbit seamless on Globe+KoreaMacro; fade in smoothly on descent
         scene.add(terrainMesh);
 
         tier0GlobeMesh = createTier0WGS84Ellipsoid(lat0, lon0);
         tier0GlobeMesh.renderOrder = 1;
         if (tier0GlobeMesh.material && tier0GlobeMesh.material.uniforms) {
-          tier0GlobeMesh.material.uniforms.u_regionActive.value = 1.0;
+          tier0GlobeMesh.material.uniforms.u_regionActive.value = 0.0;
           tier0GlobeMesh.material.uniforms.u_regionCenter.value.set(lat0, lon0);
           tier0GlobeMesh.material.uniforms.u_regionHalfSize.value.set(PHYSICAL_W_UNITS * 0.5, PHYSICAL_H_UNITS * 0.5);
         }
@@ -2667,7 +2821,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           camera.near = 0.02;
           camera.far = 600.0;
           camera.updateProjectionMatrix();
-          controls.update();
+          if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        controls.update();
+      }
 
           flightState = FLIGHT_STATES.ORBIT;
           orbitDwellTimer = 0.0;
@@ -2762,6 +2918,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       const isOrbitView = (flightState === FLIGHT_STATES.ORBIT) &&
         controlSurface?.currentState !== 'SELECTED' &&
         controlSurface?.currentState !== 'PERFORMANCE';
+      if (tectonicBoundaryGroup) {
+        tectonicBoundaryGroup.visible = (flightState === FLIGHT_STATES.ORBIT || flightState === FLIGHT_STATES.ASCEND);
+      }
       setDiscoveryBeaconsVisible(isOrbitView);
       discoveryNodes.forEach(n => {
         n.group.visible = isOrbitView;
@@ -2789,35 +2948,38 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       window.simTime = simTime;
       window.flightState = flightState;
 
-      controls.update();
+      // Constrain pan/target cleanly BEFORE OrbitControls.update() so damping never fights collision clamps
+      if (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA) {
+        const horizTarget = Math.hypot(controls.target.x, controls.target.z);
+        if (horizTarget > 1.35) {
+          const clampScale = 1.35 / horizTarget;
+          controls.target.x *= clampScale;
+          controls.target.z *= clampScale;
+        }
+        const targetGround = (horizTarget < 0.85) ? getTerrainMetricsAt(controls.target.x, controls.target.z) : null;
+        const minTargetY = Math.max(-0.020, (targetGround?.groundY || 0.0) * 0.65 - 0.008);
+        controls.target.y = THREE.MathUtils.clamp(controls.target.y, minTargetY, 0.14);
+      }
 
-      // Underground Camera Clipping Guard (Performance, Coda, Descend & Ascend States)
+      if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        controls.update();
+      }
+
+      // Safe spherical surface floor guard only (preserves OrbitControls spherical damping)
       if (
         flightState === FLIGHT_STATES.PERFORMANCE ||
         flightState === FLIGHT_STATES.CODA ||
         flightState === FLIGHT_STATES.DESCEND ||
         flightState === FLIGHT_STATES.ASCEND
       ) {
-        const horizDist = Math.hypot(camera.position.x, camera.position.z);
-        if (horizDist < 0.85) {
-          const groundSample = getTerrainMetricsAt(camera.position.x, camera.position.z);
-          const minCamY = Math.max(0.018, (groundSample?.groundY || 0.0) + 0.016);
-          if (camera.position.y < minCamY) {
-            camera.position.y = minCamY;
-          }
-        }
-        // Global WGS84 sphere guard centered at (0, -63.78137, 0)
         const gy = camera.position.y + 63.78137;
         const rSphere = Math.hypot(camera.position.x, gy, camera.position.z);
-        const minSphereR = 63.78137 + 0.016;
+        const minSphereR = 63.78137 + 0.014;
         if (rSphere > 0.001 && rSphere < minSphereR) {
           const scale = minSphereR / rSphere;
           camera.position.x *= scale;
           camera.position.y = gy * scale - 63.78137;
           camera.position.z *= scale;
-        }
-        if (controls.target.y < -0.025 && horizDist < 0.85) {
-          controls.target.y = -0.025;
         }
       }
 
@@ -2892,6 +3054,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         tier2Mesh,
         celestialStarsMesh,
         atmosphereGlowMesh,
+        tectonicBoundaryGroup,
         ...archivalEntities,
         ...discoveryNodes.map(n => n.group),
         scene.getObjectByName('DiscoveryBeaconsInstancedBatch')
@@ -2950,14 +3113,21 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         camera.updateProjectionMatrix();
         camera.position.copy(preFlightGlobalOrbitPose.pos);
         controls.target.copy(preFlightGlobalOrbitPose.target);
-        controls.minDistance = 20.0;
-        controls.maxDistance = 400.0;
-        controls.maxPolarAngle = Math.PI;
+        controls.minDistance = 18.0;
+        controls.maxDistance = 360.0;
+        controls.minPolarAngle = 0.0;
+        controls.maxPolarAngle = Math.PI * 0.92;
+        controls.screenSpacePanning = false;
         controls.enabled = true;
+        if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
         controls.update();
+      }
         if (scene.fog) scene.fog.density = 0.0001;
         preFlightGlobalOrbitPose = null;
       }
+      performanceCameraLockedByUser = false;
+      if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
+      if (terrainMesh) terrainMesh.visible = false;
       flightState = FLIGHT_STATES.ORBIT;
       exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;
       controlSurface?.setState?.('EXPLORE');

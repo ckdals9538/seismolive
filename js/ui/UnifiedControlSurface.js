@@ -1317,11 +1317,15 @@ export class UnifiedControlSurface {
               `;
             });
 
+            const contoursActive = (typeof window.getShowIsoseismalContours === 'function') && window.getShowIsoseismalContours();
             ellipseSection.innerHTML = `
-              <div class="editorial-sec-header">02-C / 확률론적 진앙 오차 타원 및 8도 등진도 매트릭스 (MACROSEISMIC FIELD & CONFIDENCE ELLIPSE)</div>
+              <div class="editorial-sec-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                <span>02-C / 확률론적 진앙 오차 타원 및 8도 등진도 매트릭스 (MACROSEISMIC FIELD &amp; CONFIDENCE ELLIPSE)</span>
+                <button type="button" id="btn-toggle-isoseismal-3d" style="appearance:none; border:1px solid rgba(200,157,84,0.42); background:${contoursActive ? 'rgba(200,157,84,0.22)' : 'rgba(15,23,42,0.7)'}; color:#f1d39a; font-size:10px; padding:3px 9px; border-radius:999px; cursor:pointer;">${contoursActive ? '3D 등진도선 표시 중' : '3D 지구본에 등진도선 표시'}</button>
+              </div>
               <div class="editorial-formula-box" style="margin-bottom:8px;">
                 <div class="editorial-formula-main">\\chi^2 = (x' / a)^2 + (y' / b)^2 \\le ${ee.chiSquareCritical || 5.991} &nbsp;&nbsp;(신뢰수준 ${((ee.confidenceLevel || 0.95) * 100).toFixed(0)}%, 자유도 ν=${ee.degreesOfFreedom || 2}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${ee.flatness || 0.35}</div>
-                <div class="editorial-formula-sub">문헌 기록의 한계로 인해 역사지진 진앙은 점이 아닌 타원형 신뢰구간(Error Ellipse)으로만 기술되며, 3D 지형 표면에 황동색 파선으로 등각 투영됩니다.</div>
+                <div class="editorial-formula-sub">문헌 기록의 한계로 인해 역사지진 진앙은 점이 아닌 타원형 신뢰구간(Error Ellipse)으로 추정되며, 평상시에는 은은한 불확실성 헤일로로, 버튼 선택 시 3D 등진도 파선으로 투영됩니다.</div>
               </div>
               <div class="hist-ellipse-grid">
                 <div class="hist-ellipse-svg-box">
@@ -1365,6 +1369,17 @@ export class UnifiedControlSurface {
               </div>
             `;
             ellipseSection.style.display = 'flex';
+            const btnIso = document.getElementById('btn-toggle-isoseismal-3d');
+            if (btnIso) {
+              btnIso.addEventListener('click', () => {
+                const next = typeof window.getShowIsoseismalContours === 'function' ? !window.getShowIsoseismalContours() : true;
+                if (typeof window.setShowIsoseismalContours === 'function') {
+                  window.setShowIsoseismalContours(next);
+                }
+                btnIso.textContent = next ? '3D 등진도선 표시 중' : '3D 지구본에 등진도선 표시';
+                btnIso.style.background = next ? 'rgba(200,157,84,0.22)' : 'rgba(15,23,42,0.7)';
+              });
+            }
           } else {
             ellipseSection.style.display = 'none';
           }

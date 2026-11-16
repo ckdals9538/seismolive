@@ -136,6 +136,10 @@
       text-align: center;
       transition: all 0.5s ease;
     }
+
+    body.in-local-evac-mode #chronicle-subtitle-container {
+      display: none !important;
+    }
     #chronicle-subtitle-text {
       font-family: "Noto Serif KR", "Nanum Myeongjo", Batang, serif;
       font-size: 13px;
