@@ -18,6 +18,107 @@
 // - Safe Audio: User-gesture resumption, instant mute toggle, safe zero-gain culling.
 // ============================================================================
 
+import {
+  softClipArctanNormalize,
+  splitDualBandSeismicSignal
+} from '../data/StationWaveformBridge.js';
+
+export { softClipArctanNormalize, splitDualBandSeismicSignal };
+
+/**
+ * Pure dual-band seismic audification buffer synthesizer (SEIS-SOUND + Earthtunes).
+ * - High band (>= 0.5 Hz): time-compressed P/S body wave on Left channel
+ * - Low band (< 0.5 Hz): VCO frequency-modulated surface-wave carrier on Right channel
+ * - Soft-clipped via arctan to preserve inter-event dynamic range without brickwalling.
+ */
+export function synthesizeDualBandAudifiedSamples(samples, sampleRateHz = 100, options = {}) {
+  const audioSampleRate = options.audioSampleRate || 44100;
+  const speedFactor = options.speedFactor || 60.0;
+  const splitHz = options.splitHz || 0.5;
+  const carrierHz = options.carrierHz || 110.0;
+  const fmDeviationHz = options.fmDeviationHz || 65.0;
+  const fixedAmp = options.fixedAmp || null;
+  const maxDurationSec = options.maxDurationSec || 12.0;
+
+  if (!samples || samples.length < 2 || !Number.isFinite(sampleRateHz) || sampleRateHz <= 0) {
+    return {
+      leftBodyChannel: new Float32Array(0),
+      rightSurfaceChannel: new Float32Array(0),
+      audioSampleRate,
+      speedFactor,
+      carrierHz,
+      splitHz,
+      bodyBandRms: 0,
+      surfaceBandRms: 0
+    };
+  }
+
+  const { bodyWave, surfaceWave, envelope } = splitDualBandSeismicSignal(samples, sampleRateHz, splitHz);
+
+  // Determine adaptive fixed reference scale when caller doesn't specify one
+  let peakRef = 0.0;
+  for (let i = 0; i < samples.length; i++) {
+    const aB = Math.abs(bodyWave[i]);
+    const aS = Math.abs(surfaceWave[i]);
+    if (aB > peakRef) peakRef = aB;
+    if (aS > peakRef) peakRef = aS;
+  }
+  const refAmp = (fixedAmp && fixedAmp > 0) ? fixedAmp : Math.max(1e-9, peakRef * 0.45);
+
+  const normBody = softClipArctanNormalize(bodyWave, refAmp);
+  const normSurface = softClipArctanNormalize(surfaceWave, refAmp);
+
+  const rawOutLen = Math.floor((samples.length / sampleRateHz / speedFactor) * audioSampleRate);
+  const outLen = Math.max(1, Math.min(rawOutLen, Math.floor(maxDurationSec * audioSampleRate)));
+
+  const leftBodyChannel = new Float32Array(outLen);
+  const rightSurfaceChannel = new Float32Array(outLen);
+
+  let phase = 0.0;
+  let bodySqSum = 0.0;
+  let surfSqSum = 0.0;
+  const fadeSamples = Math.min(Math.floor(outLen * 0.1), Math.floor(audioSampleRate * 0.025));
+
+  for (let j = 0; j < outLen; j++) {
+    const u = (outLen > 1) ? (j / (outLen - 1)) : 0.0;
+    const srcPos = u * (samples.length - 1);
+    const idx0 = Math.floor(srcPos);
+    const idx1 = Math.min(samples.length - 1, idx0 + 1);
+    const frac = srcPos - idx0;
+
+    const bSample = normBody[idx0] * (1.0 - frac) + normBody[idx1] * frac;
+    const sSample = normSurface[idx0] * (1.0 - frac) + normSurface[idx1] * frac;
+    const envSample = envelope[idx0] * (1.0 - frac) + envelope[idx1] * frac;
+
+    let windowGain = 1.0;
+    if (fadeSamples > 0) {
+      if (j < fadeSamples) windowGain = j / fadeSamples;
+      else if (j > outLen - 1 - fadeSamples) windowGain = (outLen - 1 - j) / fadeSamples;
+    }
+
+    const bodyOut = bSample * 0.85 * windowGain;
+    const instFreq = Math.max(32.0, carrierHz + sSample * fmDeviationHz);
+    phase += (2.0 * Math.PI * instFreq) / audioSampleRate;
+    const surfOut = Math.sin(phase) * (0.25 + 0.75 * envSample) * 0.70 * windowGain;
+
+    leftBodyChannel[j] = bodyOut;
+    rightSurfaceChannel[j] = surfOut;
+    bodySqSum += bodyOut * bodyOut;
+    surfSqSum += surfOut * surfOut;
+  }
+
+  return {
+    leftBodyChannel,
+    rightSurfaceChannel,
+    audioSampleRate,
+    speedFactor,
+    carrierHz,
+    splitHz,
+    bodyBandRms: Math.sqrt(bodySqSum / outLen),
+    surfaceBandRms: Math.sqrt(surfSqSum / outLen)
+  };
+}
+
 export class LivingSoundfieldEngine {
   constructor(options = {}) {
     this.masterVolume = options.volume !== undefined ? options.volume : 0.65;
@@ -824,6 +925,42 @@ export class LivingSoundfieldEngine {
         this.masterGain.gain.value = this.masterVolume;
       }
     }
+  }
+
+  /**
+   * Audify a real seismic waveform using SEIS-SOUND dual-band stereo synthesis
+   * + Earthtunes arctan soft-clipping normalization.
+   */
+  async playAudifiedWaveform(samples, sampleRateHz = 100, options = {}) {
+    const running = await this.ensureAudioContext();
+    if (!this.ctx || !running) return null;
+
+    const audioSampleRate = this.ctx.sampleRate || 44100;
+    const synth = synthesizeDualBandAudifiedSamples(samples, sampleRateHz, {
+      ...options,
+      audioSampleRate
+    });
+    if (synth.leftBodyChannel.length === 0) return null;
+
+    const buffer = this.ctx.createBuffer(2, synth.leftBodyChannel.length, audioSampleRate);
+    buffer.copyToChannel(synth.leftBodyChannel, 0);
+    buffer.copyToChannel(synth.rightSurfaceChannel, 1);
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.linearRampToValueAtTime(options.gain ?? 0.55, now + 0.04);
+
+    src.connect(gain);
+    gain.connect(this.compressor);
+    src.onended = () => {
+      try { gain.disconnect(); } catch (e) {}
+    };
+    src.start(now);
+    return { durationSec: buffer.duration, synth };
   }
 
   /**

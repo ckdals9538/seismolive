@@ -2557,8 +2557,14 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         orbitDwellTimer = 0.0;
         updateHUDForFlight('orbit');
 
-        // Raycasting for discovery beacons
+        // Raycasting for discovery beacons (throttled in CLASSROOM/Eco mode)
+        let lastRaycastTimeMs = 0;
         window.addEventListener('mousemove', (e) => {
+          const nowMs = performance.now();
+          if (qualityMode === 'CLASSROOM' && (nowMs - lastRaycastTimeMs) < 50) {
+            return;
+          }
+          lastRaycastTimeMs = nowMs;
           mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
           mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 
@@ -2654,14 +2660,32 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       controls.update();
 
-      // Underground Camera Clipping Guard (Performance & Coda States)
-      if (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA) {
-        const groundSample = getTerrainMetricsAt(camera.position.x, camera.position.z);
-        const minCamY = Math.max(0.018, (groundSample?.groundY || 0.0) + 0.016);
-        if (camera.position.y < minCamY) {
-          camera.position.y = minCamY;
+      // Underground Camera Clipping Guard (Performance, Coda, Descend & Ascend States)
+      if (
+        flightState === FLIGHT_STATES.PERFORMANCE ||
+        flightState === FLIGHT_STATES.CODA ||
+        flightState === FLIGHT_STATES.DESCEND ||
+        flightState === FLIGHT_STATES.ASCEND
+      ) {
+        const horizDist = Math.hypot(camera.position.x, camera.position.z);
+        if (horizDist < 0.85) {
+          const groundSample = getTerrainMetricsAt(camera.position.x, camera.position.z);
+          const minCamY = Math.max(0.018, (groundSample?.groundY || 0.0) + 0.016);
+          if (camera.position.y < minCamY) {
+            camera.position.y = minCamY;
+          }
         }
-        if (controls.target.y < -0.025) {
+        // Global WGS84 sphere guard centered at (0, -63.78137, 0)
+        const gy = camera.position.y + 63.78137;
+        const rSphere = Math.hypot(camera.position.x, gy, camera.position.z);
+        const minSphereR = 63.78137 + 0.016;
+        if (rSphere > 0.001 && rSphere < minSphereR) {
+          const scale = minSphereR / rSphere;
+          camera.position.x *= scale;
+          camera.position.y = gy * scale - 63.78137;
+          camera.position.z *= scale;
+        }
+        if (controls.target.y < -0.025 && horizDist < 0.85) {
           controls.target.y = -0.025;
         }
       }
@@ -2720,6 +2744,24 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       });
       renderer.render(scene, camera);
       return mode;
+    };
+
+    window.openLocalSpatialResponse = function(stage = 'local4km') {
+      const eventParam = currentParsedEvent?.eventId ? `&event=${encodeURIComponent(currentParsedEvent.eventId)}` : '';
+      window.location.href = `./viewer_p2_6.html?stage=${encodeURIComponent(stage)}${eventParam}`;
+    };
+
+    window.getPerformanceDiagnostics = function() {
+      const avgFps = fpsHistory.length ? (fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length) : 60.0;
+      return {
+        ecoMode: qualityMode === 'CLASSROOM',
+        qualityMode,
+        pixelRatio: renderer.getPixelRatio(),
+        flightState,
+        fps: Number(avgFps.toFixed(1)),
+        renderCalls: renderer.info?.render?.calls ?? 0,
+        triangles: renderer.info?.render?.triangles ?? 0
+      };
     };
 
     // Expose Global Test State for Playwright Automation

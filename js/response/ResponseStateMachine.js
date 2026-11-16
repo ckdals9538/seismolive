@@ -243,6 +243,15 @@ export class ResponseStateMachine {
   getCurrentInstruction() {
     switch (this.currentState) {
       case RESPONSE_STATES.S1_SHAKING:
+        if (this.context.userReport.requiresWheelchair) {
+          return {
+            title: '지진동 지속 중 — 휠체어 즉각 고정 방호',
+            coreAction: 'LOCK, COVER, HOLD ON (바퀴 잠그고, 머리 가리고, 손잡이 붙잡기)',
+            details: '즉시 휠체어 바퀴 브레이크를 잠그고 하차하지 마십시오. 쿠션이나 팔로 머리와 목을 감싸고 휠체어 프레임을 붙잡으십시오.',
+            bannedAction: '진동 중 이동, 휠체어 하차 및 승강기 접근 절대 금지',
+            sourceTag: DATA_PROVENANCE_SOURCE.OBSERVED_STATION
+          };
+        }
         return {
           title: '지진동 지속 중 — 즉각 현 위치 방호',
           coreAction: 'DROP, COVER, HOLD ON (낮추고, 가리고, 붙잡기)',

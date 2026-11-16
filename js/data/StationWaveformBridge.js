@@ -1051,3 +1051,86 @@ export function getMotionQuality(packet, options = {}) {
     ]
   };
 }
+
+/**
+ * ----------------------------------------------------------------------------
+ * 8. Scientific Waveform Conditioning & Dual-Band Separation (Audification Foundation)
+ *    - Earthtunes pattern: fixed-amplitude arctan soft-clipping to preserve event contrast
+ *    - SEIS-SOUND pattern: 0.5 Hz crossover separation (body wave >= splitHz vs surface wave < splitHz)
+ * ----------------------------------------------------------------------------
+ */
+export function softClipArctanNormalize(samples, fixedAmp = 1e-4) {
+  if (!samples || samples.length === 0) {
+    return new Float32Array(0);
+  }
+  const safeAmp = (Number.isFinite(fixedAmp) && fixedAmp > 0) ? fixedAmp : 1e-4;
+  const invHalfPi = 2.0 / Math.PI;
+  const out = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const v = Number.isFinite(samples[i]) ? samples[i] : 0.0;
+    out[i] = invHalfPi * Math.atan(v / safeAmp);
+  }
+  return out;
+}
+
+export function splitDualBandSeismicSignal(samples, sampleRateHz = 100, splitHz = 0.5) {
+  if (!samples || samples.length === 0 || !Number.isFinite(sampleRateHz) || sampleRateHz <= 0) {
+    return {
+      bodyWave: new Float32Array(0),
+      surfaceWave: new Float32Array(0),
+      envelope: new Float32Array(0),
+      sampleRate: sampleRateHz || 0,
+      splitHz
+    };
+  }
+
+  const n = samples.length;
+  const bodyWave = new Float32Array(n);
+  const surfaceWave = new Float32Array(n);
+  const envelope = new Float32Array(n);
+
+  // Remove DC offset so dual-band split remains zero-centered
+  let mean = 0.0;
+  for (let i = 0; i < n; i++) {
+    mean += Number.isFinite(samples[i]) ? samples[i] : 0.0;
+  }
+  mean /= n;
+
+  const dt = 1.0 / sampleRateHz;
+  const safeSplitHz = (Number.isFinite(splitHz) && splitHz > 0) ? splitHz : 0.5;
+  const rc = 1.0 / (2.0 * Math.PI * safeSplitHz);
+  const alphaLP = dt / (rc + dt);
+
+  const rcEnv = 1.0 / (2.0 * Math.PI * Math.max(0.05, safeSplitHz * 0.25));
+  const alphaEnv = dt / (rcEnv + dt);
+
+  let lpState = 0.0;
+  let envState = 0.0;
+  let maxEnv = 0.0;
+
+  for (let i = 0; i < n; i++) {
+    const x = (Number.isFinite(samples[i]) ? samples[i] : 0.0) - mean;
+    lpState = lpState + alphaLP * (x - lpState);
+    const hp = x - lpState;
+    surfaceWave[i] = lpState;
+    bodyWave[i] = hp;
+
+    envState = envState + alphaEnv * (Math.abs(lpState) - envState);
+    envelope[i] = envState;
+    if (envState > maxEnv) maxEnv = envState;
+  }
+
+  if (maxEnv > 1e-12) {
+    for (let i = 0; i < n; i++) {
+      envelope[i] /= maxEnv;
+    }
+  }
+
+  return {
+    bodyWave,
+    surfaceWave,
+    envelope,
+    sampleRate: sampleRateHz,
+    splitHz: safeSplitHz
+  };
+}

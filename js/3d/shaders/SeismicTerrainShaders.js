@@ -15,9 +15,12 @@ export const MONOLITH_SURFACE_GLSL = `
     return mix(deepAbyss, vec3(0.028, 0.075, 0.135), shelfT);
   }
   vec3 monolithLandAlbedo(float elev, float slopeRelief) {
-    float relief = max(slopeRelief, clamp((elev - 150.0) / 1600.0, 0.0, 1.0));
+    float elevNorm = clamp((elev - 80.0) / 1600.0, 0.0, 1.0);
+    float valleyCavity = mix(0.84, 1.0, smoothstep(0.0, 0.30, slopeRelief + elevNorm * 0.35));
+    float relief = max(slopeRelief, elevNorm);
     vec3 c = mix(vec3(0.055, 0.075, 0.110), vec3(0.165, 0.200, 0.255), relief * 0.85);
-    return mix(c, vec3(0.240, 0.290, 0.360), pow(relief, 2.0) * 0.75);
+    c = mix(c, vec3(0.240, 0.290, 0.360), pow(relief, 2.0) * 0.75);
+    return c * valleyCavity;
   }
   vec3 computeMonolithLighting(vec3 albedo, vec3 N, vec3 V, vec3 L, vec3 ambientCol, vec3 lightCol, float isOcean) {
     float NdotL = dot(N, L);
@@ -469,6 +472,10 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
   uniform float u_errorEllipseAngle;
   uniform vec4 u_isoseismalRadii;
   uniform float u_hasErrorEllipse;
+  uniform float u_probeDistUnits;
+  uniform float u_probeCritUnits;
+  uniform float u_probeCrossUnits;
+  uniform float u_purePhysicalMode;
 
   varying vec2 vUv;
   varying vec3 vNormal;
@@ -503,19 +510,21 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
 
     float grain = (hash(vUv * 3600.0) - 0.5) * 0.025;
 
-    float slopeRelief = smoothstep(5.0, 32.0, vSlope);
+    float slopeRelief = smoothstep(3.5, 30.0, vSlope);
+    float microRelief = smoothstep(1.2, 12.0, vSlope) * 0.14;
     vec3 baseAlbedo = (vElevation < 0.0)
       ? monolithOceanAlbedo(vElevation)
-      : monolithLandAlbedo(vElevation, slopeRelief);
+      : monolithLandAlbedo(vElevation, max(slopeRelief, microRelief));
     baseAlbedo = clamp(baseAlbedo + grain, 0.0, 1.0);
 
     vec3 lit = computeMonolithLighting(baseAlbedo, N, V, L, u_ambientColor, u_lightColor, 0.0);
 
+    float opticalMask = 1.0 - step(0.5, u_purePhysicalMode);
     float crestFactor = smoothstep(14.0, 38.0, vSlope) * (0.35 + 0.65 * vRidgeConvexity);
     float mountainRim = pow(1.0 - max(0.0, dot(N, V)), 2.8) * max(0.0, dot(L, -V) + 0.45);
-    lit += vec3(0.65, 0.78, 0.92) * (mountainRim * crestFactor * 0.35 * vEdgeTaper);
+    lit += vec3(0.65, 0.78, 0.92) * (mountainRim * crestFactor * 0.35 * vEdgeTaper * opticalMask);
 
-    if (u_enableStratum2 > 0.5 && u_simTime > 0.0) {
+    if (opticalMask > 0.5 && u_enableStratum2 > 0.5 && u_simTime > 0.0) {
       float dtS = vDtS;
 
       if (dtS > -0.15 && dtS < 10.0) {
@@ -568,6 +577,29 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
         float stipple6 = step(0.50, fract(angleAz * 10.0 / 6.2831853));
         float line6 = exp(-pow(dIso6 / 0.0035, 2.0)) * stipple6 * vEdgeTaper;
         lit += vec3(0.45, 0.50, 0.58) * (line6 * 0.09);
+      }
+    }
+
+    // Geophysics-to-Wavefield T-X Probe Rings (Anti-Game-VFX Stippled Hairlines)
+    if (u_probeDistUnits > 0.002 || u_probeCritUnits > 0.002 || u_probeCrossUnits > 0.002) {
+      vec2 probeVec = vPhysicalCoords - u_epiPos;
+      float probeR = length(probeVec);
+      float probeAngle = atan(probeVec.y, probeVec.x);
+
+      if (u_probeDistUnits > 0.002) {
+        float stippleProbe = step(0.28, fract(probeAngle * 48.0 / 6.2831853));
+        float ringProbe = exp(-pow(abs(probeR - u_probeDistUnits) / 0.0025, 2.0)) * stippleProbe * vEdgeTaper;
+        lit += vec3(0.88, 0.86, 0.80) * (ringProbe * 0.24);
+      }
+      if (u_probeCritUnits > 0.002) {
+        float stippleCrit = step(0.48, fract(probeAngle * 24.0 / 6.2831853));
+        float ringCrit = exp(-pow(abs(probeR - u_probeCritUnits) / 0.0028, 2.0)) * stippleCrit * vEdgeTaper;
+        lit += vec3(0.45, 0.62, 0.78) * (ringCrit * 0.16);
+      }
+      if (u_probeCrossUnits > 0.002) {
+        float stippleCross = step(0.55, fract(probeAngle * 18.0 / 6.2831853));
+        float ringCross = exp(-pow(abs(probeR - u_probeCrossUnits) / 0.0028, 2.0)) * stippleCross * vEdgeTaper;
+        lit += vec3(0.78, 0.60, 0.30) * (ringCross * 0.18);
       }
     }
 

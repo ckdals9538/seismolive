@@ -202,6 +202,24 @@ export class GlobalLocalCameraTransition {
   }
 
   /**
+   * Enforce minimum altitude floor per spatial stage to prevent terrain/slab penetration.
+   * @private
+   */
+  _applySubterraneanGuard() {
+    if (this.currentStage === CAMERA_STAGES.REGIONAL_APPROACH) {
+      this.camera.position.y = Math.max(this.camera.position.y, 45.0);
+    } else if (this.currentStage === CAMERA_STAGES.CAMPUS_OVERVIEW) {
+      this.camera.position.y = Math.max(this.camera.position.y, 40.0);
+    } else if (this.currentStage === CAMERA_STAGES.BUILDING_INSPECTION) {
+      this.camera.position.y = Math.max(this.camera.position.y, 25.0);
+    } else if (this.currentStage === CAMERA_STAGES.PERSONAL_LOCATION) {
+      this.camera.position.y = Math.max(this.camera.position.y, 16.0);
+    } else {
+      this.camera.position.y = Math.max(this.camera.position.y, 12.0);
+    }
+  }
+
+  /**
    * Update camera position and lookAt each animation frame.
    * Uses smooth Quintic ease-in-out curve for gentle acceleration and deceleration.
    *
@@ -222,15 +240,8 @@ export class GlobalLocalCameraTransition {
     // Interpolate camera position
     this.camera.position.lerpVectors(this.anim.startPos, this.anim.targetPos, t);
 
-    // Safety Mandate: Prevent subterranean penetration
-    // Ensures camera altitude stays strictly above campus terrain and building floors
-    if (this.currentStage === CAMERA_STAGES.CAMPUS_OVERVIEW) {
-      this.camera.position.y = Math.max(this.camera.position.y, 40.0);
-    } else if (this.currentStage === CAMERA_STAGES.BUILDING_INSPECTION) {
-      this.camera.position.y = Math.max(this.camera.position.y, 25.0);
-    } else if (this.currentStage === CAMERA_STAGES.PERSONAL_LOCATION) {
-      this.camera.position.y = Math.max(this.camera.position.y, 16.0);
-    }
+    // Safety Mandate: Prevent subterranean penetration across all spatial stages
+    this._applySubterraneanGuard();
 
     // Interpolate target lookAt
     this.anim.currentLookAt.lerpVectors(this.anim.startLookAt, this.anim.targetLookAt, t);
@@ -268,6 +279,7 @@ export class GlobalLocalCameraTransition {
     this.currentStage = stage;
 
     this.camera.position.copy(vp.position);
+    this._applySubterraneanGuard();
     this.anim.currentLookAt.copy(vp.target);
     if (this.controls) {
       this.controls.target.copy(vp.target);

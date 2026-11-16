@@ -230,14 +230,20 @@ export class SituationAssessmentEngine {
       canMove = false;
       canNavigate = false;
 
-      if (hasAftershock) {
+      if (isWheelchair) {
+        const prefix = hasAftershock ? '여진 발생 — ' : '';
+        primaryAction = `${prefix}Lock, Cover, Hold On: 즉시 휠체어 바퀴를 잠그고(Lock), 이동하거나 휠체어에서 내려오지 마십시오. 상체를 숙여 머리와 목을 보호(Cover & Hold On)하십시오.`;
+        secondaryAction = '흔들림이 완전히 멈출 때까지 휠체어를 고정한 채 대기하고, 승강기는 절대 이용하지 마십시오.';
+        rationale.push('휠체어 이용자 지진동 방호(Lock, Cover, Hold On): 진동 중 하차·이동 시 전도 위험 방지 및 두부 보호 최우선 원칙');
+      } else if (hasAftershock) {
         primaryAction = '여진 발생: 즉시 이동을 멈추고 튼튼한 탁자 아래나 내벽 모서리에 웅크려 머리를 감싸십시오.';
+        secondaryAction = '흔들림이 완전히 멈출 때까지 절대 밖으로 뛰어나가지 마십시오.';
         rationale.push('여진(Aftershock) 감지: 보행 중 낙상 및 천장 낙하물 위험으로 인한 즉각 엄폐 복귀');
       } else {
         primaryAction = '몸을 낮추고 튼튼한 탁자 아래로 들어가 머리를 보호하십시오.';
+        secondaryAction = '흔들림이 완전히 멈출 때까지 절대 밖으로 뛰어나가지 마십시오.';
         rationale.push('지반 흔들림(PGA 계측치 감지) 진행 중: 실내 두부 보호 최우선 원칙');
       }
-      secondaryAction = '흔들림이 완전히 멈출 때까지 절대 밖으로 뛰어나가지 마십시오.';
       warnings.push('진동 중 이동 시 실내 비구조재(조명, 천장재, 가구) 낙하로 인한 부상 위험이 큽니다.');
     }
     // CASE 2: 실외에 위치한 사용자
