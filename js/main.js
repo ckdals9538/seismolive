@@ -2486,7 +2486,39 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     let frameCount = 0;
     let fpsHistory = [];
 
+    function bindTopRightEarthDockMenu() {
+      const btnToggle = document.getElementById('btn-dev-lab-global');
+      const menu = document.getElementById('global-dev-lab-menu');
+      if (btnToggle && menu && !btnToggle.dataset.bound) {
+        btnToggle.dataset.bound = '1';
+        btnToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const show = menu.style.display !== 'flex';
+          menu.style.display = show ? 'flex' : 'none';
+        });
+      }
+      if (menu && !menu.dataset.bound) {
+        menu.dataset.bound = '1';
+        menu.querySelectorAll('[data-entry-mode]').forEach((btn) => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.style.display = 'none';
+            const req = { entryMode: btn.dataset.entryMode || 'FREE_MODE' };
+            if (btn.dataset.regionId) req.regionId = btn.dataset.regionId;
+            if (btn.dataset.lat !== undefined) req.lat = Number(btn.dataset.lat);
+            if (btn.dataset.lon !== undefined) req.lon = Number(btn.dataset.lon);
+            if (btn.dataset.name) req.name = btn.dataset.name;
+            if (btn.dataset.short) req.shortName = btn.dataset.short;
+            if (btn.dataset.eventId) req.eventId = btn.dataset.eventId;
+            if (btn.dataset.regionId) req.withFlight = true;
+            window.enterInSceneLocalResponse?.(req);
+          });
+        });
+      }
+    }
+
     async function init() {
+      bindTopRightEarthDockMenu();
       const safetyHide = setTimeout(() => {
         const ind = document.getElementById('loading-indicator');
         if (ind) ind.style.display = 'none';
@@ -2499,15 +2531,18 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           if (lbl) lbl.textContent = '화질: 강의실 최적화 (Classroom 60fps)';
         }
 
-        // 1. Load Tier 0 / Tier 1 Global Elevation & Bathymetric Relief (NOAA ETOPO 2022)
-        globalElevationTexture = await loadGlobalElevationTexture(THREE);
+        // Parallel fetch: Global ETOPO elevation (4MB) + Fused Seorak-Donghae DEM (4.9MB)
+        const [loadedGlobalTex, loadedDemTex] = await Promise.all([
+          loadGlobalElevationTexture(THREE),
+          loadFusedElevationTexture()
+        ]);
+        globalElevationTexture = loadedGlobalTex;
         terrainUniforms.u_globalElevation.value = globalElevationTexture;
         terrainUniforms.u_globalHMin.value = -11000.0;
         terrainUniforms.u_globalHMax.value = 9000.0;
         window.globalElevationTexture = globalElevationTexture;
 
-        // 2. Load initial DEM texture
-        demTexture = await loadFusedElevationTexture();
+        demTexture = loadedDemTex;
         terrainUniforms.u_demTexture.value = demTexture;
         waterMat.uniforms.u_demTexture.value = demTexture;
 

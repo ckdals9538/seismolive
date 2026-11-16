@@ -2104,9 +2104,16 @@ export class LocalSpatialMapLayer {
         el = document.createElement('div');
         el.className = `spatial-map-label cat-${item.category.toLowerCase()}${item.provisional ? ' is-provisional' : ''}`;
         el.dataset.labelId = item.id;
-        el.innerHTML = item.subtitle
-          ? `<span class="sml-title">${item.title}</span><span class="sml-sub">${item.subtitle}</span>`
-          : `<span class="sml-title">${item.title}</span>`;
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'sml-title';
+        titleSpan.textContent = item.title || '';
+        el.appendChild(titleSpan);
+        if (item.subtitle) {
+          const subSpan = document.createElement('span');
+          subSpan.className = 'sml-sub';
+          subSpan.textContent = item.subtitle;
+          el.appendChild(subSpan);
+        }
         containerEl.appendChild(el);
         this._labelDomMap.set(item.id, el);
       }

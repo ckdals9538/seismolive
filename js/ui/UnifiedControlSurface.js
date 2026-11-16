@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
+import { escapeHtml } from '../lib/htmlEscape.js';
 import { computeTsunamiHydrodynamicParams } from '../geophysics/TravelTimeSolvers.js';
 import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, generateTsunamiBathymetrySVG } from './GeophysicsFolioView.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
@@ -745,16 +746,16 @@ export class UnifiedControlSurface {
           card.innerHTML = `
             <div class="ledger-row-header">
               <div class="ledger-meta-left">
-                <span class="card-era">${eraText}</span>
+                <span class="card-era">${escapeHtml(eraText)}</span>
                 ${magBadgeHtml}
               </div>
-              <span class="selected-provenance-tag">${provTagText}</span>
+              <span class="selected-provenance-tag">${escapeHtml(provTagText)}</span>
             </div>
             <div class="ledger-title-line">
-              <span class="card-title">${titleText}</span>
+              <span class="card-title">${escapeHtml(titleText)}</span>
               <span class="card-coords">${coordsHtml}</span>
             </div>
-            <div class="card-snippet">${quoteText ? `"${quoteText.substring(0, 68)}..."` : '사료 및 관측 기록 보존'}</div>
+            <div class="card-snippet">${quoteText ? `"${escapeHtml(quoteText.substring(0, 68))}..."` : '사료 및 관측 기록 보존'}</div>
           `;
 
           card.addEventListener('click', (e) => {
@@ -973,7 +974,7 @@ export class UnifiedControlSurface {
           keyInsightTagEl.textContent = isHist ? "사료 핵심 통찰 (ARCHIVAL INSIGHT)" : "정밀 계측 핵심 통찰 (SEISMOLOGICAL INSIGHT)";
         }
         if (keyInsightTextEl) {
-          keyInsightTextEl.innerHTML = `<strong style="color:#FFFFFF; font-weight:600;">${insight.title}:</strong> ${insight.body}`;
+          keyInsightTextEl.innerHTML = `<strong style="color:#FFFFFF; font-weight:600;">${escapeHtml(insight.title)}:</strong> ${escapeHtml(insight.body)}`;
         }
 
         // Document / Quote section (for Historical Folio)
@@ -1754,11 +1755,11 @@ export class UnifiedControlSurface {
           stations.forEach(s => {
             tableRowsHtml += `
               <tr>
-                <td><span style="font-weight:600; color:var(--hanji);">${s.code}</span></td>
-                <td>${s.dist}</td>
-                <td><span class="pga-val-highlight">${s.pga}</span> <span style="font-size:9.5px; color:var(--mist);">(${s.pgaCms})</span></td>
-                <td><span style="font-size:9.5px; color:var(--hanji-muted);">${s.comps}</span></td>
-                <td><span style="font-size:9.5px; color:var(--mist);">${s.site}</span></td>
+                <td><span style="font-weight:600; color:var(--hanji);">${escapeHtml(s.code)}</span></td>
+                <td>${escapeHtml(s.dist)}</td>
+                <td><span class="pga-val-highlight">${escapeHtml(s.pga)}</span> <span style="font-size:9.5px; color:var(--mist);">(${escapeHtml(s.pgaCms)})</span></td>
+                <td><span style="font-size:9.5px; color:var(--hanji-muted);">${escapeHtml(s.comps)}</span></td>
+                <td><span style="font-size:9.5px; color:var(--mist);">${escapeHtml(s.site)}</span></td>
               </tr>
             `;
           });
@@ -1770,22 +1771,22 @@ export class UnifiedControlSurface {
             <div class="metric-summary-strip">
               <div class="metric-summary-item">
                 <span class="metric-s-label">단층 파쇄 길이</span>
-                <span class="metric-s-val">${ruptureLen}</span>
+                <span class="metric-s-val">${escapeHtml(ruptureLen)}</span>
               </div>
               <div class="metric-summary-item">
                 <span class="metric-s-label">최대 미끄러짐</span>
-                <span class="metric-s-val">${maxSlip}</span>
+                <span class="metric-s-val">${escapeHtml(maxSlip)}</span>
               </div>
               <div class="metric-summary-item">
                 <span class="metric-s-label">단층면해 (Strike/Dip/Rake)</span>
-                <span class="metric-s-val" style="font-size:11px;">${focalMech}</span>
+                <span class="metric-s-val" style="font-size:11px;">${escapeHtml(focalMech)}</span>
               </div>
               <div class="metric-summary-item">
                 <span class="metric-s-label">지진 모멘트 M₀</span>
-                <span class="metric-s-val">${momentStr}</span>
+                <span class="metric-s-val">${escapeHtml(momentStr)}</span>
               </div>
             </div>
-            <p class="editorial-narrative">${eventNarrative}</p>
+            <p class="editorial-narrative">${escapeHtml(eventNarrative)}</p>
           </div>
 
           <div class="editorial-section">
@@ -1806,11 +1807,11 @@ export class UnifiedControlSurface {
                 </tbody>
               </table>
             </div>
-            <p class="editorial-narrative" style="font-size:11.5px; color:var(--mist); margin-top:4px;">${noteNarrative}</p>
+            <p class="editorial-narrative" style="font-size:11.5px; color:var(--mist); margin-top:4px;">${escapeHtml(noteNarrative)}</p>
             <div class="editorial-grounding-line">
-              <div class="eg-item"><span class="eg-tag obs">[실측값]</span> <span class="eg-val">${obsSource}</span></div>
-              <div class="eg-item"><span class="eg-tag inv">[역산값]</span> <span class="eg-val">${invSource}</span></div>
-              <div class="eg-item"><span class="eg-tag mod">[모델 가정]</span> <span class="eg-val">${modSource}</span></div>
+              <div class="eg-item"><span class="eg-tag obs">[실측값]</span> <span class="eg-val">${escapeHtml(obsSource)}</span></div>
+              <div class="eg-item"><span class="eg-tag inv">[역산값]</span> <span class="eg-val">${escapeHtml(invSource)}</span></div>
+              <div class="eg-item"><span class="eg-tag mod">[모델 가정]</span> <span class="eg-val">${escapeHtml(modSource)}</span></div>
             </div>
           </div>
         `;

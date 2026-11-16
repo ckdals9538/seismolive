@@ -15,6 +15,7 @@
 // ============================================================================
 
 import * as THREE from '../lib/three.module.js';
+import { escapeHtml } from '../lib/htmlEscape.js';
 import { HanyangResponseAdapter } from '../response/HanyangResponseAdapter.js';
 import { GlobalLocalCameraTransition, CAMERA_STAGES } from '../response/GlobalLocalCameraTransition.js';
 import { ResponseUIAdapter } from '../response/ResponseUIAdapter.js';
@@ -906,8 +907,8 @@ export class EvacuationExperienceController {
       return `
         <button type="button" class="candidate-pill-btn ${idx === this.selectedCandidateIndex ? 'active' : ''}" data-cand-idx="${idx}" ${st === CANDIDATE_STATUS.UNAVAILABLE ? 'disabled' : ''}>
           <span class="cand-dot ${dotCls}" aria-hidden="true"></span>
-          <span class="cand-name">${c.name}</span>
-          <span class="cand-dist">${distTxt}</span>
+          <span class="cand-name">${escapeHtml(c.name)}</span>
+          <span class="cand-dist">${escapeHtml(distTxt)}</span>
         </button>
       `;
     }).join('');
@@ -1131,7 +1132,7 @@ export class EvacuationExperienceController {
     }
     resultsEl.innerHTML = hits.map((h, idx) => `
       <button type="button" class="region-result-row" data-hit-idx="${idx}">
-        ${h.displayName} <span style="color:var(--evac-muted); font-size:9.5px;">(${h.lat.toFixed(3)}, ${h.lon.toFixed(3)})</span>
+        ${escapeHtml(h.displayName)} <span style="color:var(--evac-muted); font-size:9.5px;">(${h.lat.toFixed(3)}, ${h.lon.toFixed(3)})</span>
       </button>
     `).join('');
     resultsEl.querySelectorAll('[data-hit-idx]').forEach(btn => {
@@ -1227,7 +1228,7 @@ export class EvacuationExperienceController {
         const smStr = Number.isFinite(smMmi) ? `USGS ShakeMap MMI ${smMmi}` : 'ShakeMap 미수신 (null)';
         const hasOaf = Boolean(handed.officialProducts?.aftershockForecast || handed.officialProducts?.oaf);
         const oafNote = hasOaf ? ' · OAF(여진 예측≠현재 흔들림)' : '';
-        metaEl.innerHTML = `지구본 연동 사건: <strong>${handed.title || '선택 지진'}</strong> (${magStr} · ${depthStr} · ${handed.provenance?.source || handed.sourceName || '출처 확인'}) · ${smStr}${oafNote}`;
+        metaEl.innerHTML = `지구본 연동 사건: <strong>${escapeHtml(handed.title || '선택 지진')}</strong> (${escapeHtml(magStr)} · ${escapeHtml(depthStr)} · ${escapeHtml(handed.provenance?.source || handed.sourceName || '출처 확인')}) · ${escapeHtml(smStr)}${escapeHtml(oafNote)}`;
       }
       const epiBtn = this._el('btn-handoff-epicenter');
       if (epiBtn) {
@@ -2104,7 +2105,7 @@ export class EvacuationExperienceController {
           <div class="arrival-metric-item"><span class="am-label">개활 면적</span><strong class="am-val">${just?.areaSqMeters ? just.areaSqMeters.toLocaleString() + '㎡' : '미확인'}</strong></div>
           <div class="arrival-metric-item"><span class="am-label">수용 추정</span><strong class="am-val">${just?.capacityEstimate ? just.capacityEstimate.toLocaleString() + '명' : '미확인'}</strong></div>
           <div class="arrival-metric-item"><span class="am-label">이격 반경</span><strong class="am-val">${just?.clearanceRadiusMeters ? just.clearanceRadiusMeters + 'm' : '미확인'}</strong></div>
-          <div class="arrival-metric-item"><span class="am-label">판정 상태</span><strong class="am-val">${just?.provenanceLabel || candStatus}</strong></div>
+          <div class="arrival-metric-item"><span class="am-label">판정 상태</span><strong class="am-val">${escapeHtml(just?.provenanceLabel || candStatus)}</strong></div>
         `;
       }
       const whyEl = this._el('arrival-why-text');

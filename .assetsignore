@@ -17,6 +17,11 @@ scratch/
 tests/
 scripts/
 docs/
+js/lib/three.min.js
+js/lib/OrbitControls.js
+assets/data/osm_hanyang_campus.json
+assets/data/hanyang_local_spatial_4km.json
+assets/data/p3_1_field_survey_template.json
 assets/references/
 assets/terrain/historical_event_coverage_assessment.json
 assets/terrain/bathymetry/global_etopo_elevation_4096_unorm16.*

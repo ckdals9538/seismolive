@@ -26,25 +26,25 @@
   <!-- Top-Right Restrained Earth Dock: Main-Globe-Only Location-Aware Response + Quality Toggle -->
   <div id="top-right-earth-dock">
     <div id="dev-lab-global-wrap">
-      <button id="btn-dev-lab-global" class="global-evac-trigger-btn" title="지구 궤도에서 현재 위치 또는 지정 지역의 3D 지진 영향·대응 공간으로 진입 (메인 지구본 전용)" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
+      <button id="btn-dev-lab-global" class="global-evac-trigger-btn" title="지구 궤도에서 현재 위치 또는 지정 지역의 3D 지진 영향·대응 공간으로 진입 (메인 지구본 전용)">
         <span class="evac-dot"></span>
         <span>내 위치 · 지역 대응 ▾</span>
       </button>
       <div id="global-dev-lab-menu">
         <span class="global-menu-eyebrow">GLOBAL TO LOCAL · 실시간 지역 대응</span>
-        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="브라우저 현재 위치를 확인하여 가장 가까운/최근 지진 영향과 주변 대피 동선을 분석합니다" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'MY_LOCATION' })">
+        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" data-entry-mode="MY_LOCATION" title="브라우저 현재 위치를 확인하여 가장 가까운/최근 지진 영향과 주변 대피 동선을 분석합니다">
           <strong>내 위치 기준 분석 (GPS) ▸</strong>
           <small>현재 위치 기반 자동 시나리오 · 주변 대피 공간 조회</small>
         </button>
-        <button id="btn-free-mode-local" class="global-menu-item" title="GPS 없이 전국 행정구역·좌표·지도를 직접 선택해 분석합니다 (실제 위치가 아님을 명확히 표시)" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE' })">
+        <button id="btn-free-mode-local" class="global-menu-item" data-entry-mode="FREE_MODE" title="GPS 없이 전국 행정구역·좌표·지도를 직접 선택해 분석합니다 (실제 위치가 아님을 명확히 표시)">
           <strong>관심 지역 직접 선택 (자유 모드) ▸</strong>
           <small>시·군·구 검색 또는 좌표 지정으로 임의 지역 탐색</small>
         </button>
         <div class="global-menu-subrow">
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'sokcho', lat: 38.2070, lon: 128.5918, name: '강원 속초 · 청초·교동 연안 도심', shortName: '속초 도심', withFlight: true })">속초 도심</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 M5.8', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'pohang', lat: 36.1086, lon: 129.3490, name: '경북 포항 · 흥해·중앙 지구', shortName: '포항 M5.4', eventId: 'hist_2017_pohang', withFlight: true })">포항 M5.4</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'seoul_seongdong', lat: 37.5596, lon: 127.0410, name: '서울 성동 · 사근·행당 도심', shortName: '서울 성동', withFlight: true })">서울 성동</button>
+          <button type="button" class="global-menu-chip" data-entry-mode="FREE_MODE" data-region-id="sokcho" data-lat="38.2070" data-lon="128.5918" data-name="강원 속초 · 청초·교동 연안 도심" data-short="속초 도심">속초 도심</button>
+          <button type="button" class="global-menu-chip" data-entry-mode="FREE_MODE" data-region-id="gyeongju" data-lat="35.8347" data-lon="129.2190" data-name="경북 경주 · 황남·월성 지구" data-short="경주 M5.8" data-event-id="hist_2016_gyeongju">경주 M5.8</button>
+          <button type="button" class="global-menu-chip" data-entry-mode="FREE_MODE" data-region-id="pohang" data-lat="36.1086" data-lon="129.3490" data-name="경북 포항 · 흥해·중앙 지구" data-short="포항 M5.4" data-event-id="hist_2017_pohang">포항 M5.4</button>
+          <button type="button" class="global-menu-chip" data-entry-mode="FREE_MODE" data-region-id="seoul_seongdong" data-lat="37.5596" data-lon="127.0410" data-name="서울 성동 · 사근·행당 도심" data-short="서울 성동">서울 성동</button>
         </div>
       </div>
     </div>

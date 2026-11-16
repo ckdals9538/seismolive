@@ -44,6 +44,31 @@ import {
 } from './SpatialDataProviders.js';
 import { liveSeismicDataService } from '../data/LiveSeismicDataService.js';
 
+const _regionalRawFetchCache = new Map();
+const REGIONAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const REGIONAL_CACHE_MAX_ENTRIES = 12;
+
+function getCachedRegionalFetch(cacheKey) {
+  const hit = _regionalRawFetchCache.get(cacheKey);
+  if (!hit) return null;
+  if ((Date.now() - hit.storedAtMs) > REGIONAL_CACHE_TTL_MS) {
+    _regionalRawFetchCache.delete(cacheKey);
+    return null;
+  }
+  return hit;
+}
+
+function setCachedRegionalFetch(cacheKey, payload) {
+  if (_regionalRawFetchCache.size >= REGIONAL_CACHE_MAX_ENTRIES) {
+    const oldestKey = _regionalRawFetchCache.keys().next().value;
+    if (oldestKey) _regionalRawFetchCache.delete(oldestKey);
+  }
+  _regionalRawFetchCache.set(cacheKey, {
+    ...payload,
+    storedAtMs: Date.now()
+  });
+}
+
 export const HANYANG_SHELTER_JUSTIFICATION = Object.freeze({
   'OA-21060': Object.freeze({
     id: 'OA-21060',
@@ -860,7 +885,7 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
   if (halfSpanMeters <= 1000) {
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5500);
+      const timer = setTimeout(() => controller.abort(), 4500);
       const bbox = `${west},${south},${east},${north}`;
       const res = await fetch(`https://api.openstreetmap.org/api/0.6/map.json?bbox=${bbox}`, {
         mode: 'cors',
@@ -878,18 +903,18 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
     }
   }
 
-  // 2. Overpass API (handles wider 4km~6.4km regional queries; trims dense building ways when >2.2km)
+  // 2. Overpass API (handles wider ~2.4km radius queries in a single expansion pass)
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8500);
-    const includeBuildings = halfSpanMeters <= 2200
+    const timer = setTimeout(() => controller.abort(), 7000);
+    const includeBuildings = halfSpanMeters <= 2400
       ? `way["building"](${south},${west},${north},${east});`
       : '';
-    const roadSelector = halfSpanMeters <= 2200
+    const roadSelector = halfSpanMeters <= 2400
       ? `way["highway"](${south},${west},${north},${east});`
       : `way["highway"~"primary|secondary|tertiary|unclassified|residential|footway|pedestrian|path|steps"](${south},${west},${north},${east});`;
     const overpassQuery =
-      `[out:json][timeout:10];` +
+      `[out:json][timeout:7];` +
       `(` +
         includeBuildings +
         roadSelector +
@@ -1027,48 +1052,61 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
   let queryRadiusMeters = opts.radiusMeters || 900;
   let maxExtentMeters = Math.max(1800, queryRadiusMeters);
 
-  const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: maxExtentMeters, nx: 64, nz: 64 });
-  const osmPromise = (async () => {
-    if (opts.osmJsonOverride) return opts.osmJsonOverride;
-    if (opts.osmJson) return opts.osmJson;
-    if (typeof fetch !== 'function' || opts.offlineOnly) return null;
+  const canUseSpatialCache = !opts.offlineOnly && !opts.osmJsonOverride && !opts.osmJson && !opts.forceRefresh;
+  const cacheKey = `${lat.toFixed(3)},${lon.toFixed(3)}:${queryRadiusMeters}`;
+  const cachedRaw = canUseSpatialCache ? getCachedRegionalFetch(cacheKey) : null;
 
-    // 1. Compact urban fetch (~1.8km span)
-    let json = await fetchOsmRegionElements(lat, lon, 900);
-    const hasOpenShelterTag = el => el.type === 'way' && (el.tags?.leisure === 'park' || el.tags?.leisure === 'pitch' || el.tags?.leisure === 'stadium' || el.tags?.amenity === 'school' || el.tags?.emergency === 'assembly_point');
-    const wayCount = json?.elements?.filter(e => e.type === 'way')?.length || 0;
-    const candCount = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
+  let terrainGrid;
+  let liveOsmJson;
+  let officialShelterRes;
 
-    // 2. Dynamic expansion up to ~4km span (2000m half-extent)
-    if (!json || wayCount < 15 || candCount === 0) {
-      const expanded = await fetchOsmRegionElements(lat, lon, 2000);
-      if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (json?.elements?.length || 0)) {
-        json = expanded;
-        queryRadiusMeters = 2000;
+  if (cachedRaw) {
+    terrainGrid = cachedRaw.terrainGrid;
+    liveOsmJson = cachedRaw.liveOsmJson;
+    officialShelterRes = cachedRaw.officialShelterRes;
+    queryRadiusMeters = cachedRaw.queryRadiusMeters;
+    maxExtentMeters = cachedRaw.maxExtentMeters;
+  } else {
+    const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: maxExtentMeters, nx: 64, nz: 64 });
+    const osmPromise = (async () => {
+      if (opts.osmJsonOverride) return opts.osmJsonOverride;
+      if (opts.osmJson) return opts.osmJson;
+      if (typeof fetch !== 'function' || opts.offlineOnly) return null;
+
+      // 1. Compact urban fetch (~1.8km span)
+      let json = await fetchOsmRegionElements(lat, lon, 900);
+      const hasOpenShelterTag = el => el.type === 'way' && (el.tags?.leisure === 'park' || el.tags?.leisure === 'pitch' || el.tags?.leisure === 'stadium' || el.tags?.amenity === 'school' || el.tags?.emergency === 'assembly_point');
+      const wayCount = json?.elements?.filter(e => e.type === 'way')?.length || 0;
+      const candCount = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
+
+      // 2. Single wide regional expansion (~4.8km span / 2.4km half-radius) if dense roads or open shelters missing
+      if (!json || wayCount < 15 || candCount === 0) {
+        const expanded = await fetchOsmRegionElements(lat, lon, 2400);
+        if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (json?.elements?.length || 0)) {
+          json = expanded;
+          queryRadiusMeters = 2400;
+          maxExtentMeters = 2400;
+        }
       }
+      return json;
+    })();
+
+    const shelterPromise = (!opts.offlineOnly && !opts.osmJsonOverride && typeof fetch === 'function')
+      ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 1600 })
+      : Promise.resolve({ status: 'OFFLINE_OR_SKIPPED', shelters: [] });
+
+    [terrainGrid, liveOsmJson, officialShelterRes] = await Promise.all([demPromise, osmPromise, shelterPromise]);
+
+    if (canUseSpatialCache && liveOsmJson?.elements?.length > 0) {
+      setCachedRegionalFetch(cacheKey, {
+        terrainGrid,
+        liveOsmJson,
+        officialShelterRes,
+        queryRadiusMeters,
+        maxExtentMeters
+      });
     }
-
-    // 3. Adaptive >4km rural/suburban outreach up to 3.2km radius (6.4km diameter) if still sparse
-    const candCount2 = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
-    if (!json || candCount2 === 0) {
-      const wide = await fetchOsmRegionElements(lat, lon, 3200);
-      if (wide && Array.isArray(wide.elements) && wide.elements.length > (json?.elements?.length || 0)) {
-        // Merge buildings from 2km pass with wider roads & parks from 3.2km pass
-        const prevBuildings = (json?.elements || []).filter(e => e.tags?.building);
-        const wideNodesAndWays = wide.elements;
-        json = { elements: [...(json?.elements || []), ...wideNodesAndWays.filter(w => !prevBuildings.some(pb => pb.id === w.id))] };
-        queryRadiusMeters = 3200;
-        maxExtentMeters = 3200;
-      }
-    }
-    return json;
-  })();
-
-  const shelterPromise = (!opts.offlineOnly && !opts.osmJsonOverride && typeof fetch === 'function')
-    ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 1600 })
-    : Promise.resolve({ status: 'OFFLINE_OR_SKIPPED', shelters: [] });
-
-  const [terrainGrid, liveOsmJson, officialShelterRes] = await Promise.all([demPromise, osmPromise, shelterPromise]);
+  }
   const osmJson = liveOsmJson || { elements: [] };
   const osmUnavailable = !liveOsmJson || !Array.isArray(liveOsmJson.elements) || liveOsmJson.elements.length === 0;
   const officialShelters = Array.isArray(officialShelterRes?.shelters) ? officialShelterRes.shelters : [];

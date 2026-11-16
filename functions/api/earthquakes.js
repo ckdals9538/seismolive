@@ -1,17 +1,8 @@
-// Cloudflare Pages Function: /api/earthquakes
+// Cloudflare Worker / Pages Function: /api/earthquakes
 // Aggregates live USGS global + Korea/East-Asia feeds and optional KMA APIHub official bulletins.
-// Never synthesizes fake KMA records when KMA_API_KEY is absent.
+// Never synthesizes fake KMA records when KMA_API_KEY is absent; enforces edge caching & input bounds.
 
-function jsonResponse(body, status = 200, maxAgeSec = 60) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': `public, max-age=${maxAgeSec}, stale-while-revalidate=${maxAgeSec * 2}`,
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
+import { validateOriginForApi, withEdgeCache } from '../_shared/security.js';
 
 function parseKmaItems(rawText) {
   try {
@@ -36,10 +27,10 @@ function parseKmaItems(rawText) {
           id: `kma_${tmEqk || Date.now()}_${it.tmSeq || ''}`.replace(/_+$/, ''),
           lat,
           lon,
-          mag: Number.isFinite(mag) ? mag : null,
-          depthKm: Number.isFinite(dep) ? dep : null,
+          mag: Number.isFinite(mag) && mag > 0 ? mag : null,
+          depthKm: Number.isFinite(dep) && dep > 0 ? dep : null,
           occurredAtMs,
-          place: it.loc || '대한민국 지진 관측',
+          place: String(it.loc || '대한민국 지진 관측').slice(0, 160),
           sourceName: '대한민국 기상청(KMA) 실시간 통보',
           recordType: 'kma-live',
           verification: 'kma-official'
@@ -51,64 +42,83 @@ function parseKmaItems(rawText) {
   }
 }
 
-export async function onRequestGet({ request, env }) {
+export async function onRequestGet({ request, env, ctx }) {
+  const blocked = validateOriginForApi(request);
+  if (blocked) return blocked;
+
   const reqUrl = new URL(request.url);
-  const minMagKorea = Number(reqUrl.searchParams.get('minMag') || 2.0);
-  const days = Math.min(30, Math.max(1, Number(reqUrl.searchParams.get('days') || 14)));
-  const startIso = new Date(Date.now() - days * 86400_000).toISOString();
+  const rawMinMag = Number(reqUrl.searchParams.get('minMag'));
+  const minMagKorea = Number.isFinite(rawMinMag) ? Number(Math.min(9.5, Math.max(-1.0, rawMinMag)).toFixed(1)) : 2.0;
+  const rawDays = Number(reqUrl.searchParams.get('days'));
+  const days = Number.isFinite(rawDays) ? Math.round(Math.min(30, Math.max(1, rawDays))) : 14;
 
-  const usgsGlobalUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson';
-  const usgsRegionalUrl =
-    `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${encodeURIComponent(startIso)}` +
-    `&minlatitude=31&maxlatitude=44&minlongitude=122&maxlongitude=134&minmagnitude=${minMagKorea}`;
+  const cacheKeyUrl = `${reqUrl.origin}/__edge_cache/earthquakes?minMag=${minMagKorea}&days=${days}`;
 
-  const [globalRes, regionalRes] = await Promise.allSettled([
-    fetch(usgsGlobalUrl, { signal: AbortSignal.timeout(4500) }),
-    fetch(usgsRegionalUrl, { signal: AbortSignal.timeout(4500) })
-  ]);
+  return withEdgeCache({
+    request,
+    ctx,
+    cacheKeyUrl,
+    ttlSec: 60,
+    fetcher: async () => {
+      const startIso = new Date(Date.now() - days * 86400_000).toISOString();
+      const usgsGlobalUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_month.geojson';
+      const usgsRegionalUrl =
+        `https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=${encodeURIComponent(startIso)}` +
+        `&minlatitude=31&maxlatitude=44&minlongitude=122&maxlongitude=134&minmagnitude=${minMagKorea}`;
 
-  let usgsGlobalFeatures = [];
-  let usgsRegionalFeatures = [];
-  let usgsStatus = 'UNAVAILABLE';
+      const [globalRes, regionalRes] = await Promise.allSettled([
+        fetch(usgsGlobalUrl, { signal: AbortSignal.timeout(4500) }),
+        fetch(usgsRegionalUrl, { signal: AbortSignal.timeout(4500) })
+      ]);
 
-  if (globalRes.status === 'fulfilled' && globalRes.value.ok) {
-    const gj = await globalRes.value.json();
-    usgsGlobalFeatures = Array.isArray(gj.features) ? gj.features : [];
-    usgsStatus = 'LIVE';
-  }
-  if (regionalRes.status === 'fulfilled' && regionalRes.value.ok) {
-    const rj = await regionalRes.value.json();
-    usgsRegionalFeatures = Array.isArray(rj.features) ? rj.features : [];
-    usgsStatus = 'LIVE';
-  }
+      let usgsGlobalFeatures = [];
+      let usgsRegionalFeatures = [];
+      let usgsStatus = 'UNAVAILABLE';
 
-  let kmaEvents = [];
-  let kmaStatus = env?.KMA_API_KEY ? 'UNAVAILABLE' : 'API_KEY_NOT_CONFIGURED';
-  if (env?.KMA_API_KEY) {
-    try {
-      const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
-      const kstFrom = new Date(kstNow.getTime() - 3 * 86400 * 1000);
-      const fmtYmd = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
-      const kmaUrl = `https://apihub.kma.go.kr/api/typ02/openApi/EqkInfoService/getEqkMsg?pageNo=1&numOfRows=30&dataType=JSON&fromTmFc=${fmtYmd(kstFrom)}&toTmFc=${fmtYmd(kstNow)}&authKey=${encodeURIComponent(env.KMA_API_KEY)}`;
-      const kr = await fetch(kmaUrl, { signal: AbortSignal.timeout(4500) });
-      if (kr.ok) {
-        kmaEvents = parseKmaItems(await kr.text());
-        kmaStatus = 'LIVE';
+      if (globalRes.status === 'fulfilled' && globalRes.value.ok) {
+        const gj = await globalRes.value.json();
+        usgsGlobalFeatures = Array.isArray(gj.features) ? gj.features : [];
+        usgsStatus = 'LIVE';
       }
-    } catch {
-      kmaStatus = 'FETCH_FAILED';
-    }
-  }
+      if (regionalRes.status === 'fulfilled' && regionalRes.value.ok) {
+        const rj = await regionalRes.value.json();
+        usgsRegionalFeatures = Array.isArray(rj.features) ? rj.features : [];
+        usgsStatus = 'LIVE';
+      }
 
-  return jsonResponse({
-    ok: true,
-    serverTime: new Date().toISOString(),
-    agencies: {
-      usgs: { status: usgsStatus, globalCount: usgsGlobalFeatures.length, regionalCount: usgsRegionalFeatures.length },
-      kma: { status: kmaStatus, count: kmaEvents.length }
-    },
-    usgsGlobalFeatures,
-    usgsRegionalFeatures,
-    kmaEvents
-  }, 200, 60);
+      let kmaEvents = [];
+      let kmaStatus = env?.KMA_API_KEY ? 'UNAVAILABLE' : 'API_KEY_NOT_CONFIGURED';
+      if (env?.KMA_API_KEY) {
+        try {
+          const kstNow = new Date(Date.now() + 9 * 3600 * 1000);
+          const kstFrom = new Date(kstNow.getTime() - 3 * 86400 * 1000);
+          const fmtYmd = (d) => d.toISOString().slice(0, 10).replace(/-/g, '');
+          const kmaUrl = `https://apihub.kma.go.kr/api/typ02/openApi/EqkInfoService/getEqkMsg?pageNo=1&numOfRows=30&dataType=JSON&fromTmFc=${fmtYmd(kstFrom)}&toTmFc=${fmtYmd(kstNow)}&authKey=${encodeURIComponent(env.KMA_API_KEY)}`;
+          const kr = await fetch(kmaUrl, { signal: AbortSignal.timeout(4500) });
+          if (kr.ok) {
+            kmaEvents = parseKmaItems(await kr.text());
+            kmaStatus = 'LIVE';
+          }
+        } catch {
+          kmaStatus = 'FETCH_FAILED';
+        }
+      }
+
+      return {
+        status: 200,
+        cacheable: usgsStatus === 'LIVE' || kmaStatus === 'LIVE',
+        body: {
+          ok: true,
+          serverTime: new Date().toISOString(),
+          agencies: {
+            usgs: { status: usgsStatus, globalCount: usgsGlobalFeatures.length, regionalCount: usgsRegionalFeatures.length },
+            kma: { status: kmaStatus, count: kmaEvents.length }
+          },
+          usgsGlobalFeatures,
+          usgsRegionalFeatures,
+          kmaEvents
+        }
+      };
+    }
+  });
 }
