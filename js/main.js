@@ -2781,7 +2781,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       return exhibitionModeManager.exitToGlobalExhibition();
     };
 
-    window.openLocalSpatialResponse = function(stage = 'local4km') {
+    window.openLocalSpatialResponse = function(stage = 'campus') {
       const eventParam = currentParsedEvent?.eventId ? `&event=${encodeURIComponent(currentParsedEvent.eventId)}` : '';
       window.location.href = `./viewer_p2_6.html?stage=${encodeURIComponent(stage)}${eventParam}`;
     };

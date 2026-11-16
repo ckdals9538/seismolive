@@ -143,7 +143,17 @@ def point_in_poly(x, y, poly):
     return inside
 
 
-def is_excluded_campus_footprint(east_m, north_m):
+SHORTEST_SPINE_SAMPLES = []
+_SPINE_PTS = [(73.7, 42.0), (94.0, 24.0), (118.0, -5.0), (155.0, -57.0), (190.0, -135.0), (226.75, -218.17)]
+for _si in range(len(_SPINE_PTS) - 1):
+    _ax, _ay = _SPINE_PTS[_si]
+    _bx, _by = _SPINE_PTS[_si + 1]
+    for _k in range(9):
+        _t = _k / 8.0
+        SHORTEST_SPINE_SAMPLES.append((_ax + (_bx - _ax) * _t, _ay + (_by - _ay) * _t))
+
+
+def is_excluded_campus_footprint(east_m, north_m, w_m=0.0, d_m=0.0, yaw_rad=0.0):
     # Exclude target Building 212 (제1공학관) footprint so detailed wireframe/structural model has no z-fighting
     if math.hypot(east_m - 52.0, north_m - 74.0) < 56.0:
         return True
@@ -152,11 +162,19 @@ def is_excluded_campus_footprint(east_m, north_m):
     dn_s = (north_m - (-218.17)) / 92.0
     if (dx_s * dx_s + dn_s * dn_s) < 1.0:
         return True
-    # Keep direct ramp/stair spine just outside 1F SE exit open
-    if 65.0 <= east_m <= 165.0 and -125.0 <= north_m <= 55.0:
-        return True
+    # Exact OBB clearance check along the outdoor shortest egress stair/walkway spine (7.5m side clearance)
+    ca = math.cos(yaw_rad)
+    sa = math.sin(yaw_rad)
+    half_w = w_m * 0.5 + 7.5
+    half_d = d_m * 0.5 + 7.5
+    for sx_pt, sn_pt in SHORTEST_SPINE_SAMPLES:
+        de = sx_pt - east_m
+        dn = sn_pt - north_m
+        lx = ca * de + sa * dn
+        lz = sa * de - ca * dn
+        if abs(lx) <= half_w and abs(lz) <= half_d:
+            return True
     # Also exclude exact centers of our named HIT & Paiknam packages if they overlap slightly
-    # Wait: keep HIT and Paiknam real footprints out ONLY if within 22m of wireframe center
     if math.hypot(east_m - (-95.0), north_m - 210.0) < 28.0:
         return True
     if math.hypot(east_m - (-35.0), north_m - (-75.0)) < 26.0:
@@ -395,12 +413,12 @@ def main():
         north_m = -(bz - az) * scale_z
         if abs(east_m) > HALF_EXTENT_BLDG_M or abs(north_m) > HALF_EXTENT_BLDG_M:
             continue
-        if is_excluded_campus_footprint(east_m, north_m):
-            continue
         w_m = max(4.0, bw * scale_x)
         d_m = max(4.0, bd * scale_z)
         h_m = max(3.5, min(250.0, bh))
         yaw_rad = -ba
+        if is_excluded_campus_footprint(east_m, north_m, w_m, d_m, yaw_rad):
+            continue
 
         dedup = (round(east_m, 0), round(north_m, 0), round(w_m, 0), round(d_m, 0))
         if dedup in seen_bldg:

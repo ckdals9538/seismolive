@@ -52,7 +52,11 @@ export const LOCAL_VISUAL_THEMES = Object.freeze({
     sunIntensity: 2.35,
     rimColor: 0x6b93c4,
     rimIntensity: 0.65,
-    xrayColor: 0x1e293b
+    xrayColor: 0x1e293b,
+    treeConifer: 0x1b3a34,
+    treeBroadleaf: 0x254940,
+    horizonRing: 0x334155,
+    epicenterRay: 0xe2c799
   }),
   ARCHITECTURAL_DAY: Object.freeze({
     id: 'ARCHITECTURAL_DAY',
@@ -83,7 +87,11 @@ export const LOCAL_VISUAL_THEMES = Object.freeze({
     sunIntensity: 2.75,
     rimColor: 0xcce0f2,
     rimIntensity: 0.40,
-    xrayColor: 0x64748b
+    xrayColor: 0x64748b,
+    treeConifer: 0x5c804e,
+    treeBroadleaf: 0x739860,
+    horizonRing: 0x94a38a,
+    epicenterRay: 0xc2410c
   })
 });
 
@@ -477,6 +485,15 @@ export class LocalSpatialMapLayer {
     this.hemiLight = null;
     this.sunLight = null;
     this.rimLight = null;
+    this.coniferTreesMesh = null;
+    this.broadleafTreesMesh = null;
+    this.nightWindowsPoints = null;
+    this.horizonCompassMat = null;
+    this.epicenterGuideGroup = new THREE.Group();
+    this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
+    this._epicenterRayMat = null;
+    this._epicenterWaveArcs = [];
+    this._activeOriginMeta = { id: 'BLDG_212_ENG1', title: '내 위치 · 제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 };
 
     this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
     this.chunkManager = options.chunkManager || new SpatialChunkManager();
@@ -495,8 +512,12 @@ export class LocalSpatialMapLayer {
     this._buildWaterwaysAndAlluvialCaution();
     this._buildRoadNetwork();
     this._buildContextBuildingsInstancedMesh();
+    this._buildTrees();
+    this._buildNightWindows();
+    this._buildHorizonCompassAndEpicenterGuide();
     this._buildSheltersAndFacilities();
     this._buildLabelAnchors();
+    this.rootGroup.add(this.epicenterGuideGroup);
     this.rootGroup.add(this.chunkGroup);
     this.rootGroup.add(this.hazardPolygonGroup);
 
@@ -1000,6 +1021,277 @@ export class LocalSpatialMapLayer {
     this.rootGroup.add(group);
   }
 
+  _buildTrees() {
+    const grid = this.pkg.terrainGrid;
+    if (!grid || !Array.isArray(grid.greenMask)) return;
+
+    const palette = this._getThemePalette();
+    const { nx, nz, halfExtentMeters, greenMask } = grid;
+    const span = halfExtentMeters * 2.0;
+
+    const conifers = [];
+    const broadleaf = [];
+    let seed = 90210;
+    const rand = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    for (let j = 1; j < nz; j += 1) {
+      for (let i = 1; i < nx; i += 1) {
+        const idx = j * (nx + 1) + i;
+        if (!greenMask[idx]) continue;
+
+        const baseE = -halfExtentMeters + (i / nx) * span;
+        const baseN = -halfExtentMeters + (j / nz) * span;
+        // Skip buildings/egress core & Stadium oval
+        if (Math.hypot(baseE - 52, baseN - 74) < 75) continue;
+        if (Math.hypot(baseE - 226.75, baseN + 218.17) < 85) continue;
+
+        const samples = 2;
+        for (let s = 0; s < samples; s++) {
+          const e = baseE + (rand() - 0.5) * 28.0;
+          const n = baseN + (rand() - 0.5) * 28.0;
+          const h = sampleTerrainHeight(e, n);
+          if (h < -15.2) continue;
+          const sc = 4.5 + rand() * 5.2;
+          const yaw = rand() * Math.PI * 2;
+          if ((i + j + s) % 3 === 0) {
+            conifers.push([e, h, -n, sc, yaw]);
+          } else {
+            broadleaf.push([e, h, -n, sc, yaw]);
+          }
+        }
+      }
+    }
+
+    const dummy = new THREE.Object3D();
+    const conGeo = this._track(new THREE.ConeGeometry(0.65, 1.85, 5));
+    const conMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.treeConifer,
+      roughness: 0.92,
+      metalness: 0.0
+    }));
+    this.coniferTreesMesh = new THREE.InstancedMesh(conGeo, conMat, conifers.length);
+    this.coniferTreesMesh.name = 'LocalConiferTrees4km';
+    conifers.forEach(([x, y, z, s, yaw], idx) => {
+      dummy.position.set(x, y + s * 0.88, z);
+      dummy.rotation.set(0, yaw, 0);
+      dummy.scale.set(s, s, s);
+      dummy.updateMatrix();
+      this.coniferTreesMesh.setMatrixAt(idx, dummy.matrix);
+    });
+    this.coniferTreesMesh.instanceMatrix.needsUpdate = true;
+    this.coniferTreesMesh.castShadow = true;
+    this.rootGroup.add(this.coniferTreesMesh);
+
+    const broadGeo = this._track(new THREE.IcosahedronGeometry(0.85, 0));
+    const broadMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.treeBroadleaf,
+      roughness: 0.92,
+      metalness: 0.0
+    }));
+    this.broadleafTreesMesh = new THREE.InstancedMesh(broadGeo, broadMat, broadleaf.length);
+    this.broadleafTreesMesh.name = 'LocalBroadleafTrees4km';
+    broadleaf.forEach(([x, y, z, s, yaw], idx) => {
+      dummy.position.set(x, y + s * 0.65, z);
+      dummy.rotation.set(0, yaw, 0);
+      dummy.scale.set(s * 1.15, s * 0.85, s * 1.05);
+      dummy.updateMatrix();
+      this.broadleafTreesMesh.setMatrixAt(idx, dummy.matrix);
+    });
+    this.broadleafTreesMesh.instanceMatrix.needsUpdate = true;
+    this.broadleafTreesMesh.castShadow = true;
+    this.rootGroup.add(this.broadleafTreesMesh);
+  }
+
+  _buildNightWindows() {
+    const data = this.pkg.obbBuildingsFloat32;
+    const grounds = this.pkg.obbGroundOffsets;
+    const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
+    if (fullCount <= 0) return;
+
+    const positions = [];
+    const colors = [];
+    let seed = 4242;
+    const rand = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+
+    const warmTone = new THREE.Color(0xe8d5b0);
+    const coolTone = new THREE.Color(0xb8d4e8);
+
+    for (let i = 0; i < fullCount; i++) {
+      const base = i * OBB_BUILDING_STRIDE;
+      const e = data[base + 0];
+      const n = data[base + 1];
+      const w = data[base + 2];
+      const d = data[base + 3];
+      const yaw = data[base + 4];
+      const h = data[base + 5];
+      if (h < 24.0 || rand() < 0.35) continue;
+
+      const groundY = grounds && i < grounds.length ? grounds[i] : sampleTerrainHeight(e, n);
+      const dots = Math.min(5, Math.ceil(h / 28));
+      const cosY = Math.cos(yaw);
+      const sinY = Math.sin(yaw);
+
+      for (let k = 0; k < dots; k++) {
+        const yPos = groundY + (0.28 + rand() * 0.64) * h;
+        const side = rand() > 0.5 ? 1 : -1;
+        const lx = side * w * 0.505;
+        const lz = (rand() - 0.5) * d * 0.72;
+        const wx = e + lx * cosY + lz * sinY;
+        const wz = -n - lx * sinY + lz * cosY;
+        positions.push(wx, yPos, wz);
+        const c = rand() > 0.25 ? warmTone : coolTone;
+        colors.push(c.r, c.g, c.b);
+      }
+    }
+
+    if (positions.length === 0) return;
+    const geo = this._track(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const mat = this._track(new THREE.PointsMaterial({
+      size: 1.45,
+      sizeAttenuation: false,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.36,
+      depthWrite: false
+    }));
+    this.nightWindowsPoints = new THREE.Points(geo, mat);
+    this.nightWindowsPoints.name = 'NocturnalWindowScaleFlecks4km';
+    this.rootGroup.add(this.nightWindowsPoints);
+  }
+
+  _buildHorizonCompassAndEpicenterGuide() {
+    const palette = this._getThemePalette();
+    const radius = 2210.0;
+    const pts = [];
+    for (let i = 0; i <= 128; i++) {
+      const a = (i / 128) * Math.PI * 2;
+      pts.push(new THREE.Vector3(Math.cos(a) * radius, -15.0, Math.sin(a) * radius));
+    }
+    const ringGeo = this._track(new THREE.BufferGeometry().setFromPoints(pts));
+    this.horizonCompassMat = this._track(new THREE.LineBasicMaterial({
+      color: palette.horizonRing,
+      transparent: true,
+      opacity: 0.42
+    }));
+    const ring = new THREE.Line(ringGeo, this.horizonCompassMat);
+    ring.name = 'HorizonCompassPerimeterRing';
+    this.rootGroup.add(ring);
+
+    // North cardinal architectural tick (0° = North -> -Z)
+    const tickGeo = this._track(new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -14.5, -radius + 35),
+      new THREE.Vector3(0, -14.5, -radius - 65)
+    ]));
+    const tickLine = new THREE.Line(tickGeo, this.horizonCompassMat);
+    tickLine.name = 'HorizonNorthTick';
+    this.rootGroup.add(tickLine);
+  }
+
+  /**
+   * Draw razor-thin non-VFX architectural epicenter bearing sightline & terrain-level
+   * wavefront arc segments on the outer horizon perimeter indicating epicenter direction.
+   */
+  setEpicenterContext(seismicCtx) {
+    while (this.epicenterGuideGroup.children.length > 0) {
+      const ch = this.epicenterGuideGroup.children[0];
+      this.epicenterGuideGroup.remove(ch);
+      if (ch.geometry) ch.geometry.dispose();
+    }
+    this._epicenterWaveArcs = [];
+
+    if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) return;
+
+    const palette = this._getThemePalette();
+    const rad = (seismicCtx.bearingDeg * Math.PI) / 180.0;
+    // Bearing: 0 deg = North (-Z), 90 deg = East (+X)
+    const dirX = Math.sin(rad);
+    const dirZ = -Math.cos(rad);
+    const ox = this._activeOriginMeta.east_m || 52.0;
+    const oz = -(this._activeOriginMeta.north_m || 74.0);
+
+    if (!this._epicenterRayMat) {
+      this._epicenterRayMat = this._track(new THREE.LineDashedMaterial({
+        color: palette.epicenterRay,
+        dashSize: 28.0,
+        gapSize: 18.0,
+        transparent: true,
+        opacity: 0.72
+      }));
+    } else {
+      this._epicenterRayMat.color.setHex(palette.epicenterRay);
+    }
+
+    // Subdivided sightline along outer approach zone (r = 480m -> 2210m) so campus stays uncluttered
+    const rayPts = [];
+    for (let step = 0; step <= 16; step++) {
+      const r = 480.0 + (step / 16) * (2210.0 - 480.0);
+      const px = ox + dirX * r;
+      const pz = oz + dirZ * r;
+      if (Math.abs(px) > 2200 || Math.abs(pz) > 2200) continue;
+      rayPts.push(new THREE.Vector3(px, sampleTerrainHeight(px, -pz) + 3.5, pz));
+    }
+    if (rayPts.length >= 2) {
+      const rayGeo = new THREE.BufferGeometry().setFromPoints(rayPts);
+      const rayLine = new THREE.Line(rayGeo, this._epicenterRayMat);
+      rayLine.computeLineDistances();
+      rayLine.name = 'EpicenterBearingVectorLine';
+      this.epicenterGuideGroup.add(rayLine);
+    }
+
+    // Subtle concentric wavefront horizon arcs centered toward incoming azimuth
+    for (let k = 0; k < 2; k++) {
+      const baseRadius = 1150.0 + k * 520.0;
+      const arcPts = [];
+      for (let s = -18; s <= 18; s++) {
+        const theta = rad + (s * Math.PI) / 180.0;
+        const px = Math.sin(theta) * baseRadius;
+        const pz = -Math.cos(theta) * baseRadius;
+        if (Math.abs(px) <= 2190 && Math.abs(pz) <= 2190) {
+          arcPts.push(new THREE.Vector3(px, sampleTerrainHeight(px, -pz) + 2.8, pz));
+        }
+      }
+      if (arcPts.length >= 2) {
+        const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
+        const arcMat = new THREE.LineBasicMaterial({
+          color: palette.epicenterRay,
+          transparent: true,
+          opacity: 0.28
+        });
+        const arcLine = new THREE.Line(arcGeo, arcMat);
+        arcLine.name = `EpicenterHorizonWaveArc_${k}`;
+        arcLine.userData = { baseRadius, phaseOffset: k * 0.5, dirRad: rad };
+        this.epicenterGuideGroup.add(arcLine);
+        this._epicenterWaveArcs.push(arcLine);
+      }
+    }
+  }
+
+  /**
+   * Update active building ("내 위치 · 출발지") label anchor cleanly when user switches facility.
+   */
+  setActiveOriginFacility({ id, name, east_m, north_m, height_m }) {
+    this._activeOriginMeta = {
+      id: id || 'BLDG_212_ENG1',
+      title: `내 위치 · ${name || '제1공학관'}`,
+      east_m: east_m ?? 52.0,
+      north_m: north_m ?? 74.0,
+      height_m: height_m ?? 21.5
+    };
+    this._buildLabelAnchors();
+    for (const el of this._labelDomMap.values()) {
+      el.remove();
+    }
+    this._labelDomMap.clear();
+  }
+
   /**
    * Switch between 'MONOLITH_NIGHT' (high-contrast nocturnal monolith) and
    * 'ARCHITECTURAL_DAY' (warm daylight urban atlas reference).
@@ -1039,6 +1331,14 @@ export class LocalSpatialMapLayer {
     if (this.waterRibbonMat) this.waterRibbonMat.color.setHex(palette.water);
     if (this.greenOverlayMat) this.greenOverlayMat.color.setHex(palette.greenOverlay);
 
+    if (this.coniferTreesMesh?.material) this.coniferTreesMesh.material.color.setHex(palette.treeConifer);
+    if (this.broadleafTreesMesh?.material) this.broadleafTreesMesh.material.color.setHex(palette.treeBroadleaf);
+    if (this.horizonCompassMat) this.horizonCompassMat.color.setHex(palette.horizonRing);
+    if (this._epicenterRayMat) this._epicenterRayMat.color.setHex(palette.epicenterRay);
+    if (this.nightWindowsPoints) {
+      this.nightWindowsPoints.visible = key === 'MONOLITH_NIGHT' && !this.state.xRayEnabled;
+    }
+
     if (this.roadMats.major) this.roadMats.major.color.setHex(palette.roadMajor);
     if (this.roadMats.primary) this.roadMats.primary.color.setHex(palette.roadPrimary);
     if (this.roadMats.minor) this.roadMats.minor.color.setHex(palette.roadMinor);
@@ -1060,59 +1360,68 @@ export class LocalSpatialMapLayer {
 
   _buildLabelAnchors() {
     this.labelAnchors = [];
+    const orig = this._activeOriginMeta;
 
-    // 1. Target Building 212
-    const b212 = (this.pkg.namedBuildings || []).find(b => b.isTargetBuilding);
-    if (b212) {
-      this.labelAnchors.push({
-        id: b212.id,
-        title: b212.name,
-        subtitle: '선택 건물 · 실내 3F PROVISIONAL',
-        category: 'TARGET_BUILDING',
-        provisional: true,
-        priority: 100,
-        worldPos: new THREE.Vector3(b212.east_m, b212.height_m + 6.0, -b212.north_m)
-      });
-    }
+    // 1. User Origin Facility ("내 위치 · 출발지")
+    const origGroundY = sampleTerrainHeight(orig.east_m, orig.north_m);
+    this.labelAnchors.push({
+      id: orig.id,
+      title: orig.title,
+      subtitle: '출발지 · 대피 안내 시작',
+      category: 'TARGET_BUILDING',
+      provisional: false,
+      priority: 100,
+      worldPos: new THREE.Vector3(orig.east_m, origGroundY + orig.height_m + 8.0, -orig.north_m)
+    });
 
-    // 2. Shelters & Emergency Facilities
+    // 2. Primary Shelter Destination & Key Regional Hubs
     for (const s of (this.pkg.sheltersAndFacilities || [])) {
+      const isPrimary = s.category === 'PRIMARY_SHELTER';
+      const baseY = isPrimary ? s.positionThree[1] : sampleTerrainHeight(s.east_m, s.north_m);
       this.labelAnchors.push({
         id: s.id,
-        title: s.name,
-        subtitle: s.subtitle,
+        title: isPrimary ? `대피소 · ${s.name}` : s.name,
+        subtitle: isPrimary ? '최종 안전 목적지 · 7,425명(추정)' : s.subtitle,
         category: s.category,
-        provisional: s.provenance === VERIFICATION_STATUS.PROVISIONAL,
-        priority: s.priority || 75,
-        worldPos: new THREE.Vector3(s.positionThree[0], s.positionThree[1] + 22.0, s.positionThree[2])
+        provisional: false,
+        priority: isPrimary ? 98 : 68,
+        worldPos: new THREE.Vector3(s.positionThree[0], baseY + 22.0, s.positionThree[2])
       });
     }
 
-    // 3. Key Named Campus/Urban Context Landmarks
+    // 3. Natural Hydrology Whisper Labels (borderless map geography)
+    this.labelAnchors.push(
+      {
+        id: 'HYDRO_JUNGNANGCHEON',
+        title: '중랑천',
+        subtitle: '',
+        category: 'WATERWAY_GEO',
+        provisional: false,
+        priority: 72,
+        worldPos: new THREE.Vector3(780.0, -14.0, 560.0)
+      },
+      {
+        id: 'HYDRO_HANGANG',
+        title: '한강',
+        subtitle: '',
+        category: 'WATERWAY_GEO',
+        provisional: false,
+        priority: 71,
+        worldPos: new THREE.Vector3(-420.0, -16.0, 1780.0)
+      }
+    );
+
+    // 4. Secondary Named Context Landmarks (only displayed when zoomed into campus)
     for (const b of (this.pkg.namedBuildings || [])) {
-      if (b.isTargetBuilding || b.id === 'CTX_HYUHOSP_MAIN') continue;
+      if (b.isTargetBuilding || b.id === orig.id || b.id === 'CTX_HYUHOSP_MAIN') continue;
       this.labelAnchors.push({
         id: b.id,
         title: b.name,
-        subtitle: b.category === 'CAMPUS_CONTEXT' ? '캠퍼스 주변 맥락' : '성동 권역 주요 시설',
+        subtitle: '',
         category: b.category,
         provisional: false,
-        priority: b.priority || 55,
-        worldPos: new THREE.Vector3(b.east_m, b.groundY_m + b.height_m + 5.0, -b.north_m)
-      });
-    }
-
-    // 4. Alluvial Basin Caution Zone (explicit PROVISIONAL marker)
-    const alluvial = this.pkg.terrainAndHydrology?.alluvialCautionZone;
-    if (alluvial) {
-      this.labelAnchors.push({
-        id: alluvial.id,
-        title: '살곶이·중랑천 충적 저지대',
-        subtitle: '지반 증폭 주의 · PROVISIONAL',
-        category: 'HAZARD_CONTEXT',
-        provisional: true,
-        priority: 62,
-        worldPos: new THREE.Vector3(240.0, alluvial.elevationY + 8.0, 680.0)
+        priority: Math.min(62, b.priority || 52),
+        worldPos: new THREE.Vector3(b.east_m, sampleTerrainHeight(b.east_m, b.north_m) + b.height_m + 5.0, -b.north_m)
       });
     }
   }
@@ -1222,6 +1531,11 @@ export class LocalSpatialMapLayer {
       this.buildingMaterial.color.setHex(enabled ? palette.xrayColor : 0xffffff);
       this.buildingMaterial.needsUpdate = true;
     }
+    if (this.nightWindowsPoints) {
+      this.nightWindowsPoints.visible = this.state.theme === 'MONOLITH_NIGHT' && !enabled;
+    }
+    if (this.coniferTreesMesh) this.coniferTreesMesh.visible = !enabled;
+    if (this.broadleafTreesMesh) this.broadleafTreesMesh.visible = !enabled;
     return this.state.xRayEnabled;
   }
 
@@ -1295,7 +1609,7 @@ export class LocalSpatialMapLayer {
     }
 
     // Collect fixed HUD obstacle bounding rects
-    const avoidSelector = options.avoidSelector || '#header-overlay, #exhibition-bar, #guidance-container';
+    const avoidSelector = options.avoidSelector || '#header-overlay, #exhibition-bar, #guidance-container, #evac-dock, #safety-rule-popup, #map-controls';
     const obstacleRects = [];
     if (typeof document !== 'undefined' && avoidSelector) {
       document.querySelectorAll(avoidSelector).forEach((el) => {
@@ -1306,16 +1620,24 @@ export class LocalSpatialMapLayer {
       });
     }
 
+    const camDist = camera.position ? camera.position.length() : 1000;
+    const isMacroView = camDist > 920;
+
     const vec = new THREE.Vector3();
     const candidates = [];
 
     for (const anchor of this.labelAnchors) {
+      // Suppress cluttering secondary context labels in zoomed-out macro views
+      if (isMacroView && anchor.priority < 68 && anchor.category !== 'WATERWAY_GEO') {
+        continue;
+      }
       vec.copy(anchor.worldPos).project(camera);
       const inFront = vec.z >= -1.0 && vec.z <= 1.0;
       const screenX = (vec.x * 0.5 + 0.5) * width;
       const screenY = (-vec.y * 0.5 + 0.5) * height;
-      const estW = Math.max(110, Math.min(200, anchor.title.length * 10 + 36));
-      const estH = 34;
+      const hasSub = Boolean(anchor.subtitle && anchor.subtitle.length > 0);
+      const estW = Math.max(82, Math.min(185, anchor.title.length * 10 + 28));
+      const estH = hasSub ? 32 : 22;
 
       candidates.push({
         ...anchor,
@@ -1327,8 +1649,12 @@ export class LocalSpatialMapLayer {
       });
     }
 
-    const result = solveLabelCollisions2D(candidates, obstacleRects, { width, height }, 8);
+    const result = solveLabelCollisions2D(candidates, obstacleRects, { width, height }, 10);
     const visibleSet = new Set(result.visibleLabels.map(v => v.id));
+
+    for (const el of this._labelDomMap.values()) {
+      el.style.display = 'none';
+    }
 
     for (const item of candidates) {
       let el = this._labelDomMap.get(item.id);
@@ -1336,7 +1662,9 @@ export class LocalSpatialMapLayer {
         el = document.createElement('div');
         el.className = `spatial-map-label cat-${item.category.toLowerCase()}${item.provisional ? ' is-provisional' : ''}`;
         el.dataset.labelId = item.id;
-        el.innerHTML = `<span class="sml-title">${item.title}</span><span class="sml-sub">${item.subtitle}</span>`;
+        el.innerHTML = item.subtitle
+          ? `<span class="sml-title">${item.title}</span><span class="sml-sub">${item.subtitle}</span>`
+          : `<span class="sml-title">${item.title}</span>`;
         containerEl.appendChild(el);
         this._labelDomMap.set(item.id, el);
       }
@@ -1356,6 +1684,18 @@ export class LocalSpatialMapLayer {
     return result;
   }
 
+  /**
+   * Subtle non-VFX outer horizon seismic arrival opacity breathing.
+   */
+  updateAtmosphericPulse(elapsedSec = 0) {
+    if (!this._epicenterWaveArcs || this._epicenterWaveArcs.length === 0) return;
+    for (const arc of this._epicenterWaveArcs) {
+      if (!arc?.material) continue;
+      const ph = ((elapsedSec * 0.22 + (arc.userData?.phaseOffset || 0)) % 1.0);
+      arc.material.opacity = 0.08 + 0.26 * Math.sin(ph * Math.PI);
+    }
+  }
+
   getLayerDiagnostics() {
     const counts = this.pkg.obbLodCounts || { overviewCount: 0, fullCount: 0 };
     let streamedChunkBuildingCount = 0;
@@ -1368,6 +1708,7 @@ export class LocalSpatialMapLayer {
       fullCount: counts.fullCount,
       overviewCount: counts.overviewCount,
       activeInstanceCount: this.instancedBuildings ? this.instancedBuildings.count : 0,
+      treeCount: (this.coniferTreesMesh?.count || 0) + (this.broadleafTreesMesh?.count || 0),
       activeChunkKeys: [...this.chunkManager.activeChunks.keys()],
       activeChunkCount: this.chunkManager.activeChunks.size,
       streamedChunkBuildingCount,
@@ -1388,6 +1729,7 @@ export class LocalSpatialMapLayer {
   }
 
   dispose() {
+    this.setEpicenterContext(null);
     this.setHazardAvoidPolygons([]);
     this.chunkMeshes.clear();
     this.chunkManager.clear();

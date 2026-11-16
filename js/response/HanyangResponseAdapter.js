@@ -417,7 +417,114 @@ export class HanyangResponseAdapter {
     connLine.name = names.connectorLineName || 'Connector_1F_SE_Line';
     this.rootGroup.add(connLine);
 
-    this.disposables.push(doorGeo, doorMat, connGeo, connMat);
+    // Architectural Origin Marker ("내 위치" 출발지 표식 — 논-글로우 동심 링 + 점)
+    const originGroup = new THREE.Group();
+    originGroup.name = 'Origin_Marker_Group';
+    originGroup.position.set(doorPos.x, Math.max(0.25, doorPos.y + 0.35), doorPos.z);
+
+    const oInnerGeo = new THREE.RingGeometry(2.2, 3.2, 32);
+    oInnerGeo.rotateX(-Math.PI / 2);
+    const oInnerMat = new THREE.MeshBasicMaterial({
+      color: 0xf8fafc,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.92
+    });
+    originGroup.add(new THREE.Mesh(oInnerGeo, oInnerMat));
+
+    const oOuterGeo = new THREE.RingGeometry(5.8, 6.8, 36);
+    oOuterGeo.rotateX(-Math.PI / 2);
+    const oOuterMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.68
+    });
+    originGroup.add(new THREE.Mesh(oOuterGeo, oOuterMat));
+
+    this.rootGroup.add(originGroup);
+
+    this.disposables.push(doorGeo, doorMat, connGeo, connMat, oInnerGeo, oInnerMat, oOuterGeo, oOuterMat);
+  }
+
+  /**
+   * Build volumetric elevated 3D tube & forward directional chevrons so paths read
+   * unmistakably from both 4km macro overview and street-level close-up.
+   * @private
+   */
+  _addVolumetricRouteMeshes(waypoints, options = {}) {
+    if (!waypoints || waypoints.length < 2) return;
+    const {
+      tubeRadius = 1.45,
+      color = 0xf8fafc,
+      opacity = 0.92,
+      elevOffset = 1.0,
+      name = 'Route_Tube',
+      routeKind = 'SHORTEST',
+      chevronStepMeters = 42.0,
+      chevronColor = 0x38bdf8
+    } = options;
+
+    const elevated = waypoints.map(p => new THREE.Vector3(p.x, p.y + elevOffset, p.z));
+    const curve = new THREE.CatmullRomCurve3(elevated, false, 'catmullrom', 0.12);
+    const tubularSegments = Math.max(24, Math.min(180, elevated.length * 6));
+
+    const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, 8, false);
+    const tubeMat = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity
+    });
+    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+    tubeMesh.name = name;
+    tubeMesh.userData.routeKind = routeKind;
+    this.pathGroup.add(tubeMesh);
+    this.disposables.push(tubeGeo, tubeMat);
+
+    // Subtle dark halo underneath tube for daylight & night figure-ground separation
+    const railGeo = new THREE.TubeGeometry(curve, Math.max(18, Math.floor(tubularSegments / 2)), tubeRadius * 1.48, 6, false);
+    const railMat = new THREE.MeshBasicMaterial({
+      color: 0x060b14,
+      transparent: true,
+      opacity: opacity * 0.48
+    });
+    const railMesh = new THREE.Mesh(railGeo, railMat);
+    railMesh.position.y = -0.35;
+    railMesh.name = `${name}_Halo`;
+    railMesh.userData.routeKind = routeKind;
+    this.pathGroup.add(railMesh);
+    this.disposables.push(railGeo, railMat);
+
+    // Forward directional chevrons (cones squashed vertically and pointed along tangent)
+    const totalLen = curve.getLength();
+    const chevronCount = Math.max(2, Math.floor(totalLen / chevronStepMeters));
+    const chevGeo = new THREE.ConeGeometry(tubeRadius * 2.15, tubeRadius * 4.8, 3);
+    chevGeo.rotateX(Math.PI * 0.5); // Tip points toward +Z
+    const chevMat = new THREE.MeshBasicMaterial({
+      color: chevronColor,
+      transparent: true,
+      opacity: 0.95
+    });
+    const chevInst = new THREE.InstancedMesh(chevGeo, chevMat, chevronCount);
+    chevInst.name = `${name}_Chevrons`;
+    chevInst.userData.routeKind = routeKind;
+
+    const dummy = new THREE.Object3D();
+    const lookTarget = new THREE.Vector3();
+    for (let i = 0; i < chevronCount; i++) {
+      const u = (i + 0.5) / chevronCount;
+      const pos = curve.getPointAt(u);
+      const tan = curve.getTangentAt(u);
+      dummy.position.set(pos.x, pos.y + tubeRadius * 0.65, pos.z);
+      lookTarget.copy(dummy.position).add(tan);
+      dummy.lookAt(lookTarget);
+      dummy.scale.set(1.0, 0.42, 1.0);
+      dummy.updateMatrix();
+      chevInst.setMatrixAt(i, dummy.matrix);
+    }
+    chevInst.instanceMatrix.needsUpdate = true;
+    this.pathGroup.add(chevInst);
+    this.disposables.push(chevGeo, chevMat);
   }
 
   // --------------------------------------------------------------------------
@@ -477,6 +584,17 @@ export class HanyangResponseAdapter {
       shortestLine.userData.edgeIds = shortestEdges.map(e => e.edgeId);
       this.pathGroup.add(shortestLine);
       this.disposables.push(shortestGeo, shortestMat);
+
+      this._addVolumetricRouteMeshes(shortestWaypoints, {
+        tubeRadius: 1.55,
+        color: 0xf8fafc,
+        opacity: 0.94,
+        elevOffset: 1.05,
+        name: 'Ribbon_Shortest_Volume',
+        routeKind: 'SHORTEST',
+        chevronStepMeters: 44.0,
+        chevronColor: 0x38bdf8
+      });
     }
 
     // Highlight exact stair edges identified by graph metadata (edge.hasStairs === true)
@@ -514,6 +632,26 @@ export class HanyangResponseAdapter {
       stairLines.userData.stairSegments = Object.freeze(stairSegmentsMeta);
       this.pathGroup.add(stairLines);
       this.disposables.push(stairGeo, stairMat);
+
+      for (let i = 0; i < stairSegmentsMeta.length; i++) {
+        const sm = stairSegmentsMeta[i];
+        const sPts = [
+          new THREE.Vector3(sm.startPos[0], sm.startPos[1] + 1.28, sm.startPos[2]),
+          new THREE.Vector3(sm.endPos[0], sm.endPos[1] + 1.28, sm.endPos[2])
+        ];
+        const curve = new THREE.LineCurve3(sPts[0], sPts[1]);
+        const sTubeGeo = new THREE.TubeGeometry(curve, 6, 1.95, 6, false);
+        const sTubeMat = new THREE.MeshBasicMaterial({
+          color: VISUAL_THEME.PATH_STAIRS_HAZARD,
+          transparent: true,
+          opacity: 0.90
+        });
+        const sTube = new THREE.Mesh(sTubeGeo, sTubeMat);
+        sTube.name = `Ribbon_StairHazard_${i}`;
+        sTube.userData.routeKind = 'SHORTEST';
+        this.pathGroup.add(sTube);
+        this.disposables.push(sTubeGeo, sTubeMat);
+      }
     }
 
     // 2. Step-Free Detour Path Polyline
@@ -536,6 +674,17 @@ export class HanyangResponseAdapter {
       stepFreeLine.userData.edgeIds = stepFreeEdges.map(e => e.edgeId);
       this.pathGroup.add(stepFreeLine);
       this.disposables.push(stepFreeGeo, stepFreeMat);
+
+      this._addVolumetricRouteMeshes(stepFreeWaypoints, {
+        tubeRadius: 1.22,
+        color: 0x38bdf8,
+        opacity: 0.85,
+        elevOffset: 0.92,
+        name: 'Ribbon_StepFree_Volume',
+        routeKind: 'STEP_FREE',
+        chevronStepMeters: 48.0,
+        chevronColor: 0xe0f2fe
+      });
     }
   }
 
@@ -567,13 +716,13 @@ export class HanyangResponseAdapter {
     const trackMat = new THREE.LineBasicMaterial({
       color: VISUAL_THEME.STADIUM_TRACK,
       transparent: true,
-      opacity: 0.6
+      opacity: 0.72
     });
     const trackLine = new THREE.Line(trackGeo, trackMat);
     trackLine.name = names.shelterTrackName || 'Stadium_Track_Outline';
     this.shelterGroup.add(trackLine);
 
-    // Central Safe Gathering Zone (Grass Pitch Box)
+    // Central Safe Gathering Zone (Grass Pitch Box + Calm Safe Ground Mat)
     const pitchPoints = [
       new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z - pitchHalfLength),
       new THREE.Vector3(center.x + pitchHalfWidth, center.y, center.z - pitchHalfLength),
@@ -585,13 +734,41 @@ export class HanyangResponseAdapter {
     const pitchMat = new THREE.LineBasicMaterial({
       color: VISUAL_THEME.SELECTED_FLOOR_LINE,
       transparent: true,
-      opacity: 0.75
+      opacity: 0.85
     });
     const pitchLine = new THREE.Line(pitchGeo, pitchMat);
     pitchLine.name = names.shelterPitchName || 'Stadium_Pitch_Safe_Zone';
     this.shelterGroup.add(pitchLine);
 
-    this.disposables.push(trackGeo, trackMat, pitchGeo, pitchMat);
+    // Calm architectural safe zone ground pad inside shelter pitch (zero game glow)
+    const safeMatGeo = new THREE.PlaneGeometry(pitchHalfWidth * 2, pitchHalfLength * 2);
+    safeMatGeo.rotateX(-Math.PI / 2);
+    const safeMatMat = new THREE.MeshBasicMaterial({
+      color: 0x2dd4bf,
+      transparent: true,
+      opacity: 0.16,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+    const safePad = new THREE.Mesh(safeMatGeo, safeMatMat);
+    safePad.position.set(center.x, center.y + 0.12, center.z);
+    safePad.name = 'Shelter_Pitch_SafePad';
+    this.shelterGroup.add(safePad);
+
+    const destRingGeo = new THREE.RingGeometry(8.5, 11.5, 36);
+    destRingGeo.rotateX(-Math.PI / 2);
+    const destRingMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.82
+    });
+    const destRing = new THREE.Mesh(destRingGeo, destRingMat);
+    destRing.position.set(center.x, center.y + 0.28, center.z);
+    destRing.name = 'Shelter_Center_Arrival_Ring';
+    this.shelterGroup.add(destRing);
+
+    this.disposables.push(trackGeo, trackMat, pitchGeo, pitchMat, safeMatGeo, safeMatMat, destRingGeo, destRingMat);
   }
 
   // --------------------------------------------------------------------------
@@ -650,6 +827,25 @@ export class HanyangResponseAdapter {
         child.visible = mode === 'ALL' || mode === 'STEP_FREE';
       }
     });
+  }
+
+  /**
+   * Adjust high-contrast evacuation tube colors cleanly between Nocturnal Night
+   * and Daylight Reference themes.
+   */
+  setThemeColors(isDay = false) {
+    const shortestTube = this.pathGroup.getObjectByName('Ribbon_Shortest_Volume');
+    if (shortestTube?.material) {
+      shortestTube.material.color.setHex(isDay ? 0x0f766e : 0xf8fafc);
+    }
+    const stepFreeTube = this.pathGroup.getObjectByName('Ribbon_StepFree_Volume');
+    if (stepFreeTube?.material) {
+      stepFreeTube.material.color.setHex(isDay ? 0x0284c7 : 0x38bdf8);
+    }
+    const chevShort = this.pathGroup.getObjectByName('Ribbon_Shortest_Volume_Chevrons');
+    if (chevShort?.material) {
+      chevShort.material.color.setHex(isDay ? 0xffffff : 0x38bdf8);
+    }
   }
 
   /**

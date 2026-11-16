@@ -84,16 +84,25 @@
         </button>
       </div>
 
-      <div class="explore-actions">
+      <div class="explore-actions" style="position:relative;">
         <button id="btn-open-discover" class="surface-btn primary" title="전체 사료 및 관측 아카이브 목록 열기">
           <span id="discover-btn-label">아카이브 탐색</span>
         </button>
-        <button id="btn-open-local-spatial" class="surface-btn secondary" title="성동·한양 4km 국지 지진 대응 및 개인화 대피 뷰어로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
-          <span>4km 대응 ↗</span>
+        <button id="btn-open-local-spatial" class="surface-btn secondary" title="내 위치 기반 성동·한양 4km 지진 대피 동선 안내 열기" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
+          <span>4km 대피 안내 ↗</span>
         </button>
-        <button id="btn-inscene-local-mode" class="surface-btn secondary" title="단일 WebGL 캔버스 내에서 성동·한양 4km 로컬 공간으로 무전환 이동" onclick="window.enterInSceneLocalResponse && window.enterInSceneLocalResponse()">
-          <span>단일캔버스 4km</span>
+        <button id="btn-dev-lab-global" class="surface-btn secondary" title="실험적 단일 캔버스 전환 등 개발자 실험실" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
+          <span>개발자 실험실 ▾</span>
         </button>
+        <div id="global-dev-lab-menu" style="display:none; position:absolute; bottom:46px; right:0; flex-direction:column; gap:6px; padding:10px 12px; background:rgba(6,10,18,0.94); border:1px solid rgba(255,255,255,0.14); border-radius:8px; min-width:210px; z-index:40; backdrop-filter:blur(16px);">
+          <span style="font-size:9.5px; letter-spacing:0.1em; color:#94a3b8; text-transform:uppercase;">Developer Lab (Experimental)</span>
+          <button id="btn-inscene-local-mode" class="surface-btn secondary compact" title="단일 WebGL 캔버스 내에서 성동·한양 4km 로컬 공간으로 무전환 이동" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse()">
+            단일캔버스 4km 무전환 테스트
+          </button>
+          <button class="surface-btn secondary compact" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
+            4km 광역 타일 뷰어 열기
+          </button>
+        </div>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
           <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
         </button>
@@ -288,8 +297,8 @@
           <span>재생 완료 후 다음 사건 자동 연속</span>
         </label>
         <div style="display:flex; gap:8px; align-items:center;">
-          <button id="btn-selected-local-spatial" class="surface-btn secondary" title="성동·한양 4km 로컬 공간 대응 뷰어로 연속 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
-            성동·한양 4km 대응 ↗
+          <button id="btn-selected-local-spatial" class="surface-btn secondary" title="선택된 사건 기준 성동·한양 4km 대피 안내로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
+            4km 대피 안내 ↗
           </button>
           <button id="btn-launch-performance" class="surface-btn primary large">
             현장 강하 및 3D 시각화 재생 시작 →
@@ -337,8 +346,8 @@
         <button id="btn-transport-return" class="surface-btn secondary compact" title="우주 궤도로 복귀 [ESC]">
           궤도 [ESC]
         </button>
-        <button id="btn-transport-local-spatial" class="surface-btn secondary compact" title="성동·한양 4km 국지 대응 뷰어로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
-          4km 대응 ↗
+        <button id="btn-transport-local-spatial" class="surface-btn secondary compact" title="성동·한양 4km 대피 안내로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
+          4km 대피 안내 ↗
         </button>
       </div>
     </div>

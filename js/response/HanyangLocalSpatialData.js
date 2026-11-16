@@ -316,7 +316,7 @@ export const NAMED_CONTEXT_BUILDINGS = Object.freeze([
   Object.freeze({ id: 'CTX_ENG2', name: '제2공학관', category: 'CAMPUS_CONTEXT', east_m: -55, north_m: 115, groundY_m: 0.5, width_m: 52, depth_m: 24, yaw_rad: 0.45, height_m: 24, isTargetBuilding: false, priority: 66, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
   Object.freeze({ id: 'CTX_HIT', name: 'HIT 종합기술연구원', category: 'CAMPUS_CONTEXT', east_m: -95, north_m: 210, groundY_m: -1.5, width_m: 56, depth_m: 38, yaw_rad: 0.12, height_m: 44, isTargetBuilding: false, priority: 72, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
   Object.freeze({ id: 'CTX_ITBT', name: 'IT·BT관', category: 'CAMPUS_CONTEXT', east_m: 145, north_m: 145, groundY_m: 1.0, width_m: 48, depth_m: 28, yaw_rad: -0.25, height_m: 42, isTargetBuilding: false, priority: 68, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
-  Object.freeze({ id: 'CTX_MAT', name: '신소재공학관', category: 'CAMPUS_CONTEXT', east_m: 110, north_m: -10, groundY_m: -4.0, width_m: 46, depth_m: 24, yaw_rad: 0.50, height_m: 28, isTargetBuilding: false, priority: 60, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
+  Object.freeze({ id: 'CTX_MAT', name: '신소재공학관', category: 'CAMPUS_CONTEXT', east_m: 142, north_m: 12, groundY_m: -4.0, width_m: 44, depth_m: 22, yaw_rad: 0.48, height_m: 28, isTargetBuilding: false, priority: 60, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
   Object.freeze({ id: 'CTX_PAIKNAM', name: '백남학술정보관', category: 'CAMPUS_CONTEXT', east_m: -35, north_m: -75, groundY_m: -5.5, width_m: 50, depth_m: 34, yaw_rad: 0.18, height_m: 30, isTargetBuilding: false, priority: 65, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
   Object.freeze({ id: 'CTX_ADMIN', name: '본관(신본관)', category: 'CAMPUS_CONTEXT', east_m: 5, north_m: -165, groundY_m: -7.5, width_m: 54, depth_m: 24, yaw_rad: 0.08, height_m: 26, isTargetBuilding: false, priority: 58, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
   Object.freeze({ id: 'CTX_OLYMPIC', name: '올림픽체육관', category: 'CAMPUS_CONTEXT', east_m: 365, north_m: -240, groundY_m: -12.0, width_m: 72, depth_m: 54, yaw_rad: -0.30, height_m: 22, isTargetBuilding: false, priority: 64, exteriorVerification: VERIFICATION_STATUS.VERIFIED, indoorVerification: VERIFICATION_STATUS.PROVISIONAL }),
@@ -390,7 +390,7 @@ function buildHeightSortedContextBuildings() {
 
   // 2. Fallback for any named non-target context building lacking an OSM footprint nearby
   for (const b of NAMED_CONTEXT_BUILDINGS) {
-    if (b.isTargetBuilding || b.id === 'CTX_HIT' || b.id === 'CTX_PAIKNAM') continue;
+    if (b.isTargetBuilding || b.id === 'CTX_HIT' || b.id === 'CTX_PAIKNAM' || b.id === 'CTX_MAT' || isExcludedClearanceZone(b.east_m, b.north_m)) continue;
     const hasOsmNeighbor = raw.some(
       r => Math.hypot(r.east_m - b.east_m, r.north_m - b.north_m) < 35.0
     );
