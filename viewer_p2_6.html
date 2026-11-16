@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE v4.0 — P2.6 Global-to-Personal Exhibition</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #020408;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Nanum Myeongjo", serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #header-overlay {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+    }
+    .spatial-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-top: 6px;
+      text-transform: uppercase;
+    }
+    .spatial-step.active {
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Exhibition Control Bar (Top-Right) */
+    #exhibition-bar {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 5px;
+      background: rgba(10, 14, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 5px 8px;
+    }
+    .ctrl-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .ctrl-btn:hover {
+      border-color: #e2e8f0;
+      color: #ffffff;
+    }
+    .ctrl-btn.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.14);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Minimal Editorial Guidance Strip (Bottom-Left) */
+    #guidance-container {
+      position: absolute;
+      bottom: 28px;
+      left: 32px;
+      max-width: 680px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(2, 4, 8, 0.92);
+      border-left: 2px solid #e2e8f0;
+      padding: 16px 20px;
+      backdrop-filter: blur(8px);
+    }
+    .guidance-phase {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .badge-simulated {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #38bdf8;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      text-transform: uppercase;
+    }
+    .badge-provisional {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #475569;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+    .guidance-headline {
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      font-weight: 500;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-primary {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .guidance-warning {
+      font-size: 11px;
+      color: #fb7185;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-meta {
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .meta-row {
+      display: flex;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="header-overlay">
+    <div class="title" id="view-title">SEISMOLIVE v4.0 · GLOBAL-TO-PERSONAL EXHIBITION</div>
+    <div class="subtitle" id="view-subtitle">Cosmic Earth Orbit → Campus Tangent Plane → Building 212 → Personal Response Timeline</div>
+    <div class="spatial-breadcrumb">
+      <span class="spatial-step" id="bc-earth">Global Earth</span> <span>→</span>
+      <span class="spatial-step" id="bc-campus">Campus</span> <span>→</span>
+      <span class="spatial-step" id="bc-bldg">Bldg 212</span> <span>→</span>
+      <span class="spatial-step" id="bc-personal">3F Room 301</span> <span>→</span>
+      <span class="spatial-step" id="bc-timeline">Response Timeline</span>
+    </div>
+  </div>
+
+  <div id="exhibition-bar">
+    <div class="btn-group">
+      <button class="ctrl-btn" id="btn-stage-earth">1. 지구 궤도</button>
+      <button class="ctrl-btn" id="btn-stage-campus">2. 캠퍼스 조망</button>
+      <button class="ctrl-btn" id="btn-stage-bldg">3. 제1공학관</button>
+      <button class="ctrl-btn" id="btn-stage-personal">4. 3층 301호</button>
+    </div>
+    <div class="btn-group">
+      <button class="ctrl-btn" id="btn-t0">T+0s 진동 엄폐</button>
+      <button class="ctrl-btn" id="btn-t40">T+40s 탈출로 개방</button>
+      <button class="ctrl-btn" id="btn-t67">T+67s 우회로 재탐색</button>
+      <button class="ctrl-btn" id="btn-t110">T+110s 여진 차단</button>
+    </div>
+  </div>
+
+  <div id="guidance-container">
+    <div class="guidance-phase">
+      <span id="ui-phase-badge">전시 시연 연동</span>
+      <span class="badge-simulated" id="ui-sim-badge">SIMULATED SCENARIO</span>
+      <span class="badge-provisional">PROVISIONAL 3F</span>
+    </div>
+    <div class="guidance-headline" id="ui-headline">상황 분석 대기 중...</div>
+    <div class="guidance-primary" id="ui-primary">...</div>
+    <div class="guidance-warning" id="ui-warning"></div>
+    <div class="guidance-meta">
+      <div class="meta-row">
+        <span>공간 모드: <strong id="meta-camera-stage" style="color: #38bdf8;">--</strong></span>
+        <span>이동 허용: <strong id="meta-can-move" style="color: #e2e8f0;">--</strong></span>
+        <span>3D 경로: <strong id="meta-route-mode" style="color: #fbbf24;">--</strong></span>
+      </div>
+      <div id="meta-detail" style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">세부 상태: --</div>
+      <div id="meta-unverified" style="color: #94a3b8; font-size: 9.5px; margin-top: 2px;">불확실성: --</div>
+    </div>
+  </div>
+
+  <!-- Three.js Module Import -->
+  <script type="module">
+    import * as THREE from './js/lib/three.module.js';
+    import { HanyangResponseAdapter } from './js/response/HanyangResponseAdapter.js';
+    import { GlobalLocalCameraTransition, CAMERA_STAGES, TRANSITION_STATUS } from './js/response/GlobalLocalCameraTransition.js';
+    import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
+    import { PedestrianRoutingEngine, LINK_STATE } from './js/response/PedestrianRoutingEngine.js';
+    import { DATA_PROVENANCE_SOURCE } from './js/response/HanyangBuildingData.js';
+    import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const viewStage = params.get('stage') || 'campus'; // 'earth' | 'campus' | 'bldg' | 'personal' | 't67' | 't110'
+
+    // Scene & Renderer Setup
+    const container = document.getElementById('canvas-container');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020408);
+    scene.fog = new THREE.FogExp2(0x020408, 0.0012);
+
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 5000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    container.appendChild(renderer.domElement);
+
+    // Global Earth Sphere (Curved surface to establish global continuity)
+    const earthRadius = 140.0;
+    const earthGeo = new THREE.SphereGeometry(earthRadius, 48, 36);
+    const earthMat = new THREE.MeshBasicMaterial({
+      color: 0x050811,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.16
+    });
+    const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+    earthMesh.position.set(0, -earthRadius - 16, 0);
+    scene.add(earthMesh);
+
+    // WGS84 Geodetic Vertical Beacon over Anchor
+    const beaconPoints = [
+      new THREE.Vector3(70.16, 0, -45.51),
+      new THREE.Vector3(70.16, 120.0, -45.51)
+    ];
+    const beaconGeo = new THREE.BufferGeometry().setFromPoints(beaconPoints);
+    const beaconMat = new THREE.LineDashedMaterial({
+      color: 0x38bdf8,
+      dashSize: 4.0,
+      gapSize: 2.0
+    });
+    const beaconLine = new THREE.Line(beaconGeo, beaconMat);
+    beaconLine.computeLineDistances();
+    scene.add(beaconLine);
+
+    // Subtle Ground Grid
+    const grid = new THREE.GridHelper(700, 70, 0x1e293b, 0x070b14);
+    grid.position.set(120, -14, 50);
+    scene.add(grid);
+
+    // Adapters
+    const hanyangAdapter = new HanyangResponseAdapter(scene, {
+      scale: 1.0,
+      visualScaleFactor: 4.5
+    });
+
+    const router = new PedestrianRoutingEngine();
+    const uiAdapter = new ResponseUIAdapter({
+      router,
+      hanyangAdapter
+    });
+
+    const camTransition = new GlobalLocalCameraTransition({ camera });
+    camTransition.attachUserInterruptListeners(container);
+
+    // Coordinate User Experience Journey
+    function setCameraStage(stageKey) {
+      document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.spatial-step').forEach(s => s.classList.remove('active'));
+
+      if (stageKey === CAMERA_STAGES.GLOBAL_ORBIT) {
+        document.getElementById('btn-stage-earth').classList.add('active');
+        document.getElementById('bc-earth').classList.add('active');
+        camTransition.snapTo(CAMERA_STAGES.GLOBAL_ORBIT);
+        hanyangAdapter.setRouteDisplay('NONE');
+      } else if (stageKey === CAMERA_STAGES.CAMPUS_OVERVIEW) {
+        document.getElementById('btn-stage-campus').classList.add('active');
+        document.getElementById('bc-campus').classList.add('active');
+        camTransition.snapTo(CAMERA_STAGES.CAMPUS_OVERVIEW);
+        hanyangAdapter.setRouteDisplay('ALL');
+      } else if (stageKey === CAMERA_STAGES.BUILDING_INSPECTION) {
+        document.getElementById('btn-stage-bldg').classList.add('active');
+        document.getElementById('bc-bldg').classList.add('active');
+        camTransition.snapTo(CAMERA_STAGES.BUILDING_INSPECTION);
+        hanyangAdapter.highlightFloor(3);
+        hanyangAdapter.setRouteDisplay('ALL');
+      } else if (stageKey === CAMERA_STAGES.PERSONAL_LOCATION) {
+        document.getElementById('btn-stage-personal').classList.add('active');
+        document.getElementById('bc-personal').classList.add('active');
+        camTransition.snapTo(CAMERA_STAGES.PERSONAL_LOCATION);
+        hanyangAdapter.highlightFloor(3);
+        hanyangAdapter.setRouteDisplay('ALL');
+      }
+
+      document.getElementById('meta-camera-stage').textContent = stageKey;
+    }
+
+    function applyTimelineStep(tSec) {
+      document.getElementById('bc-timeline').classList.add('active');
+
+      if (tSec === 0) {
+        setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION);
+        uiAdapter.resetRouteObstacles();
+        uiAdapter.setAftershock(false);
+        uiAdapter.setUserLocation({
+          locationType: 'INDOOR',
+          buildingId: 'BLDG_212_ENG1',
+          floor: 3,
+          room: 'ROOM_301',
+          certainty: LOCATION_CERTAINTY.EXACT_ROOM
+        });
+        uiAdapter.updateStationMotion(0.22, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+      } else if (tSec === 40) {
+        setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION);
+        uiAdapter.resetRouteObstacles();
+        uiAdapter.setAftershock(false);
+        uiAdapter.setUserFloor(3);
+        uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+      } else if (tSec === 67) {
+        setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW);
+        uiAdapter.setAftershock(false);
+        uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+        uiAdapter.reportLinkObstacle('NODE_STAIR1_TOP->NODE_STAIR1_BOT', LINK_STATE.SUSPECTED, {
+          source: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT,
+          detail: '1층 연결 계단 균열 및 파편 목격 제보'
+        });
+        uiAdapter.reassess();
+      } else if (tSec === 110) {
+        setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION);
+        uiAdapter.setAftershock(true);
+        uiAdapter.updateStationMotion(0.16, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+      }
+
+      renderUI();
+    }
+
+    function renderUI() {
+      const g = uiAdapter.lastGuidance;
+      if (!g) return;
+
+      document.getElementById('ui-phase-badge').textContent = g.badgeText;
+      document.getElementById('ui-headline').textContent = g.phaseHeadline;
+      document.getElementById('ui-primary').textContent = g.primaryAction;
+
+      const warnEl = document.getElementById('ui-warning');
+      warnEl.textContent = g.warnings.length > 0 ? g.warnings[0] : '';
+
+      document.getElementById('meta-can-move').textContent = g.canMove ? '가능 (허용)' : '금지 (엄폐 대기)';
+      document.getElementById('meta-can-move').style.color = g.canMove ? '#38bdf8' : '#f43f5e';
+
+      document.getElementById('meta-route-mode').textContent = g.routeStatus.displayMode;
+      document.getElementById('meta-detail').textContent = g.replanStatus?.replanReason || g.routeStatus.caveat;
+
+      const unvEl = document.getElementById('meta-unverified');
+      unvEl.textContent = g.unverifiedItems.length > 0
+        ? `불확실성: ${g.unverifiedItems.join(' | ')}`
+        : '미확인 항목 없음';
+    }
+
+    // Button event listeners
+    document.getElementById('btn-stage-earth').addEventListener('click', () => setCameraStage(CAMERA_STAGES.GLOBAL_ORBIT));
+    document.getElementById('btn-stage-campus').addEventListener('click', () => setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW));
+    document.getElementById('btn-stage-bldg').addEventListener('click', () => setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION));
+    document.getElementById('btn-stage-personal').addEventListener('click', () => setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION));
+
+    document.getElementById('btn-t0').addEventListener('click', () => applyTimelineStep(0));
+    document.getElementById('btn-t40').addEventListener('click', () => applyTimelineStep(40));
+    document.getElementById('btn-t67').addEventListener('click', () => applyTimelineStep(67));
+    document.getElementById('btn-t110').addEventListener('click', () => applyTimelineStep(110));
+
+    // Handle viewStage URL parameter
+    if (viewStage === 'earth') {
+      setCameraStage(CAMERA_STAGES.GLOBAL_ORBIT);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    } else if (viewStage === 'campus') {
+      setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    } else if (viewStage === 'bldg') {
+      setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    } else if (viewStage === 'personal') {
+      setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    } else if (viewStage === 't67') {
+      applyTimelineStep(67);
+    } else if (viewStage === 't110') {
+      applyTimelineStep(110);
+    } else {
+      setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    }
+
+    renderUI();
+
+    // Subtle camera orbit when idle
+    let idleAngle = 0.0;
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const isRunning = camTransition.update();
+      if (!isRunning && camTransition.status !== TRANSITION_STATUS.USER_OVERRIDE) {
+        if (camTransition.currentStage === CAMERA_STAGES.CAMPUS_OVERVIEW) {
+          idleAngle += 0.0004;
+          camera.position.x = 230 + Math.sin(idleAngle) * 15;
+          camera.position.z = -90 + Math.cos(idleAngle) * 15;
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    window.__setCameraStage = setCameraStage;
+    window.__applyTimelineStep = applyTimelineStep;
+  </script>
+</body>
+</html>

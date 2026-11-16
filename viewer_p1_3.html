@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE — P1.3 Spatial Continuity & Personalized Response</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #020408;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Nanum Myeongjo", serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #header-overlay {
+      position: absolute;
+      top: 28px;
+      left: 36px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 14px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      font-weight: 500;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+    }
+    .badge-provisional {
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid #475569;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+    .badge-station {
+      display: inline-block;
+      padding: 2px 6px;
+      border: 1px solid #0284c7;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+
+    /* Action Guidance Editorial Box */
+    #action-card {
+      position: absolute;
+      top: 28px;
+      right: 36px;
+      width: 380px;
+      background: rgba(10, 14, 22, 0.85);
+      border: 1px solid #1e293b;
+      backdrop-filter: blur(8px);
+      padding: 18px 22px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .action-badge {
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #38bdf8;
+      margin-bottom: 8px;
+    }
+    .action-headline {
+      font-size: 14px;
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 8px;
+      letter-spacing: 0.02em;
+    }
+    .action-primary {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #e2e8f0;
+      margin-bottom: 10px;
+    }
+    .action-warning {
+      font-size: 11px;
+      line-height: 1.4;
+      color: #fbbf24;
+      margin-bottom: 12px;
+      border-left: 2px solid #f59e0b;
+      padding-left: 8px;
+    }
+    .action-meta-grid {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      row-gap: 4px;
+      font-size: 10px;
+      color: #64748b;
+      border-top: 1px solid #1e293b;
+      padding-top: 8px;
+    }
+    .action-meta-label {
+      color: #475569;
+    }
+
+    /* Legend Overlay */
+    .legend-overlay {
+      position: absolute;
+      bottom: 28px;
+      left: 36px;
+      z-index: 10;
+      pointer-events: none;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .legend-line {
+      width: 20px;
+      height: 2px;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div id="header-overlay">
+    <div class="title" id="view-title">SEISMOLIVE v4.0 · SPATIAL CONTINUITY</div>
+    <div class="subtitle" id="view-subtitle">WGS84 Geodetic Alignment · Nocturnal Monolith Wireframe</div>
+  </div>
+
+  <div id="action-card">
+    <div class="action-badge" id="card-badge">OBSERVED STATION SIGNAL</div>
+    <div class="action-headline" id="card-headline">지진동 감지 — 즉각 현 위치 방호</div>
+    <div class="action-primary" id="card-primary">몸 낮추고, 머리 감싸고, 튼튼한 탁자 잡기 (DROP, COVER, HOLD ON)</div>
+    <div class="action-warning" id="card-warning">흔들리는 동안 건물 밖으로 뛰어나가지 마십시오.</div>
+    <div class="action-meta-grid">
+      <span class="action-meta-label">관측소:</span><span id="meta-station">SNU_KMA_ACC (8.4km) · PGA 0.18g</span>
+      <span class="action-meta-label">출구 상태:</span><span id="meta-exit">출구 이동 금지 (진동 안정화 대기)</span>
+      <span class="action-meta-label">집결 장소:</span><span id="meta-dest">한양대학교 대운동장 (지진옥외대피장소)</span>
+    </div>
+  </div>
+
+  <div class="legend-overlay" id="legend-box">
+    <div class="legend-item"><span class="legend-line" style="background:#f8fafc;"></span> <span style="color:#e2e8f0;">선택 3층 / 최단 경로 (651.9m)</span></div>
+    <div class="legend-item"><span class="legend-line" style="background:#f59e0b;"></span> <span style="color:#f59e0b;">야외 계단 (4구간, 68.5m 위험 구간)</span></div>
+    <div class="legend-item"><span class="legend-line" style="background:#64748b;"></span> <span style="color:#94a3b8;">무단차 우회로 (769.1m 램프 경로)</span></div>
+    <div class="legend-item"><span class="legend-line" style="background:#334155;"></span> <span style="color:#64748b;">고스팅 슬래브 (1F, 2F, 4F, 5F)</span></div>
+  </div>
+
+  <div id="canvas-container"></div>
+
+  <script type="module">
+    import * as THREE from './js/lib/three.module.js';
+    import { HanyangResponseAdapter } from './js/response/HanyangResponseAdapter.js';
+    import { GlobalLocalCameraTransition, CAMERA_STAGES } from './js/response/GlobalLocalCameraTransition.js';
+    import { PersonalResponseInteraction } from './js/response/PersonalResponseInteraction.js';
+
+    const container = document.getElementById('canvas-container');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020408);
+    scene.fog = new THREE.FogExp2(0x020408, 0.0015);
+
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 2000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    // Subtle ground grid
+    const grid = new THREE.GridHelper(600, 60, 0x1e293b, 0x090d16);
+    grid.position.set(120, -14, 50);
+    scene.add(grid);
+
+    // Initialize Hanyang Response Adapter
+    const adapter = new HanyangResponseAdapter({ scene, visualScale: 1.0 });
+    const camTransition = new GlobalLocalCameraTransition({ camera });
+    const interaction = new PersonalResponseInteraction();
+
+    // Parse URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewMode = urlParams.get('stage') || '2';
+
+    if (viewMode === '1') {
+      // ----------------------------------------------------------------------
+      // STAGE 1: GLOBAL EARTH TO CAMPUS DESCENT (WGS84 Continuity)
+      // ----------------------------------------------------------------------
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · GLOBAL-TO-CAMPUS SPATIAL CONTINUITY';
+      document.getElementById('view-subtitle').innerHTML = 'Stage 1: Regional Approach Orbit · WGS84 Geodetic Alignment (37.5558°N, 127.0451°E) <span class="badge-station">STATION OBSERVED</span>';
+      
+      document.getElementById('card-badge').innerText = 'OBSERVED SEISMIC MOTION';
+      document.getElementById('card-headline').innerText = '지진동 지속 중 — 낙하 위험 방호';
+      document.getElementById('card-primary').innerText = '광역 지반 진동 감지 · 실시간 신호 분석 진행 중';
+      document.getElementById('card-warning').innerText = '흔들림 지속 시 현 위치 유지. 지진 조기경보 발령.';
+      document.getElementById('meta-station').innerText = 'SNU_KMA_ACC (8.4km) · PGA 0.18g';
+      document.getElementById('meta-exit').innerText = '실내 대기 권고';
+      document.getElementById('meta-dest').innerText = '대피소 위치 확인 중';
+
+      // Build simplified WGS84 globe sphere to show global continuity
+      const earthRadius = 120.0;
+      const earthGeo = new THREE.SphereGeometry(earthRadius, 48, 36);
+      const earthMat = new THREE.MeshBasicMaterial({
+        color: 0x060912,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.18
+      });
+      const earthMesh = new THREE.Mesh(earthGeo, earthMat);
+      earthMesh.position.set(0, -earthRadius - 14, 0);
+      scene.add(earthMesh);
+
+      // Target Beacon at Hanyang University Anchor
+      const beaconPoints = [
+        new THREE.Vector3(70.16, 0, -45.51),
+        new THREE.Vector3(70.16, 80.0, -45.51)
+      ];
+      const beaconGeo = new THREE.BufferGeometry().setFromPoints(beaconPoints);
+      const beaconMat = new THREE.LineDashedMaterial({
+        color: 0x38bdf8,
+        dashSize: 3.0,
+        gapSize: 1.5
+      });
+      const beaconLine = new THREE.Line(beaconGeo, beaconMat);
+      beaconLine.computeLineDistances();
+      scene.add(beaconLine);
+
+      // Camera positioned high in regional descent orbit
+      camera.position.set(160, 280, 220);
+      camera.lookAt(70, 0, -45);
+      adapter.highlightFloor(3);
+      adapter.setRouteDisplay('ALL');
+
+    } else if (viewMode === '2') {
+      // ----------------------------------------------------------------------
+      // STAGE 2: BUILDING 212 WHOLE STRUCTURE & SELECTED 3F SLAB
+      // ----------------------------------------------------------------------
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · 제1공학관 5개 층 및 3F 피난 공간';
+      document.getElementById('view-subtitle').innerHTML = 'Stage 2: Axonometric Structural Wireframe · Selected 3F Lecture Hall 301 <span class="badge-provisional">PROVISIONAL</span>';
+
+      document.getElementById('card-badge').innerText = 'ASSESSMENT & IMMEDIATE ACTION';
+      document.getElementById('card-headline').innerText = '진동 정지 — 출입문 개방 및 위험 점검';
+      document.getElementById('card-primary').innerText = '문틀 뒤틀림 전 방문 개방 · 3층 복도 경유 남동측 계단실 피난로 확보';
+      document.getElementById('card-warning').innerText = '엘리베이터 이용 절대 금지 · 가스/화재 냄새 즉각 확인';
+      document.getElementById('meta-station').innerText = '지반 가속도 안정화 (PGA < 0.02g)';
+      document.getElementById('meta-exit').innerText = '방문 개방 확인 대기';
+      document.getElementById('meta-dest').innerText = '한양대 대운동장 (지진옥외대피장소)';
+
+      adapter.highlightFloor(3);
+      adapter.setRouteDisplay('NONE');
+
+      // Camera focused tightly on Building 212
+      camera.position.set(135, 68, -12);
+      camera.lookAt(50, 9, -75);
+
+    } else {
+      // ----------------------------------------------------------------------
+      // STAGE 3: 3F SELECTED FLOOR TO MAIN STADIUM EGRESS PATHS
+      // ----------------------------------------------------------------------
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · 3F 출구에서 대운동장까지의 피난 경로';
+      document.getElementById('view-subtitle').innerHTML = 'Stage 3: Full Campus Egress Vector · Shortest (651.9m) vs Step-Free Detour (769.1m) <span class="badge-provisional">PARTIALLY VERIFIED</span>';
+
+      document.getElementById('card-badge').innerText = 'PEDESTRIAN EVACUATION TRANSIT';
+      document.getElementById('card-headline').innerText = '행동 결정 — 비상계단 하향 및 옥외 대피';
+      document.getElementById('card-primary').innerText = '1층 남동측 비상구 통과 후 캠퍼스 대피로를 따라 대운동장으로 이동';
+      document.getElementById('card-warning').innerText = '야외 계단 4구간 통과 시 낙상 주의 · 부상자/휠체어는 무단차 우회로 이용';
+      document.getElementById('meta-station').innerText = '관측소 정상 모니터링 중';
+      document.getElementById('meta-exit').innerText = '1층 남동측 출구 통과 완료 (4.0m)';
+      document.getElementById('meta-dest').innerText = '한양대학교 대운동장 잔디 필드 중앙';
+
+      adapter.highlightFloor(3);
+      adapter.setRouteDisplay('ALL');
+
+      // Broad aerial perspective
+      camera.position.set(230, 240, -90);
+      camera.lookAt(145, -8, 80);
+    }
+
+    // Render loop
+    function render() {
+      renderer.render(scene, camera);
+    }
+    render();
+
+    window.renderComplete = true;
+  </script>
+</body>
+</html>

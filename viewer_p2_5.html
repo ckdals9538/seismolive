@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE — P2.5 End-to-End Response Timeline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #020408;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Nanum Myeongjo", serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #header-overlay {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+    }
+    .badge-timeline {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid #38bdf8;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+    .badge-alert {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid #f43f5e;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #f43f5e;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+
+    /* Minimal Timeline Control Bar (Top-Right) */
+    #timeline-bar {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      background: rgba(10, 14, 22, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 6px 10px;
+    }
+    .timeline-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .timeline-btn:hover {
+      border-color: #e2e8f0;
+      color: #ffffff;
+    }
+    .timeline-btn.active {
+      border-color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    /* Minimal Editorial Guidance Strip (Bottom-Left) */
+    #guidance-container {
+      position: absolute;
+      bottom: 28px;
+      left: 32px;
+      max-width: 680px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(2, 4, 8, 0.92);
+      border-left: 2px solid #e2e8f0;
+      padding: 16px 20px;
+      backdrop-filter: blur(8px);
+    }
+    .guidance-phase {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .guidance-headline {
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      font-weight: 500;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-primary {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .guidance-warning {
+      font-size: 11px;
+      color: #fb7185;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-meta {
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .meta-row {
+      display: flex;
+      gap: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="header-overlay">
+    <div class="title" id="view-title">SEISMOLIVE · END-TO-END RESPONSE TIMELINE</div>
+    <div class="subtitle" id="view-subtitle">Phase P2.5: Continuous Timeline Lifecycle · Explicit Event Simulation</div>
+  </div>
+
+  <div id="timeline-bar">
+    <button class="timeline-btn" data-time="0" id="btn-t0">T+0s 지진 발생</button>
+    <button class="timeline-btn" data-time="40" id="btn-t40">T+40s 진동 정지</button>
+    <button class="timeline-btn" data-time="65" id="btn-t65">T+65s 균열 제보</button>
+    <button class="timeline-btn" data-time="67" id="btn-t67">T+67s 우회로 재탐색</button>
+    <button class="timeline-btn" data-time="110" id="btn-t110">T+110s 여진 차단</button>
+  </div>
+
+  <div id="guidance-container">
+    <div class="guidance-phase">
+      <span id="ui-time-tag">T+0s</span>
+      <span id="ui-phase-badge">상황 분석 대기</span>
+      <span class="badge-timeline" id="ui-mode-badge">SIMULATION</span>
+    </div>
+    <div class="guidance-headline" id="ui-headline">상황 분석 대기 중...</div>
+    <div class="guidance-primary" id="ui-primary">...</div>
+    <div class="guidance-warning" id="ui-warning"></div>
+    <div class="guidance-meta">
+      <div class="meta-row">
+        <span>이동 허용: <strong id="meta-can-move" style="color: #e2e8f0;">--</strong></span>
+        <span>경로 표출: <strong id="meta-route-mode" style="color: #38bdf8;">--</strong></span>
+        <span>대피 거리: <strong id="meta-distance" style="color: #fbbf24;">--</strong></span>
+      </div>
+      <div id="meta-detail" style="color: #cbd5e1; font-size: 10px; margin-top: 3px;">세부 상태: --</div>
+      <div id="meta-unverified" style="color: #94a3b8; font-size: 9.5px; margin-top: 2px;">불확실성: --</div>
+    </div>
+  </div>
+
+  <!-- Three.js Module Import -->
+  <script type="module">
+    import * as THREE from './js/lib/three.module.js';
+    import { HanyangResponseAdapter } from './js/response/HanyangResponseAdapter.js';
+    import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
+    import { PedestrianRoutingEngine, LINK_STATE } from './js/response/PedestrianRoutingEngine.js';
+    import { DATA_PROVENANCE_SOURCE, VERIFICATION_STATUS } from './js/response/HanyangBuildingData.js';
+    import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const initialT = parseInt(params.get('t') ?? '0', 10);
+
+    // Scene & Renderer Setup
+    const container = document.getElementById('canvas-container');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020408);
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 5000);
+    camera.position.set(180, 220, 280);
+    camera.lookAt(0, 20, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    // Instantiate Modules
+    const hanyangAdapter = new HanyangResponseAdapter(scene, {
+      scale: 1.0,
+      visualScaleFactor: 4.5
+    });
+
+    const router = new PedestrianRoutingEngine();
+    const uiAdapter = new ResponseUIAdapter({
+      router,
+      hanyangAdapter
+    });
+
+    // Timeline State Controller
+    function applyTimelineStep(tSec) {
+      // Highlight button
+      document.querySelectorAll('.timeline-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.time, 10) === tSec);
+      });
+
+      document.getElementById('ui-time-tag').textContent = `T+${tSec}s`;
+
+      if (tSec === 0) {
+        // T+0s: Earthquake Occurrence
+        uiAdapter.resetRouteObstacles();
+        uiAdapter.setAftershock(false);
+        uiAdapter.setUserLocation({
+          locationType: 'INDOOR',
+          buildingId: 'BLDG_212_ENG1',
+          floor: 3,
+          room: 'ROOM_301',
+          certainty: LOCATION_CERTAINTY.EXACT_ROOM
+        });
+        uiAdapter.setMobility(MOBILITY_PROFILE.NONE);
+        uiAdapter.updateStationMotion(0.22); // PGA 0.22g
+      } else if (tSec === 40) {
+        // T+40s: Ground Motion Calm
+        uiAdapter.resetRouteObstacles();
+        uiAdapter.setAftershock(false);
+        uiAdapter.setUserFloor(3);
+        uiAdapter.updateStationMotion(0.01); // PGA 0.01g
+      } else if (tSec === 65) {
+        // T+65s: Citizen Stair Crack Report Received
+        uiAdapter.setAftershock(false);
+        uiAdapter.updateStationMotion(0.01);
+        uiAdapter.reportLinkObstacle('NODE_STAIR1_TOP->NODE_STAIR1_BOT', LINK_STATE.SUSPECTED, {
+          source: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT,
+          detail: '1층 연결 계단 균열 및 파편 목격 제보'
+        });
+      } else if (tSec === 67) {
+        // T+67s: Detour Replan Active
+        uiAdapter.setAftershock(false);
+        uiAdapter.updateStationMotion(0.01);
+        uiAdapter.reportLinkObstacle('NODE_STAIR1_TOP->NODE_STAIR1_BOT', LINK_STATE.SUSPECTED, {
+          source: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT,
+          detail: '1층 연결 계단 균열 및 파편 목격 제보'
+        });
+        uiAdapter.reassess();
+      } else if (tSec === 110) {
+        // T+110s: Aftershock Detected
+        uiAdapter.setAftershock(true);
+        uiAdapter.updateStationMotion(0.16); // PGA 0.16g
+      }
+
+      renderUI();
+    }
+
+    function renderUI() {
+      const g = uiAdapter.lastGuidance;
+      if (!g) return;
+
+      document.getElementById('ui-phase-badge').textContent = g.badgeText;
+      document.getElementById('ui-headline').textContent = g.phaseHeadline;
+      document.getElementById('ui-primary').textContent = g.primaryAction;
+
+      const warnEl = document.getElementById('ui-warning');
+      warnEl.textContent = g.warnings.length > 0 ? g.warnings[0] : '';
+
+      document.getElementById('meta-can-move').textContent = g.canMove ? '가능 (허용)' : '금지 (엄폐 대기)';
+      document.getElementById('meta-can-move').style.color = g.canMove ? '#38bdf8' : '#f43f5e';
+
+      document.getElementById('meta-route-mode').textContent = g.routeStatus.displayMode;
+      document.getElementById('meta-distance').textContent = g.replanStatus
+        ? `${g.replanStatus.totalDistanceMeters}m (계단 ${g.replanStatus.totalStairsDistanceMeters}m)`
+        : '경로 미제공';
+
+      document.getElementById('meta-detail').textContent = g.replanStatus?.replanReason || g.routeStatus.caveat;
+
+      const unvEl = document.getElementById('meta-unverified');
+      unvEl.textContent = g.unverifiedItems.length > 0
+        ? `불확실성: ${g.unverifiedItems.join(' | ')}`
+        : '미확인 항목 없음';
+    }
+
+    // Attach click listeners to buttons
+    document.querySelectorAll('.timeline-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = parseInt(btn.dataset.time, 10);
+        applyTimelineStep(t);
+      });
+    });
+
+    // Initialize with target time
+    applyTimelineStep(initialT);
+
+    // Animation Loop
+    let angle = 0.85;
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Subtle slow orbit around anchor
+      angle += 0.0008;
+      const radius = 340;
+      camera.position.x = Math.sin(angle) * radius;
+      camera.position.z = Math.cos(angle) * radius;
+      camera.position.y = 200;
+      camera.lookAt(0, 20, 0);
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Expose for testing/automation
+    window.__applyTimelineStep = applyTimelineStep;
+    window.__uiAdapter = uiAdapter;
+  </script>
+</body>
+</html>

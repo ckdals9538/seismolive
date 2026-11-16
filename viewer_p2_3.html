@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>SEISMOLIVE — P2.3 Response Interface Integration</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background-color: #020408;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Nanum Myeongjo", serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #header-overlay {
+      position: absolute;
+      top: 24px;
+      left: 32px;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 13px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #f8fafc;
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      color: #94a3b8;
+    }
+    .badge-provisional {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #475569;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+    .badge-station {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #0284c7;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #38bdf8;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+    .badge-alert {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid #e11d48;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      color: #fb7185;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+
+    /* Minimal Editorial Guidance Strip (Bottom-Left) */
+    #guidance-container {
+      position: absolute;
+      bottom: 28px;
+      left: 32px;
+      max-width: 680px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(2, 4, 8, 0.88);
+      border-left: 2px solid #e2e8f0;
+      padding: 16px 20px;
+      backdrop-filter: blur(8px);
+    }
+    .guidance-phase {
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .guidance-headline {
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      font-weight: 500;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-primary {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+    .guidance-warning {
+      font-size: 11px;
+      color: #fb7185;
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+    .guidance-meta {
+      font-size: 10px;
+      color: #64748b;
+      letter-spacing: 0.04em;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .meta-row {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Minimal Floor / Filter Pill (Top-Right) */
+    #floor-selector {
+      position: absolute;
+      top: 24px;
+      right: 32px;
+      z-index: 10;
+      display: flex;
+      gap: 6px;
+    }
+    .pill {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #94a3b8;
+      padding: 4px 10px;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      border-radius: 2px;
+    }
+    .pill.active {
+      border-color: #ffffff;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div id="header-overlay">
+    <div class="title" id="view-title">SEISMOLIVE · PERSONAL RESPONSE INTERFACE</div>
+    <div class="subtitle" id="view-subtitle">Phase P2.3: SituationAssessmentEngine Integrated · Hanyang Bldg 212 & Egress Vectors</div>
+  </div>
+
+  <div id="floor-selector">
+    <div class="pill" id="pill-1f">1F</div>
+    <div class="pill" id="pill-2f">2F</div>
+    <div class="pill active" id="pill-3f">3F (선택)</div>
+    <div class="pill" id="pill-4f">4F</div>
+    <div class="pill" id="pill-5f">5F</div>
+  </div>
+
+  <div id="guidance-container">
+    <div class="guidance-phase">
+      <span id="ui-phase-badge">상황 판단 연동</span>
+      <span class="badge-provisional" id="ui-provisional-tag">PROVISIONAL 평면</span>
+    </div>
+    <div class="guidance-headline" id="ui-headline">상황 분석 대기 중...</div>
+    <div class="guidance-primary" id="ui-primary">...</div>
+    <div class="guidance-warning" id="ui-warning"></div>
+    <div class="guidance-meta">
+      <div class="meta-row">
+        <span>경로 표시: <strong id="meta-route-mode" style="color: #e2e8f0;">--</strong></span>
+        <span>이동 허용: <strong id="meta-can-move" style="color: #38bdf8;">--</strong></span>
+        <span>전술 상태: <strong id="meta-conflict" style="color: #94a3b8;">--</strong></span>
+      </div>
+      <div id="meta-unverified" style="color: #94a3b8; font-size: 9.5px; margin-top: 2px;">미확인 항목: --</div>
+    </div>
+  </div>
+
+  <!-- Three.js Module Import -->
+  <script type="module">
+    import * as THREE from './js/lib/three.module.js';
+    import { HanyangResponseAdapter } from './js/response/HanyangResponseAdapter.js';
+    import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
+    import { SituationAssessmentEngine, MOBILITY_PROFILE, LOCATION_CERTAINTY } from './js/response/SituationAssessmentEngine.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const scenario = params.get('scenario') || 'stable'; // 'stable' | 'blocked' | 'wheelchair'
+
+    // Scene & Renderer Setup
+    const container = document.getElementById('canvas-container');
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020408);
+    scene.fog = new THREE.FogExp2(0x020408, 0.0015);
+
+    const camera = new THREE.PerspectiveCamera(38, width / height, 0.1, 2000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    // Subtle ground grid
+    const grid = new THREE.GridHelper(600, 60, 0x1e293b, 0x090d16);
+    grid.position.set(120, -14, 50);
+    scene.add(grid);
+
+    // Initialize HanyangResponseAdapter (3D Scene Layer)
+    const hanyangAdapter = new HanyangResponseAdapter({
+      scene,
+      visualScale: 1.0
+    });
+
+    // Initialize ResponseUIAdapter
+    const uiAdapter = new ResponseUIAdapter({
+      hanyangAdapter,
+      onGuidanceUpdate: (g) => {
+        document.getElementById('ui-phase-badge').innerText = g.badgeText;
+        document.getElementById('ui-headline').innerText = g.phaseHeadline;
+        document.getElementById('ui-primary').innerText = g.primaryAction;
+        document.getElementById('ui-warning').innerText = g.warnings.length > 0 ? '경고: ' + g.warnings[0] : '';
+        document.getElementById('meta-route-mode').innerText = g.routeStatus.displayMode;
+        document.getElementById('meta-can-move').innerText = g.canMove ? '이동 가능' : '이동 정지/대기';
+        document.getElementById('meta-conflict').innerText = g.conflictResolution.strategy;
+        document.getElementById('meta-unverified').innerText = '미확인 항목: ' + (g.unverifiedItems.join(' · ') || '없음');
+      }
+    });
+
+    // Configure Scenarios
+    if (scenario === 'blocked') {
+      // 2. Exit Blocked (Shelter-in-Place)
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · P2.3 출구 차단 및 실내 고립 방어';
+      document.getElementById('view-subtitle').innerText = 'Scenario: Exit Blocked -> Shelter-in-Place Active · Route Lines Disabled';
+      
+      camera.position.set(135, 68, -12);
+      camera.lookAt(50, 9, -75);
+      uiAdapter.updateStationMotion(0.01);
+      uiAdapter.reportHazard('EXIT_BLOCKED', true, '1층 방화문 비틀림 차단');
+    } else if (scenario === 'wheelchair') {
+      // 3. Wheelchair User Outdoor Transit
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · P2.3 이동 약자 전용 무단차 경로';
+      document.getElementById('view-subtitle').innerText = 'Scenario: Wheelchair User -> Stairs Filtered Out · Step-Free 769.1m Enforced';
+
+      camera.position.set(230, 240, -90);
+      camera.lookAt(145, -8, 80);
+      uiAdapter.updateStationMotion(0.01);
+      uiAdapter.setMobility(MOBILITY_PROFILE.WHEELCHAIR);
+      uiAdapter.setPreferredRouteMode('STEP_FREE');
+    } else {
+      // Default: Stable Post-Shaking Egress Overview
+      document.getElementById('view-title').innerText = 'SEISMOLIVE · P2.3 안정화 후 비상계단 및 옥외 대피';
+      document.getElementById('view-subtitle').innerText = 'Scenario: Stable Post-Shaking Assessment -> Dual Routes Visible (Shortest vs Step-Free)';
+
+      camera.position.set(210, 200, -80);
+      camera.lookAt(135, -5, 60);
+      uiAdapter.updateStationMotion(0.01);
+      uiAdapter.setUserFloor(3);
+    }
+
+    // Render loop
+    function render() {
+      renderer.render(scene, camera);
+    }
+    render();
+
+    window.renderComplete = true;
+  </script>
+</body>
+</html>
