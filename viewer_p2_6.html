@@ -170,16 +170,66 @@
       display: flex;
       gap: 16px;
     }
+
+    /* HUD-Avoiding 4km Spatial Overlay Labels (Nocturnal Monolith Typography) */
+    #spatial-label-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 8;
+      overflow: hidden;
+    }
+    .spatial-map-label {
+      position: absolute;
+      top: 0;
+      left: 0;
+      display: none;
+      flex-direction: column;
+      gap: 1px;
+      padding: 4px 8px;
+      background: rgba(2, 4, 8, 0.86);
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-left: 2px solid #94a3b8;
+      color: #f8fafc;
+      font-size: 10px;
+      line-height: 1.25;
+      white-space: nowrap;
+      will-change: transform;
+    }
+    .spatial-map-label.cat-target_building {
+      border-left-color: #f8fafc;
+    }
+    .spatial-map-label.cat-primary_shelter {
+      border-left-color: #e2e8f0;
+    }
+    .spatial-map-label.cat-hazard_context,
+    .spatial-map-label.is-provisional {
+      border-style: dashed;
+      border-left-style: solid;
+      border-left-color: #64748b;
+    }
+    .spatial-map-label .sml-title {
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      color: #f8fafc;
+    }
+    .spatial-map-label .sml-sub {
+      font-size: 8.5px;
+      letter-spacing: 0.02em;
+      color: #94a3b8;
+    }
   </style>
 </head>
 <body>
   <div id="canvas-container"></div>
+  <div id="spatial-label-layer"></div>
 
   <div id="header-overlay">
     <div class="title" id="view-title">SEISMOLIVE v4.0 · GLOBAL-TO-PERSONAL EXHIBITION</div>
-    <div class="subtitle" id="view-subtitle">Cosmic Earth Orbit → Campus Tangent Plane → Building 212 → Personal Response Timeline</div>
+    <div class="subtitle" id="view-subtitle">Cosmic Earth Orbit → Seongdong/Hanyang 4km Local Map → Building 212 → Personal Response Timeline</div>
     <div class="spatial-breadcrumb">
       <span class="spatial-step" id="bc-earth">Global Earth</span> <span>→</span>
+      <span class="spatial-step" id="bc-local4km">Seongdong 4km</span> <span>→</span>
       <span class="spatial-step" id="bc-campus">Campus</span> <span>→</span>
       <span class="spatial-step" id="bc-bldg">Bldg 212</span> <span>→</span>
       <span class="spatial-step" id="bc-personal">3F Room 301</span> <span>→</span>
@@ -190,6 +240,7 @@
   <div id="exhibition-bar">
     <div class="btn-group">
       <button class="ctrl-btn" id="btn-stage-earth">1. 지구 궤도</button>
+      <button class="ctrl-btn" id="btn-stage-local4km">1.5 성동·한양 4km</button>
       <button class="ctrl-btn" id="btn-stage-campus">2. 캠퍼스 조망</button>
       <button class="ctrl-btn" id="btn-stage-bldg">3. 제1공학관</button>
       <button class="ctrl-btn" id="btn-stage-personal">4. 3층 301호</button>
@@ -199,6 +250,11 @@
       <button class="ctrl-btn" id="btn-t40">T+40s 탈출로 개방</button>
       <button class="ctrl-btn" id="btn-t67">T+67s 우회로 재탐색</button>
       <button class="ctrl-btn" id="btn-t110">T+110s 여진 차단</button>
+    </div>
+    <div class="btn-group">
+      <button class="ctrl-btn" id="btn-xray-toggle" title="실내/건물 검사 시 주변 건물 반투명 X-Ray 전환">X-Ray 투시</button>
+      <button class="ctrl-btn" id="btn-eco-toggle" title="저사양/교육용 Eco 모드 (높이 우선 LOD + 라벨 쓰로틀링)">Eco 60fps</button>
+      <a class="ctrl-btn" id="link-return-global" href="./index.html" style="text-decoration:none;">← 글로벌 지구본</a>
     </div>
   </div>
 
@@ -229,25 +285,29 @@
     import { GlobalLocalCameraTransition, CAMERA_STAGES, TRANSITION_STATUS } from './js/response/GlobalLocalCameraTransition.js';
     import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
     import { PedestrianRoutingEngine, LINK_STATE } from './js/response/PedestrianRoutingEngine.js';
-    import { DATA_PROVENANCE_SOURCE } from './js/response/HanyangBuildingData.js';
+    import { DATA_PROVENANCE_SOURCE, DEFAULT_HANYANG_FACILITY_PACKAGE } from './js/response/HanyangBuildingData.js';
     import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
+    import { HANYANG_LOCAL_4KM_PACKAGE, HANYANG_LOCAL_SPATIAL_VIEWPOINTS } from './js/response/HanyangLocalSpatialData.js';
+    import { LocalSpatialMapLayer, samplePointAlong3D } from './js/response/LocalSpatialMapLayer.js';
 
     const params = new URLSearchParams(window.location.search);
-    const viewStage = params.get('stage') || 'campus'; // 'earth' | 'campus' | 'bldg' | 'personal' | 't67' | 't110'
+    const viewStage = params.get('stage') || 'campus'; // 'earth' | 'local4km' | 'campus' | 'bldg' | 'personal' | 't67' | 't110'
+    const baseDpr = Math.min(window.devicePixelRatio || 1, 2);
 
     // Scene & Renderer Setup
     const container = document.getElementById('canvas-container');
+    const labelContainer = document.getElementById('spatial-label-layer');
     const width = window.innerWidth;
     const height = window.innerHeight;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020408);
-    scene.fog = new THREE.FogExp2(0x020408, 0.0012);
+    scene.fog = new THREE.FogExp2(0x020408, 0.00055);
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 5000);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 6000);
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(baseDpr);
     container.appendChild(renderer.domElement);
 
     // Global Earth Sphere (Curved surface to establish global continuity)
@@ -260,7 +320,7 @@
       opacity: 0.16
     });
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
-    earthMesh.position.set(0, -earthRadius - 16, 0);
+    earthMesh.position.set(0, -earthRadius - 18, 0);
     scene.add(earthMesh);
 
     // WGS84 Geodetic Vertical Beacon over Anchor
@@ -278,10 +338,26 @@
     beaconLine.computeLineDistances();
     scene.add(beaconLine);
 
-    // Subtle Ground Grid
-    const grid = new THREE.GridHelper(700, 70, 0x1e293b, 0x070b14);
-    grid.position.set(120, -14, 50);
+    // Subtle Ground Grid (expanded to 4km local map context)
+    const grid = new THREE.GridHelper(3600, 90, 0x1e293b, 0x070b14);
+    grid.position.set(120, -18, 50);
     scene.add(grid);
+
+    // 4km Pre-Built Seongdong / Hanyang Local Spatial Layer (Strategy C)
+    const localSpatialLayer = new LocalSpatialMapLayer(scene, {
+      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE
+    });
+
+    // Cumulative Arc-Length Egress Progress Marker along Active Route
+    const pulseMarkerGeo = new THREE.OctahedronGeometry(2.2, 0);
+    const pulseMarkerMat = new THREE.MeshBasicMaterial({
+      color: 0xf8fafc,
+      wireframe: true
+    });
+    const routePulseMarker = new THREE.Mesh(pulseMarkerGeo, pulseMarkerMat);
+    routePulseMarker.name = 'ActiveRouteArcLengthMarker';
+    routePulseMarker.visible = false;
+    scene.add(routePulseMarker);
 
     // Adapters
     const hanyangAdapter = new HanyangResponseAdapter(scene, {
@@ -295,12 +371,26 @@
       hanyangAdapter
     });
 
-    const camTransition = new GlobalLocalCameraTransition({ camera });
+    const camTransition = new GlobalLocalCameraTransition({
+      camera,
+      viewpoints: {
+        ...DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints,
+        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH
+      }
+    });
     camTransition.attachUserInterruptListeners(container);
+
+    function syncUtilityButtons() {
+      const diag = localSpatialLayer.getLayerDiagnostics();
+      const xrayBtn = document.getElementById('btn-xray-toggle');
+      const ecoBtn = document.getElementById('btn-eco-toggle');
+      if (xrayBtn) xrayBtn.classList.toggle('active', diag.xRayEnabled);
+      if (ecoBtn) ecoBtn.classList.toggle('active', diag.ecoMode);
+    }
 
     // Coordinate User Experience Journey
     function setCameraStage(stageKey) {
-      document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#btn-stage-earth, #btn-stage-local4km, #btn-stage-campus, #btn-stage-bldg, #btn-stage-personal').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.spatial-step').forEach(s => s.classList.remove('active'));
 
       if (stageKey === CAMERA_STAGES.GLOBAL_ORBIT) {
@@ -308,6 +398,11 @@
         document.getElementById('bc-earth').classList.add('active');
         camTransition.snapTo(CAMERA_STAGES.GLOBAL_ORBIT);
         hanyangAdapter.setRouteDisplay('NONE');
+      } else if (stageKey === CAMERA_STAGES.REGIONAL_APPROACH) {
+        document.getElementById('btn-stage-local4km').classList.add('active');
+        document.getElementById('bc-local4km').classList.add('active');
+        camTransition.snapTo(CAMERA_STAGES.REGIONAL_APPROACH);
+        hanyangAdapter.setRouteDisplay('ALL');
       } else if (stageKey === CAMERA_STAGES.CAMPUS_OVERVIEW) {
         document.getElementById('btn-stage-campus').classList.add('active');
         document.getElementById('bc-campus').classList.add('active');
@@ -327,6 +422,9 @@
         hanyangAdapter.setRouteDisplay('ALL');
       }
 
+      localSpatialLayer.syncWithCameraStage(stageKey);
+      syncUtilityButtons();
+      localSpatialLayer.updateOverlayLabels(camera, labelContainer, { force: true });
       document.getElementById('meta-camera-stage').textContent = stageKey;
     }
 
@@ -394,6 +492,7 @@
 
     // Button event listeners
     document.getElementById('btn-stage-earth').addEventListener('click', () => setCameraStage(CAMERA_STAGES.GLOBAL_ORBIT));
+    document.getElementById('btn-stage-local4km').addEventListener('click', () => setCameraStage(CAMERA_STAGES.REGIONAL_APPROACH));
     document.getElementById('btn-stage-campus').addEventListener('click', () => setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW));
     document.getElementById('btn-stage-bldg').addEventListener('click', () => setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION));
     document.getElementById('btn-stage-personal').addEventListener('click', () => setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION));
@@ -403,9 +502,26 @@
     document.getElementById('btn-t67').addEventListener('click', () => applyTimelineStep(67));
     document.getElementById('btn-t110').addEventListener('click', () => applyTimelineStep(110));
 
+    document.getElementById('btn-xray-toggle').addEventListener('click', () => {
+      const next = !localSpatialLayer.state.xRayEnabled;
+      localSpatialLayer.setXRayMode(next, 0.16, true);
+      syncUtilityButtons();
+    });
+
+    document.getElementById('btn-eco-toggle').addEventListener('click', () => {
+      const next = !localSpatialLayer.state.ecoMode;
+      localSpatialLayer.setEcoMode(next);
+      renderer.setPixelRatio(next ? 1.0 : baseDpr);
+      syncUtilityButtons();
+    });
+
     // Handle viewStage URL parameter
     if (viewStage === 'earth') {
       setCameraStage(CAMERA_STAGES.GLOBAL_ORBIT);
+      uiAdapter.setUserFloor(3);
+      uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+    } else if (viewStage === 'local4km' || viewStage === 'regional') {
+      setCameraStage(CAMERA_STAGES.REGIONAL_APPROACH);
       uiAdapter.setUserFloor(3);
       uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
     } else if (viewStage === 'campus') {
@@ -432,8 +548,10 @@
 
     renderUI();
 
-    // Subtle camera orbit when idle
+    // Subtle camera orbit when idle + arc-length route marker + HUD-avoiding label update
     let idleAngle = 0.0;
+    let routePhase = 0.0;
+
     function animate() {
       requestAnimationFrame(animate);
 
@@ -446,6 +564,17 @@
         }
       }
 
+      const guidance = uiAdapter.lastGuidance;
+      const activePts = hanyangAdapter.getActiveRoutePoints();
+      const canShowPulse = Boolean(guidance && guidance.canMove && activePts.length >= 2);
+      routePulseMarker.visible = canShowPulse;
+      if (canShowPulse) {
+        routePhase = (routePhase + 0.0022) % 1.0;
+        const sampled = samplePointAlong3D(activePts, routePhase);
+        routePulseMarker.position.set(sampled.point[0], sampled.point[1] + 1.5, sampled.point[2]);
+      }
+
+      localSpatialLayer.updateOverlayLabels(camera, labelContainer);
       renderer.render(scene, camera);
     }
     animate();
@@ -454,10 +583,19 @@
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(window.innerWidth, window.innerHeight);
+      localSpatialLayer.updateOverlayLabels(camera, labelContainer, { force: true });
     });
 
     window.__setCameraStage = setCameraStage;
     window.__applyTimelineStep = applyTimelineStep;
+    window.__localSpatialLayer = localSpatialLayer;
+    window.__getSpatialDiagnostics = () => ({
+      ...localSpatialLayer.getLayerDiagnostics(),
+      canMove: uiAdapter.lastGuidance?.canMove ?? null,
+      routeMode: hanyangAdapter.config.activeRoute,
+      renderCalls: renderer.info?.render?.calls ?? 0,
+      pixelRatio: renderer.getPixelRatio()
+    });
   </script>
 </body>
 </html>

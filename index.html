@@ -88,6 +88,9 @@
         <button id="btn-open-discover" class="surface-btn primary" title="전체 사료 및 관측 아카이브 목록 열기">
           <span id="discover-btn-label">아카이브 탐색</span>
         </button>
+        <button id="btn-open-local-spatial" class="surface-btn secondary" title="성동·한양 4km 국지 지진 대응 및 개인화 대피 뷰어로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
+          <span>4km 대응 ↗</span>
+        </button>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
           <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
         </button>
@@ -281,9 +284,14 @@
           <input type="checkbox" id="chk-auto-continue" />
           <span>재생 완료 후 다음 사건 자동 연속</span>
         </label>
-        <button id="btn-launch-performance" class="surface-btn primary large">
-          현장 강하 및 3D 시각화 재생 시작 →
-        </button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button id="btn-selected-local-spatial" class="surface-btn secondary" title="성동·한양 4km 로컬 공간 대응 뷰어로 연속 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
+            성동·한양 4km 대응 ↗
+          </button>
+          <button id="btn-launch-performance" class="surface-btn primary large">
+            현장 강하 및 3D 시각화 재생 시작 →
+          </button>
+        </div>
       </div>
     </div>
 
@@ -325,6 +333,9 @@
         </button>
         <button id="btn-transport-return" class="surface-btn secondary compact" title="우주 궤도로 복귀 [ESC]">
           궤도 [ESC]
+        </button>
+        <button id="btn-transport-local-spatial" class="surface-btn secondary compact" title="성동·한양 4km 국지 대응 뷰어로 이동" onclick="window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
+          4km 대응 ↗
         </button>
       </div>
     </div>

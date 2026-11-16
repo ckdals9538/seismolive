@@ -81,6 +81,7 @@ export class HanyangResponseAdapter {
     this.rootGroup.name = bldgId === 'BLDG_212_ENG1' ? 'HanyangBldg212_ResponseRoot' : `${bldgId}_ResponseRoot`;
 
     this.floorGroups = new Map();
+    this.routePolylines = { SHORTEST: [], STEP_FREE: [] };
     this.pathGroup = new THREE.Group();
     this.pathGroup.name = 'PedestrianPathsGroup';
     this.shelterGroup = new THREE.Group();
@@ -462,6 +463,7 @@ export class HanyangResponseAdapter {
     // 1. Shortest Path Polyline & Stair Hazard Segments (Derived directly by edge.hasStairs / edgeId / wayId)
     const shortestEdges = shortestRoute?.found ? shortestRoute.edges : [];
     const shortestWaypoints = this._extractRoutePoints(shortestEdges);
+    this.routePolylines.SHORTEST = shortestWaypoints;
 
     if (shortestWaypoints.length >= 2) {
       const shortestGeo = new THREE.BufferGeometry().setFromPoints(shortestWaypoints);
@@ -517,6 +519,7 @@ export class HanyangResponseAdapter {
     // 2. Step-Free Detour Path Polyline
     const stepFreeEdges = stepFreeRoute?.found ? stepFreeRoute.edges : [];
     const stepFreeWaypoints = this._extractRoutePoints(stepFreeEdges);
+    this.routePolylines.STEP_FREE = stepFreeWaypoints;
 
     if (stepFreeWaypoints.length >= 2) {
       const stepFreeGeo = new THREE.BufferGeometry().setFromPoints(stepFreeWaypoints);
@@ -647,6 +650,15 @@ export class HanyangResponseAdapter {
         child.visible = mode === 'ALL' || mode === 'STEP_FREE';
       }
     });
+  }
+
+  /**
+   * Return the calibrated 3D polyline matching the current active route display mode.
+   */
+  getActiveRoutePoints() {
+    if (this.config.activeRoute === 'NONE') return [];
+    if (this.config.activeRoute === 'STEP_FREE') return this.routePolylines.STEP_FREE || [];
+    return this.routePolylines.SHORTEST || [];
   }
 
   /**
