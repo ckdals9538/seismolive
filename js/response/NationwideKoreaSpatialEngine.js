@@ -34,6 +34,7 @@ import {
 import { sampleGridHeightAt } from './LocalSpatialMapLayer.js';
 import {
   HazardProvider,
+  AutoScenarioResolver,
   IndoorSpatialProvider,
   BuildingProvider,
   RoadNetworkProvider,
@@ -41,6 +42,7 @@ import {
   geodesicDistanceKm,
   geodesicBearingDeg
 } from './SpatialDataProviders.js';
+import { liveSeismicDataService } from '../data/LiveSeismicDataService.js';
 
 export const HANYANG_SHELTER_JUSTIFICATION = Object.freeze({
   'OA-21060': Object.freeze({
@@ -90,7 +92,7 @@ export const POST_ARRIVAL_SAFETY_PROTOCOLS = Object.freeze([
   Object.freeze({
     id: 'SITUATION_MONITORING',
     stepNumber: '02',
-    title: '공식 재난방송·余震 정보 수신',
+    title: '공식 재난방송 · 여진 정보 수신',
     summary: '기상청(KMA) 여진 속보 및 행정안전부 긴급재난문자를 확인하고, 통화 폭주를 피해 SMS·메신저로 짧은 안부만 전하십시오.',
     actionLabel: '주변 위험·지진원 방향 확인',
     motionMode: 'EPICENTER_SCAN'
@@ -566,18 +568,24 @@ export function evaluateRegionalHazard(regionOrScenario, userLat, userLon) {
     ? raw.epicenterLon
     : (raw.useLocalOffset ? lon + (raw.offsetLonDeg ?? 0.045) : lon + 0.045);
 
-  const hazard = HazardProvider.createScenario({
-    id: raw.id || `SCENARIO_${lat.toFixed(2)}_${lon.toFixed(2)}`,
-    scenarioType: raw.scenarioType || SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
-    title: raw.title || '사용자 지정 지진 시나리오',
-    epicenterLat: epiLat,
-    epicenterLon: epiLon,
-    magnitude: raw.magnitude !== undefined ? raw.magnitude : 5.2,
-    depthKm: raw.depthKm !== undefined ? raw.depthKm : 10,
-    originText: raw.originText || '사용자·시나리오 지정 진앙',
-    occurredAt: raw.occurredAt || null,
-    source: raw.source || 'SEISMOLIVE_HAZARD_PROVIDER'
-  });
+  const hazard = (raw.provenance && raw.scenarioType && raw.epicenterLat !== undefined)
+    ? raw
+    : HazardProvider.createScenario({
+        id: raw.id || `SCENARIO_${lat.toFixed(2)}_${lon.toFixed(2)}`,
+        scenarioType: raw.scenarioType || SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+        title: raw.title || '지역 기반 지진 시나리오',
+        epicenterLat: epiLat,
+        epicenterLon: epiLon,
+        magnitude: raw.magnitude !== undefined ? raw.magnitude : 5.2,
+        magScale: raw.magScale || null,
+        depthKm: raw.depthKm !== undefined ? raw.depthKm : 10,
+        originText: raw.originText || '지진 발생 위치',
+        occurredAt: raw.occurredAt || null,
+        source: raw.source || 'SEISMOLIVE_HAZARD_PROVIDER',
+        officialProducts: raw.officialProducts || null,
+        isGeneralAssumptionOnly: raw.isGeneralAssumptionOnly,
+        selectionReasonKo: raw.selectionReasonKo || null
+      });
 
   const evalResult = HazardProvider.evaluateSeismicImpactAtLocation(hazard, lat, lon);
   return {
@@ -647,12 +655,11 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     walkGraph
   } = roadData;
 
-  // Determine Origin Point/Building near center (0, 0) without fabricating a fake building when absent
-  const defaultOrigin = pickDefaultOriginBuilding(
-    namedBuildings,
-    obbRawList,
+  // Anchor analysis directly at the selected/GPS outdoor point — NEVER assume the user resides inside a nearby building
+  const defaultOrigin = pickAnalysisOriginPoint(
     walkGraph,
-    terrainGrid
+    terrainGrid,
+    opts.originLabel || '분석 기준 위치'
   );
 
   const originEN = defaultOrigin ? [defaultOrigin.east_m, defaultOrigin.north_m] : [0, 0];
@@ -668,7 +675,8 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     waterways,
     impactStatus,
     originEN,
-    halfExtentMeters
+    halfExtentMeters,
+    officialShelters: opts.officialShelters || []
   });
 
   const rankedShelters = facilityEval.candidates;
@@ -809,56 +817,30 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
   };
 }
 
-function pickDefaultOriginBuilding(namedBuildings, obbRawList, walkGraph, terrainGrid) {
-  const namedCandidates = namedBuildings.filter(b => Math.hypot(b.east_m, b.north_m) <= 650);
-  namedCandidates.sort((a, b) => Math.hypot(a.east_m, a.north_m) - Math.hypot(b.east_m, b.north_m));
-  if (namedCandidates.length > 0) {
-    return {
-      ...namedCandidates[0],
-      originHasBuilding: true
-    };
-  }
-
-  const obbNear = obbRawList.find(b => Math.hypot(b.east_m, b.north_m) <= 650 && b.width_m >= 8);
-  if (obbNear) {
-    return {
-      id: obbNear.buildingId || 'OSM_BLDG_CENTER',
-      name: obbNear.name || '분석 지점 인근 건축물',
-      east_m: obbNear.east_m,
-      north_m: obbNear.north_m,
-      groundY_m: obbNear.groundY_m,
-      width_m: obbNear.width_m,
-      depth_m: obbNear.depth_m,
-      yaw_rad: obbNear.yaw_rad,
-      height_m: obbNear.height_m,
-      indoorScope: INDOOR_SPATIAL_SCOPE.HEIGHT_ONLY_3D,
-      originHasBuilding: true
-    };
-  }
-
-  // If no buildings exist at all, ONLY expose an outdoor road point if genuine walkable roads exist
+function pickAnalysisOriginPoint(walkGraph, terrainGrid, label = '분석 기준 위치') {
   if ((walkGraph?.nodes?.length || 0) >= 2 && (walkGraph?.edges?.length || 0) >= 1) {
-    let bestNode = walkGraph.nodes[0];
+    let bestNode = null;
     let bestD = Infinity;
     for (const nd of walkGraph.nodes) {
       const d = Math.hypot(nd[1], nd[2]);
       if (d < bestD) { bestD = d; bestNode = nd; }
     }
-    return {
-      id: 'OUTDOOR_ANALYSIS_ORIGIN',
-      name: '지정 야외 분석 지점',
-      east_m: bestNode[1],
-      north_m: bestNode[2],
-      groundY_m: sampleGridHeightAt(terrainGrid, bestNode[1], bestNode[2]),
-      width_m: 6,
-      depth_m: 6,
-      yaw_rad: 0,
-      height_m: 0,
-      indoorScope: INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY,
-      originHasBuilding: false
-    };
+    if (bestNode && bestD <= 450) {
+      return {
+        id: 'OUTDOOR_ANALYSIS_ORIGIN',
+        name: label,
+        east_m: Number((bestNode[1] * 0.25).toFixed(2)), // Anchor near (0,0) analysis point rather than inside random building
+        north_m: Number((bestNode[2] * 0.25).toFixed(2)),
+        groundY_m: sampleGridHeightAt(terrainGrid, 0, 0),
+        width_m: 4,
+        depth_m: 4,
+        yaw_rad: 0,
+        height_m: 0,
+        indoorScope: INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY,
+        originHasBuilding: false
+      };
+    }
   }
-
   return null;
 }
 
@@ -896,15 +878,21 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
     }
   }
 
-  // 2. Overpass API (handles wider 4km regional queries & serves CORS cleanly)
+  // 2. Overpass API (handles wider 4km~6.4km regional queries; trims dense building ways when >2.2km)
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7500);
+    const timer = setTimeout(() => controller.abort(), 8500);
+    const includeBuildings = halfSpanMeters <= 2200
+      ? `way["building"](${south},${west},${north},${east});`
+      : '';
+    const roadSelector = halfSpanMeters <= 2200
+      ? `way["highway"](${south},${west},${north},${east});`
+      : `way["highway"~"primary|secondary|tertiary|unclassified|residential|footway|pedestrian|path|steps"](${south},${west},${north},${east});`;
     const overpassQuery =
       `[out:json][timeout:10];` +
       `(` +
-        `way["building"](${south},${west},${north},${east});` +
-        `way["highway"](${south},${west},${north},${east});` +
+        includeBuildings +
+        roadSelector +
         `way["waterway"](${south},${west},${north},${east});` +
         `way["natural"="water"](${south},${west},${north},${east});` +
         `way["leisure"~"park|pitch|stadium|recreation_ground"](${south},${west},${north},${east});` +
@@ -927,16 +915,23 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
 
 /**
  * Unified Regional Spatial Loader for ANY location in South Korea.
- * - Uses Hanyang's verified 4km + BLDG_212 pilot indoor dataset only when analyzing Hanyang.
- * - Otherwise queries AWS Terrarium DEM + OSM (auto-expanding radius up to 2km half-span / 4km area when sparse).
- * - Supports caller-injected opts.osmJsonOverride for deterministic testing without synthetic fake cities.
+ * Supports Globe event handoff, automatic scenario resolution, and multi-stage radius expansion.
  */
 export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
   const distToHanyang = distanceMetersLatLon(lat, lon, 37.555815, 127.045053);
-  const useHanyangNative = !opts.forceGenericOsm && (distToHanyang < 2200 || opts.regionId === 'seoul_hanyang');
+  const useHanyangNative = !opts.forceGenericOsm && (opts.regionId === 'seoul_hanyang' || (opts.usePilotPreset && distToHanyang < 2200));
   if (useHanyangNative) {
     const hanyangRegion = KOREA_BENCHMARK_REGIONS[0];
-    const scenarioEval = evaluateRegionalHazard(opts.customScenario || hanyangRegion.scenarioEvent, lat, lon);
+    const autoResolved = opts.handedEvent
+      ? HazardProvider.normalizeGlobeEvent(opts.handedEvent, opts.handedEvent.officialProducts || null)
+      : (opts.customScenario || AutoScenarioResolver.resolveForLocation({
+          anchorLat: lat,
+          anchorLon: lon,
+          anchorLabel: opts.shortName || hanyangRegion.shortName,
+          catalogEvents: opts.catalogEvents || PRESET_EARTHQUAKE_SCENARIOS,
+          preferredMode: opts.preferredScenarioMode || 'AUTO'
+        }));
+    const scenarioEval = evaluateRegionalHazard(autoResolved, lat, lon);
     const hanyangCandidates = (HANYANG_LOCAL_4KM_PACKAGE.sheltersAndFacilities || []).map(s => ({
       ...s,
       candidateStatus: HANYANG_SHELTER_JUSTIFICATION[s.id]
@@ -950,25 +945,26 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
       ...HANYANG_LOCAL_4KM_PACKAGE,
       walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
       defaultOriginMeta: {
-        id: 'BLDG_212',
-        name: '제1공학관 (212동)',
-        east_m: 44.36,
-        north_m: 112.16,
-        height_m: 26.0,
-        hasIndoorData: true,
-        indoorScope: INDOOR_SPATIAL_SCOPE.VERIFIED_FLOORPLAN
+        id: opts.usePilotBuildingOrigin ? 'BLDG_212_ENG1' : 'OUTDOOR_ANALYSIS_ORIGIN',
+        name: opts.usePilotBuildingOrigin ? '제1공학관 (212동)' : '서울 성동 분석 기준 위치',
+        east_m: opts.usePilotBuildingOrigin ? 44.36 : 52.0,
+        north_m: opts.usePilotBuildingOrigin ? 112.16 : 74.0,
+        height_m: opts.usePilotBuildingOrigin ? 26.0 : 0,
+        hasIndoorData: Boolean(opts.usePilotBuildingOrigin),
+        originHasBuilding: Boolean(opts.usePilotBuildingOrigin),
+        indoorScope: opts.usePilotBuildingOrigin ? INDOOR_SPATIAL_SCOPE.VERIFIED_FLOORPLAN : INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY
       },
       shelterJustifications: HANYANG_SHELTER_JUSTIFICATION,
       destinationAssessment: {
         candidates: hanyangCandidates,
         primaryCandidate: hanyangCandidates[0] || null,
         overallStatus: hanyangCandidates.length > 0 ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.UNAVAILABLE,
-        limitations: '제1공학관(212동) 3층 파일럿 실내망 외 캠퍼스 주변 건물은 외곽 풋프린트만 포함됩니다. 공식 옥외대피장소 개방 여부는 재난 당시 현장 안전을 우선 확인하십시오.'
+        limitations: '제1공학관(212동) 파일럿 범위 외 일반 건축물은 외곽 풋프린트만 포함되며, 공식 지정 여부가 현장 개방·안전을 즉시 보증하지 않습니다.'
       },
       dataCompleteness: 'SUFFICIENT',
       dataLimitations: [
-        '제1공학관(212동)은 파일럿 3층 실내망(PROVISIONAL 현장 검증 대상)을 포함합니다.',
-        '701동 HIT 및 104동 백남학술정보관은 실측 외곽 기반 출발점이며 상세 전층 평면도는 미포함입니다.'
+        '공식 대피소 지정 정보와 현재 개방·접근 가능 여부는 별개이며 현장 확인이 우선됩니다.',
+        '계산된 보행 경로는 기하학적 연결 경로이며 지진 후 노면 파손 안전을 보증하지 않습니다.'
       ],
       regionInfo: {
         ...hanyangRegion,
@@ -983,30 +979,28 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
     KOREA_BENCHMARK_REGIONS.find(r => !r.isHanyangDefault && distanceMetersLatLon(lat, lon, r.lat, r.lon) < 4000) || {
       id: opts.regionId || `KR_${lat.toFixed(3)}_${lon.toFixed(3)}`,
       name: opts.name || `대한민국 (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`,
-      shortName: opts.shortName || opts.name || `지정 좌표 (${lat.toFixed(3)}, ${lon.toFixed(3)})`,
-      subtitle: '사용자 지정 좌표 기반 범용 3D 공간 분석 권역',
+      shortName: opts.shortName || opts.name || `선택 위치 (${lat.toFixed(3)}, ${lon.toFixed(3)})`,
+      subtitle: '범용 3D 지역 공간 분석 권역',
       lat,
       lon,
-      isHanyangDefault: false,
-      scenarioEvent: opts.customScenario || {
-        id: `SYNTH-KR-${lat.toFixed(2)}`,
-        scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
-        title: `${opts.shortName || opts.name || '분석 지점'} 인근 가상 지진 시나리오 (교육용 합성)`,
-        epicenterLat: lat + 0.032,
-        epicenterLon: lon + 0.045,
-        magnitude: 5.2,
-        depthKm: 10,
-        originText: `${opts.shortName || '분석 지점'} 북동측 약 5.3km (교육용 합성 가정)`,
-        magnitudeText: 'M5.2 (교육용 가상 설정)',
-        depthText: '진원 깊이 10km (가상)'
-      }
+      isHanyangDefault: false
     };
 
-  const scenarioEval = evaluateRegionalHazard(opts.customScenario || matchedBenchmark.scenarioEvent, lat, lon);
+  const resolvedScenarioSpec = opts.handedEvent
+    ? HazardProvider.normalizeGlobeEvent(opts.handedEvent, opts.handedEvent.officialProducts || null)
+    : (opts.customScenario || AutoScenarioResolver.resolveForLocation({
+        anchorLat: lat,
+        anchorLon: lon,
+        anchorLabel: matchedBenchmark.shortName || matchedBenchmark.name,
+        catalogEvents: opts.catalogEvents || PRESET_EARTHQUAKE_SCENARIOS,
+        preferredMode: opts.preferredScenarioMode || 'AUTO'
+      }));
+
+  const scenarioEval = evaluateRegionalHazard(resolvedScenarioSpec, lat, lon);
   const impactStatus = scenarioEval.impactAssessment?.impactStatus || IMPACT_ZONE_STATUS.UNKNOWN;
 
   let queryRadiusMeters = opts.radiusMeters || 900;
-  const maxExtentMeters = Math.max(1800, queryRadiusMeters);
+  let maxExtentMeters = Math.max(1800, queryRadiusMeters);
 
   const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: maxExtentMeters, nx: 64, nz: 64 });
   const osmPromise = (async () => {
@@ -1016,33 +1010,60 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
 
     // 1. Compact urban fetch (~1.8km span)
     let json = await fetchOsmRegionElements(lat, lon, 900);
+    const hasOpenShelterTag = el => el.type === 'way' && (el.tags?.leisure === 'park' || el.tags?.leisure === 'pitch' || el.tags?.leisure === 'stadium' || el.tags?.amenity === 'school' || el.tags?.emergency === 'assembly_point');
     const wayCount = json?.elements?.filter(e => e.type === 'way')?.length || 0;
-    // 2. Dynamic expansion up to ~4km span (2000m half-extent) if sparse or empty
-    if (!json || wayCount < 15) {
+    const candCount = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
+
+    // 2. Dynamic expansion up to ~4km span (2000m half-extent)
+    if (!json || wayCount < 15 || candCount === 0) {
       const expanded = await fetchOsmRegionElements(lat, lon, 2000);
       if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (json?.elements?.length || 0)) {
         json = expanded;
         queryRadiusMeters = 2000;
       }
     }
+
+    // 3. Adaptive >4km rural/suburban outreach up to 3.2km radius (6.4km diameter) if still sparse
+    const candCount2 = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
+    if (!json || candCount2 === 0) {
+      const wide = await fetchOsmRegionElements(lat, lon, 3200);
+      if (wide && Array.isArray(wide.elements) && wide.elements.length > (json?.elements?.length || 0)) {
+        // Merge buildings from 2km pass with wider roads & parks from 3.2km pass
+        const prevBuildings = (json?.elements || []).filter(e => e.tags?.building);
+        const wideNodesAndWays = wide.elements;
+        json = { elements: [...(json?.elements || []), ...wideNodesAndWays.filter(w => !prevBuildings.some(pb => pb.id === w.id))] };
+        queryRadiusMeters = 3200;
+        maxExtentMeters = 3200;
+      }
+    }
     return json;
   })();
 
-  const [terrainGrid, liveOsmJson] = await Promise.all([demPromise, osmPromise]);
+  const shelterPromise = (!opts.offlineOnly && !opts.osmJsonOverride && typeof fetch === 'function')
+    ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 1600 })
+    : Promise.resolve({ status: 'OFFLINE_OR_SKIPPED', shelters: [] });
+
+  const [terrainGrid, liveOsmJson, officialShelterRes] = await Promise.all([demPromise, osmPromise, shelterPromise]);
   const osmJson = liveOsmJson || { elements: [] };
   const osmUnavailable = !liveOsmJson || !Array.isArray(liveOsmJson.elements) || liveOsmJson.elements.length === 0;
+  const officialShelters = Array.isArray(officialShelterRes?.shelters) ? officialShelterRes.shelters : [];
 
   const pkg = compileOsmJsonToSpatialPackage(osmJson, {
     lat,
     lon,
     regionId: matchedBenchmark.id,
-    title: `${matchedBenchmark.name} 범용 지진 대응 공간 분석`,
+    title: `${matchedBenchmark.name} 지역 공간 분석`,
+    originLabel: opts.originLabel || `${matchedBenchmark.shortName || '선택 지역'} 기준 위치`,
     halfExtentMeters: maxExtentMeters,
     impactStatus,
-    terrainGrid
+    terrainGrid,
+    officialShelters
   });
 
-  if (osmUnavailable) {
+  pkg.metadata.shelterApiStatus = officialShelterRes?.status || 'UNKNOWN';
+  pkg.metadata.officialShelterCount = officialShelters.length;
+
+  if (osmUnavailable && officialShelters.length === 0) {
     pkg.metadata.dataSources.push('OSM 실시간 공간 데이터를 확보하지 못했습니다 (가상 데이터 생성 금지).');
     pkg.dataLimitations = [
       'OpenStreetMap / Overpass 공간 데이터를 불러오지 못해 건물·보행로·대피 후보가 미확인(INSUFFICIENT) 상태입니다.',

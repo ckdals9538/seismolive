@@ -128,6 +128,7 @@ export class PedestrianRoutingEngine {
     this.elevationSampler = options.elevationSampler || null;
     this.waterPolygons = options.waterPolygons || [];
     this.waterways = options.waterways || [];
+    this._routeSolveCache = new Map();
     this.initializeDefaultCampusGraph();
   }
 
@@ -151,6 +152,7 @@ export class PedestrianRoutingEngine {
     if (waterways !== undefined) {
       this.waterways = waterways || [];
     }
+    this._routeSolveCache?.clear();
   }
 
   /**
@@ -169,6 +171,7 @@ export class PedestrianRoutingEngine {
     this.avoidPolygons.clear();
     this.blockedNodes.clear();
     this.blockedEdges.clear();
+    this._routeSolveCache?.clear();
     this.initializeDefaultCampusGraph();
   }
 
@@ -367,6 +370,7 @@ export class PedestrianRoutingEngine {
     } else {
       this.blockedEdges.delete(edgeId);
     }
+    this._routeSolveCache?.clear();
 
     return record;
   }
@@ -422,6 +426,7 @@ export class PedestrianRoutingEngine {
     this.avoidPolygons.clear();
     this.blockedEdges.clear();
     this.blockedNodes.clear();
+    this._routeSolveCache?.clear();
   }
 
   /**
@@ -451,15 +456,19 @@ export class PedestrianRoutingEngine {
       detail: polyDef.detail || ''
     });
     this.avoidPolygons.set(record.id, record);
+    this._routeSolveCache?.clear();
     return record;
   }
 
   removeAvoidPolygon(polyId) {
-    return this.avoidPolygons.delete(polyId);
+    const res = this.avoidPolygons.delete(polyId);
+    this._routeSolveCache?.clear();
+    return res;
   }
 
   clearAvoidPolygons() {
     this.avoidPolygons.clear();
+    this._routeSolveCache?.clear();
   }
 
   getAvoidPolygons() {
@@ -755,6 +764,13 @@ export class PedestrianRoutingEngine {
       f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
     ];
     const activeAvoidPolygons = [...this.avoidPolygons.values(), ...(options.avoidPolygons || [])];
+    const cacheKey = (!options.startXZ && !options.goalXZ && !options.buildingOBBs && !options.customWalkGraph && !options.avoidPolygons && !options.blockedEdges)
+      ? `${f.packageId || 'F'}|${f.shelter?.shelterId || ''}|${excludeStairs}|${isWheelchair}|${options.penalizeEdgeKeys ? [...options.penalizeEdgeKeys].join(',') : ''}|${this.blockedEdges.size}|${this.linkStates.size}|${activeAvoidPolygons.map(p => p.id).join(',')}|${this.groundDataManager ? this.groundDataManager.getChecklistSummary(f.buildingMetadata?.id || 'BLDG_212_ENG1').isWheelchairRouteFullyVerified : false}`
+      : null;
+
+    if (cacheKey && this._routeSolveCache?.has(cacheKey)) {
+      return this._routeSolveCache.get(cacheKey);
+    }
 
     const sol = solveCampusWalkGraph({
       startXZ,
@@ -765,7 +781,7 @@ export class PedestrianRoutingEngine {
       elevationSampler: options.elevationSampler ?? this.elevationSampler,
       targetShelterId: f.shelter?.shelterId || f.shelter?.officialId || 'DESTINATION_SHELTER',
       originCentroidXZ: centerXZ,
-      originExclusionRadius: options.originExclusionRadius ?? 52.0,
+      originExclusionRadius: options.originExclusionRadius ?? ((f.buildingMetadata?.id === 'BLDG_212_ENG1') ? 32.0 : 0.0),
       seismicDebrisAware: options.seismicDebrisAware !== false,
       blockedEdges: new Set([...this.blockedEdges, ...(options.blockedEdges || [])]),
       avoidPolygons: activeAvoidPolygons,
@@ -775,8 +791,16 @@ export class PedestrianRoutingEngine {
       overlapPenaltyMultiplier: options.overlapPenaltyMultiplier || undefined
     });
 
+    const finalizeRoute = (res) => {
+      if (cacheKey && this._routeSolveCache) {
+        if (this._routeSolveCache.size > 24) this._routeSolveCache.clear();
+        this._routeSolveCache.set(cacheKey, res);
+      }
+      return res;
+    };
+
     if (!sol.found) {
-      return Object.freeze({
+      return finalizeRoute(Object.freeze({
         found: false,
         totalDistanceMeters: 0,
         totalStairsDistanceMeters: 0,
@@ -793,7 +817,7 @@ export class PedestrianRoutingEngine {
         edges: [],
         hazardAlerts: ['NO_VIABLE_PATH: OSM pedestrian network severed under active constraints.'],
         unverifiedSegments: []
-      });
+      }));
     }
 
     const bldgId = f.buildingMetadata?.id || 'BLDG_212_ENG1';
@@ -804,7 +828,7 @@ export class PedestrianRoutingEngine {
       hazardAlerts.push('주의: 무단차 우회로는 지도 데이터상 계단이 없는 경로이나, 현장 경사도/단차 실측(F-03/F-05) 전이므로 안전을 보증하지 않습니다.');
     }
 
-    return Object.freeze({
+    return finalizeRoute(Object.freeze({
       found: true,
       totalDistanceMeters: sol.totalDistanceMeters,
       totalStairsDistanceMeters: sol.totalStairsDistanceMeters,
@@ -823,7 +847,7 @@ export class PedestrianRoutingEngine {
       waypoints3D: Object.freeze(sol.waypoints3D),
       hazardAlerts: Object.freeze(hazardAlerts),
       unverifiedSegments: Object.freeze([])
-    });
+    }));
   }
 
   // --------------------------------------------------------------------------

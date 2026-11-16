@@ -526,13 +526,16 @@ export class LocalSpatialMapLayer {
     this._activeOriginMeta = initOrig
       ? {
           id: initOrig.id || 'DYNAMIC_ORIGIN',
-          title: `내 위치 · ${initOrig.name || '분석 지점'}`,
+          title: initOrig.markerMode === 'USER_GPS'
+            ? `내 현재 위치(GPS) · ${initOrig.name || '분석 지점'}`
+            : (initOrig.originHasBuilding === false ? `분석 기준 · ${initOrig.name || '지정 지점'}` : `출발 기준 · ${initOrig.name || '지정 건물'}`),
           east_m: initOrig.east_m ?? 0,
           north_m: initOrig.north_m ?? 0,
           height_m: initOrig.height_m ?? 18,
-          hasBuilding: initOrig.originHasBuilding !== false
+          hasBuilding: initOrig.originHasBuilding !== false,
+          markerMode: initOrig.markerMode || (initOrig.originHasBuilding === false ? 'FREE_MODE_ANCHOR' : 'PICKED_BUILDING')
         }
-      : { id: 'ANALYSIS_ORIGIN', title: '분석 기준 지점', east_m: 0, north_m: 0, height_m: 0, hasBuilding: false };
+      : { id: 'ANALYSIS_ORIGIN', title: '분석 기준 지점', east_m: 0, north_m: 0, height_m: 0, hasBuilding: false, markerMode: 'UNSELECTED' };
 
     this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
     this.chunkManager = options.chunkManager || new SpatialChunkManager();
@@ -1459,18 +1462,27 @@ export class LocalSpatialMapLayer {
         east_m: 0,
         north_m: 0,
         height_m: 0,
-        hasBuilding: false
+        hasBuilding: false,
+        markerMode: 'UNSELECTED'
       };
     } else {
-      const { id, name, east_m, north_m, height_m, originHasBuilding, hasIndoorData } = originSpec;
+      const { id, name, east_m, north_m, height_m, originHasBuilding, hasIndoorData, markerMode } = originSpec;
+      const resolvedMode = markerMode || (originHasBuilding === false ? 'FREE_MODE_ANCHOR' : 'PICKED_BUILDING');
+      const rawName = name || '지정 위치';
+      const formattedTitle =
+        resolvedMode === 'USER_GPS' ? `내 현재 위치(GPS) · ${rawName}` :
+        resolvedMode === 'PICKED_BUILDING' ? `선택 건물 · ${rawName}` :
+        resolvedMode === 'FREE_MODE_ANCHOR' ? `분석 기준(자유 모드) · ${rawName}` :
+        `출발 기준 · ${rawName}`;
       this._activeOriginMeta = {
         id: id || 'DYNAMIC_ORIGIN',
-        title: `내 위치 · ${name || '지정 위치'}`,
+        title: formattedTitle,
         east_m: east_m ?? 0,
         north_m: north_m ?? 0,
         height_m: height_m ?? 18.0,
         hasBuilding: originHasBuilding !== false,
-        hasIndoorData: Boolean(hasIndoorData)
+        hasIndoorData: Boolean(hasIndoorData),
+        markerMode: resolvedMode
       };
     }
 
@@ -1592,7 +1604,11 @@ export class LocalSpatialMapLayer {
       this.labelAnchors.push({
         id: orig.id,
         title: orig.title.replace(/^내 위치\s*·\s*/, ''),
-        subtitle: orig.hasBuilding ? '출발지 · 현재 위치' : (this.pkg?.dataCompleteness === 'INSUFFICIENT' ? '데이터 부족 (실제 건물 미확인)' : '야외 기준 위치'),
+        subtitle: orig.markerMode === 'USER_GPS'
+          ? '실측 GPS 위치 기준'
+          : (orig.markerMode === 'FREE_MODE_ANCHOR'
+            ? (this.pkg?.dataCompleteness === 'INSUFFICIENT' ? '데이터 부족 (실제 건물 미확인)' : '자유 모드 지정 기준(GPS 아님)')
+            : (orig.hasBuilding ? '선택 건물 외곽 기준' : '야외 기준 위치')),
         category: 'TARGET_BUILDING',
         provisional: !orig.hasBuilding,
         priority: 100,
@@ -1884,7 +1900,7 @@ export class LocalSpatialMapLayer {
     }
 
     // Collect fixed HUD obstacle bounding rects
-    const avoidSelector = options.avoidSelector || '#header-overlay, #exhibition-bar, #guidance-container, #evac-dock, #safety-rule-popup, #map-controls';
+    const avoidSelector = options.avoidSelector || '#header-overlay, #evac-header-overlay, #handoff-context-strip, #entry-mode-gate, #exhibition-bar, #guidance-container, #bottom-stage-stack, #evac-dock, #safety-rule-popup, #map-controls';
     const obstacleRects = [];
     if (typeof document !== 'undefined' && avoidSelector) {
       document.querySelectorAll(avoidSelector).forEach((el) => {
@@ -1911,8 +1927,12 @@ export class LocalSpatialMapLayer {
       const screenX = (vec.x * 0.5 + 0.5) * width;
       const screenY = (-vec.y * 0.5 + 0.5) * height;
       const hasSub = Boolean(anchor.subtitle && anchor.subtitle.length > 0);
-      const estW = Math.max(82, Math.min(185, anchor.title.length * 10 + 28));
-      const estH = hasSub ? 32 : 22;
+      const isHero = anchor.category === 'PRIMARY_SHELTER' || anchor.category === 'ORIGIN_BUILDING' || anchor.category === 'TARGET_BUILDING';
+      const maxCap = isHero ? 248 : 224;
+      const titleW = Math.min(isHero ? 172 : 148, anchor.title.length * 10.5);
+      const subW = hasSub ? Math.min(88, anchor.subtitle.length * 8.5 + 8) : 0;
+      const estW = Math.max(82, Math.min(maxCap, Math.ceil(titleW + subW + 26)));
+      const estH = 26;
 
       candidates.push({
         ...anchor,
@@ -1924,7 +1944,7 @@ export class LocalSpatialMapLayer {
       });
     }
 
-    const result = solveLabelCollisions2D(candidates, obstacleRects, { width, height }, 10);
+    const result = solveLabelCollisions2D(candidates, obstacleRects, { width, height }, 14);
     const visibleSet = new Set(result.visibleLabels.map(v => v.id));
 
     for (const el of this._labelDomMap.values()) {

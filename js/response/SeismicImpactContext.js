@@ -107,7 +107,7 @@ function extractEventRecordFields(ev) {
  * geodesic relation to the local shelter site.
  */
 export function resolveActiveSeismicEvent(eventId = null, options = {}) {
-  const anchor = options.anchor || DEFAULT_LOCAL_ANCHOR_COORDS;
+  const anchor = options.anchor || null;
   const defaultFallbackId = 'hist_2016_gyeongju';
   const requestedId = eventId || defaultFallbackId;
 
@@ -145,12 +145,9 @@ export function resolveActiveSeismicEvent(eventId = null, options = {}) {
   }
 
   const fields = extractEventRecordFields(rawEvent);
-  const geo = computeGeodesicBearingAndDistanceKm(
-    anchor.lat,
-    anchor.lon,
-    fields.lat,
-    fields.lon
-  );
+  const geo = anchor
+    ? computeGeodesicBearingAndDistanceKm(anchor.lat, anchor.lon, fields.lat, fields.lon)
+    : { distanceKm: null, bearingDeg: null, compassDirKo: '방향 미상' };
 
   // Homogeneous half-space first-order travel-time reference (Vp=6.0 km/s, Vs=3.5 km/s)
   let pWaveEtaSec = null;
@@ -164,14 +161,14 @@ export function resolveActiveSeismicEvent(eventId = null, options = {}) {
     spLagSec = Number((sWaveEtaSec - pWaveEtaSec).toFixed(1));
   }
 
-  const isDefaultReference = !eventId || eventId === defaultFallbackId;
+  const isDefaultReference = !eventId;
   const magSummary = fields.mag !== null
     ? `${fields.magType || 'M'} ${fields.mag.toFixed(1)}`
     : '규모 미상(사료 기록)';
 
-  const impactSummaryKo = geo.distanceKm !== null
-    ? `${anchor.name} 기준 ${geo.compassDirKo}쪽(${geo.bearingDeg}°) ${geo.distanceKm} km · 이론상 P파 ${pWaveEtaSec}s / S파 ${sWaveEtaSec}s 도달 권역`
-    : '진앙 거리 미확정 · 현장 계측 및 공식 안내 확인 필요';
+  const impactSummaryKo = (anchor && geo.distanceKm !== null)
+    ? `${anchor.name || '분석 기준 위치'} 기준 ${geo.compassDirKo}쪽(${geo.bearingDeg}°) ${geo.distanceKm} km · 이론상 P파 ${pWaveEtaSec}s / S파 ${sWaveEtaSec}s 도달 권역`
+    : '분석 기준 위치 또는 진앙 좌표 미확정 · 현장 안내 확인 필요';
 
   return Object.freeze({
     ...fields,
@@ -184,10 +181,8 @@ export function resolveActiveSeismicEvent(eventId = null, options = {}) {
     sWaveEtaSec,
     spLagSec,
     provenanceBadge: fields.isHistorical
-      ? '역사 사료 참조 사건 (현장 실측 아님)'
-      : isDefaultReference
-        ? '대피 기준 시나리오 (2016 경주 실측 기반)'
-        : `${fields.sourceName} 연동`,
+      ? '역사 사료 참조 사건 (현재 진행 재난 아님)'
+      : `${fields.sourceName || '지진 카탈로그'} 연동`,
     impactSummaryKo
   });
 }

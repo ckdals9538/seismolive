@@ -7,8 +7,105 @@ import { THREE } from '../lib/three-runtime.js';
 import { getEventCoords, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
 import { geodeticToThree, computeGlobeCenterAndPolarAxis } from '../3d/geodeticEllipsoidCoord.js';
 
+const _tmpObj = new THREE.Object3D();
+const _tmpQuat = new THREE.Quaternion();
+const _tmpZAxis = new THREE.Vector3(0, 0, 1);
+const _tmpNormal = new THREE.Vector3();
+
+class DiscoveryBeaconBatch {
+  constructor(nodes = [], scene = null) {
+    this.nodes = nodes;
+    this.count = nodes.length;
+    this.group = new THREE.Group();
+    this.group.name = 'DiscoveryBeaconsInstancedBatch';
+
+    const maxCount = Math.max(1, this.count);
+    const coreGeo = new THREE.SphereGeometry(0.018, 10, 10);
+    const coreMat = new THREE.MeshBasicMaterial({ depthTest: false, transparent: true });
+    this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, maxCount);
+    this.coreMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.coreMesh.renderOrder = 12;
+    this.coreMesh.frustumCulled = false;
+
+    const ringGeo = new THREE.RingGeometry(0.024, 0.040, 20);
+    const ringMat = new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.65,
+      blending: THREE.AdditiveBlending,
+      depthTest: false
+    });
+    this.ringMesh = new THREE.InstancedMesh(ringGeo, ringMat, maxCount);
+    this.ringMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.ringMesh.renderOrder = 11;
+    this.ringMesh.frustumCulled = false;
+
+    const col = new THREE.Color();
+    for (let i = 0; i < this.count; i++) {
+      const nd = this.nodes[i];
+      col.setHex(nd.coreColorHex);
+      this.coreMesh.setColorAt(i, col);
+      col.setHex(nd.ringColorHex);
+      this.ringMesh.setColorAt(i, col);
+    }
+    if (this.coreMesh.instanceColor) this.coreMesh.instanceColor.needsUpdate = true;
+    if (this.ringMesh.instanceColor) this.ringMesh.instanceColor.needsUpdate = true;
+
+    this.group.add(this.coreMesh);
+    this.group.add(this.ringMesh);
+    if (scene) scene.add(this.group);
+    this.updateMatrices(0);
+  }
+
+  updateMatrices(time = 0) {
+    let anyVisible = false;
+    for (let i = 0; i < this.count; i++) {
+      const nd = this.nodes[i];
+      const vis = Boolean(nd.group.visible && !nd.isFocalEpicenter && nd.lat != null && nd.lon != null);
+      if (!vis) {
+        _tmpObj.position.set(0, -9999, 0);
+        _tmpObj.scale.set(0.0001, 0.0001, 0.0001);
+        _tmpObj.quaternion.identity();
+        _tmpObj.updateMatrix();
+        this.coreMesh.setMatrixAt(i, _tmpObj.matrix);
+        this.ringMesh.setMatrixAt(i, _tmpObj.matrix);
+        continue;
+      }
+
+      anyVisible = true;
+      _tmpObj.position.copy(nd.group.position);
+      _tmpObj.quaternion.identity();
+      _tmpObj.scale.set(1, 1, 1);
+      _tmpObj.updateMatrix();
+      this.coreMesh.setMatrixAt(i, _tmpObj.matrix);
+
+      const pulse = Math.sin(time * 2.2 + nd.phase);
+      const s = 1.0 + 0.25 * pulse;
+      _tmpObj.quaternion.copy(nd._ringQuat);
+      _tmpObj.scale.set(s, s, 1);
+      _tmpObj.updateMatrix();
+      this.ringMesh.setMatrixAt(i, _tmpObj.matrix);
+    }
+    this.group.visible = anyVisible;
+    if (anyVisible) {
+      this.coreMesh.instanceMatrix.needsUpdate = true;
+      this.ringMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  dispose(scene) {
+    if (scene && this.group) scene.remove(this.group);
+    this.coreMesh.geometry.dispose();
+    this.coreMesh.material.dispose();
+    this.ringMesh.geometry.dispose();
+    this.ringMesh.material.dispose();
+  }
+}
+
+let activeBeaconBatch = null;
+
 export class DiscoveryNode {
-  constructor(eventData, lat0, lon0) {
+  constructor(eventData, lat0, lon0, options = {}) {
     this.eventData = eventData;
     this.id = eventData.id || eventData.eventId;
     const coords = getEventCoords(eventData);
@@ -31,30 +128,39 @@ export class DiscoveryNode {
       coreColor = 0xC8DFF5;
       ringColor = 0x64B5F6; // Pale moon blue
     }
+    this.coreColorHex = coreColor;
+    this.ringColorHex = ringColor;
+    this._ringQuat = new THREE.Quaternion();
+    this.isFocalEpicenter = false;
+    this._batched = Boolean(options.batched);
 
-    // Core marker
-    const coreGeo = new THREE.SphereGeometry(0.018, 12, 12);
-    const coreMat = new THREE.MeshBasicMaterial({ color: coreColor, depthTest: false, transparent: true });
-    this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
-    this.coreMesh.renderOrder = 12;
-    this.group.add(this.coreMesh);
+    // Lightweight virtual proxies so external code inspecting ringMesh/coreMesh stays compatible
+    if (!this._batched) {
+      const coreGeo = new THREE.SphereGeometry(0.018, 12, 12);
+      const coreMat = new THREE.MeshBasicMaterial({ color: coreColor, depthTest: false, transparent: true });
+      this.coreMesh = new THREE.Mesh(coreGeo, coreMat);
+      this.coreMesh.renderOrder = 12;
+      this.group.add(this.coreMesh);
 
-    // Pulse ring
-    const ringGeo = new THREE.RingGeometry(0.024, 0.040, 24);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: ringColor,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.75,
-      blending: THREE.AdditiveBlending,
-      depthTest: false
-    });
-    this.ringMesh = new THREE.Mesh(ringGeo, ringMat);
-    this.ringMesh.renderOrder = 11;
-    this.group.add(this.ringMesh);
+      const ringGeo = new THREE.RingGeometry(0.024, 0.040, 24);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: ringColor,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+        depthTest: false
+      });
+      this.ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      this.ringMesh.renderOrder = 11;
+      this.group.add(this.ringMesh);
+    } else {
+      this.coreMesh = { visible: true };
+      this.ringMesh = { visible: true, scale: { set() {} }, material: { opacity: 0.75 } };
+    }
 
-    // Raycasting hit sphere
-    const hitGeo = new THREE.SphereGeometry(0.09, 8, 8);
+    // Raycasting hit sphere (invisible material = 0 WebGL draw calls, still raycastable)
+    const hitGeo = new THREE.SphereGeometry(0.09, 6, 6);
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     this.hitMesh = new THREE.Mesh(hitGeo, hitMat);
     this.hitMesh.userData = { beacon: this };
@@ -69,9 +175,8 @@ export class DiscoveryNode {
       const [x, y, z] = geodeticToThree(this.lat, this.lon, 0.015, lat0, lon0, 0.0);
       this.group.position.set(x, y, z);
 
-      // If this node represents the active focal event, hide its pulse ring to prevent artificial circular VFX
-      const isFocalEpicenter = (Math.abs(x) < 0.02 && Math.abs(z) < 0.02);
-      if (isFocalEpicenter) {
+      this.isFocalEpicenter = (Math.abs(x) < 0.02 && Math.abs(z) < 0.02);
+      if (this.isFocalEpicenter) {
         this.ringMesh.visible = false;
         this.coreMesh.visible = false;
       } else {
@@ -80,12 +185,22 @@ export class DiscoveryNode {
       }
 
       const globeCenter = computeGlobeCenterAndPolarAxis(lat0, lon0).centerThree;
-      const normal = new THREE.Vector3(x - globeCenter[0], y - globeCenter[1], z - globeCenter[2]).normalize();
-      this.ringMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+      _tmpNormal.set(x - globeCenter[0], y - globeCenter[1], z - globeCenter[2]).normalize();
+      _tmpQuat.setFromUnitVectors(_tmpZAxis, _tmpNormal);
+      this._ringQuat.copy(_tmpQuat);
+      if (!this._batched && this.ringMesh.quaternion) {
+        this.ringMesh.quaternion.copy(_tmpQuat);
+      }
     }
   }
 
   update(time) {
+    if (this._batched) {
+      if (activeBeaconBatch && activeBeaconBatch.nodes[0] === this) {
+        activeBeaconBatch.updateMatrices(time);
+      }
+      return;
+    }
     const pulse = Math.sin(time * 2.2 + this.phase);
     const s = 1.0 + 0.25 * pulse;
     this.ringMesh.scale.set(s, s, 1.0);
@@ -93,11 +208,19 @@ export class DiscoveryNode {
   }
 }
 
+export function getDiscoveryBeaconBatchGroup() {
+  return activeBeaconBatch?.group || null;
+}
+
 export function initDiscoveryNodes(lat0, lon0, scene = null, discoveryNodesList = null) {
   const s = scene || (typeof window !== 'undefined' ? window.scene : null);
   const list = discoveryNodesList || (typeof window !== 'undefined' ? window.discoveryNodes : null);
   if (!s || !list) return;
 
+  if (activeBeaconBatch) {
+    activeBeaconBatch.dispose(s);
+    activeBeaconBatch = null;
+  }
   list.forEach(n => {
     s.remove(n.group);
   });
@@ -110,16 +233,18 @@ export function initDiscoveryNodes(lat0, lon0, scene = null, discoveryNodesList 
     return m >= 5.5;
   });
   beaconEvents.forEach(ev => {
-    const node = new DiscoveryNode(ev, lat0, lon0);
+    const node = new DiscoveryNode(ev, lat0, lon0, { batched: true });
     s.add(node.group);
     list.push(node);
   });
+  activeBeaconBatch = new DiscoveryBeaconBatch(list, s);
 }
 
 export function updateDiscoveryNodePositions(lat0, lon0, discoveryNodesList = null) {
   const list = discoveryNodesList || (typeof window !== 'undefined' ? window.discoveryNodes : null);
   if (list) {
     list.forEach(n => n.updatePosition(lat0, lon0));
+    if (activeBeaconBatch) activeBeaconBatch.updateMatrices(0);
   }
 }
 

@@ -7,6 +7,7 @@
     import { HISTORICAL_EVENTS, SOURCE_RECORDS, EVENT_SOURCE_LINKS } from './data/historicalArchiveDB.js?v=5.5';
     import { INSTRUMENTAL_EVENTS } from './data/instrumentalCatalogDB.js?v=5.5';
     import { loadUSGSFeed, buildUnifiedMasterCatalog } from './data/usgsFeedConnector.js?v=5.5';
+    import { liveSeismicDataService } from './data/LiveSeismicDataService.js?v=6.0';
     import {
       WGS84,
       DATUM_STATUS,
@@ -206,6 +207,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     controls.dampingFactor = 0.05;
     controls.maxDistance = 400.0;
     controls.minDistance = 20.0;
+    if (THREE.TOUCH) {
+      controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
+    }
 
     window.camera = camera;
     window.controls = controls;
@@ -2542,10 +2546,19 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         livingMemoryEngine.entities = archivalEntities;
         analyzeDEMFeatures();
 
-        // 5. Load USGS Global Feed & Build Unified Master Catalog
-        try {
-          const usgsEvents = await loadUSGSFeed();
-          if (usgsEvents && usgsEvents.length > 0) {
+        // 5. Load Live Multi-Agency & USGS Global/Regional Feeds + Unified Master Catalog
+        window.liveSeismicDataService = liveSeismicDataService;
+        async function syncLiveCatalogToRegistry(forceRefresh = false) {
+          const liveRes = await liveSeismicDataService.fetchLiveEarthquakeCatalog({ forceRefresh });
+          const usgsEvents = liveRes?.events || [];
+          window.liveSeismicFeedStatus = {
+            feedStatus: liveRes.feedStatus,
+            kmaStatus: liveRes.kmaStatus,
+            usgsCount: liveRes.usgsCount,
+            kmaCount: liveRes.kmaCount,
+            updatedAtIso: liveRes.updatedAtIso
+          };
+          if (usgsEvents.length > 0) {
             MASTER_EVENTS_REGISTRY = buildUnifiedMasterCatalog(HISTORICAL_EVENTS, INSTRUMENTAL_EVENTS, usgsEvents);
             archivalParser.addInstrumentalEvents(usgsEvents);
             exhibitionAppContext.setCatalogs({
@@ -2553,10 +2566,21 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
               historicalEvents: HISTORICAL_EVENTS,
               instrumentalEvents: INSTRUMENTAL_EVENTS
             });
-            console.log(`[Master Registry] Unified Master Catalog online: ${MASTER_EVENTS_REGISTRY.length} total events`);
+            window.MASTER_EVENTS_REGISTRY = MASTER_EVENTS_REGISTRY;
+            console.log(`[Master Registry] ${liveRes.feedStatus}: ${MASTER_EVENTS_REGISTRY.length} total events (USGS=${liveRes.usgsCount}, KMA=${liveRes.kmaCount})`);
           }
+          return liveRes;
+        }
+        window.refreshLiveSeismicFeed = () => syncLiveCatalogToRegistry(true).then(res => {
+          initDiscoveryNodes(lat0, lon0, scene, discoveryNodes);
+          controlSurface?.renderDiscoverCards?.(controlSurface.activeFilter, controlSurface.searchQuery);
+          return res;
+        });
+
+        try {
+          await syncLiveCatalogToRegistry(false);
         } catch (err) {
-          console.warn("[USGS Feed] Non-fatal feed initialization warning:", err);
+          console.warn("[Live Seismic Feed] Non-fatal feed initialization warning:", err);
         }
         window.MASTER_EVENTS_REGISTRY = MASTER_EVENTS_REGISTRY;
 
@@ -2810,6 +2834,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       renderer,
       controls,
       hudMountRoot: document.getElementById('local-evac-hud'),
+      appContext: exhibitionAppContext,
       onReturnToGlobe: () => window.exitInSceneLocalResponse && window.exitInSceneLocalResponse(),
       getGlobalSceneObjects: () => [
         tier0GlobeMesh,
@@ -2819,40 +2844,48 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         celestialStarsMesh,
         atmosphereGlowMesh,
         ...archivalEntities,
-        ...discoveryNodes.map(n => n.group)
-      ]
+        ...discoveryNodes.map(n => n.group),
+        scene.getObjectByName('DiscoveryBeaconsInstancedBatch')
+      ].filter(Boolean)
     });
     window.exhibitionModeManager = exhibitionModeManager;
     let preFlightGlobalOrbitPose = null;
     window.enterInSceneLocalResponse = async function(stageOrOpts) {
-      if (typeof stageOrOpts === 'object' && stageOrOpts?.withFlight) {
-        preFlightGlobalOrbitPose = {
-          pos: camera.position.clone(),
-          target: controls.target.clone(),
-          fov: camera.fov,
-          near: camera.near,
-          far: camera.far
-        };
+      const req = (typeof stageOrOpts === 'object' && stageOrOpts) ? { ...stageOrOpts } : {};
+      const entryMode = req.entryMode || (req.handedEvent ? 'FROM_GLOBE_EVENT' : (Number.isFinite(req.lat) ? 'FREE_MODE' : 'UNSELECTED'));
+
+      // Preserve cosmic orbit pose so "지구본으로 복귀" always returns cleanly
+      preFlightGlobalOrbitPose = {
+        pos: camera.position.clone(),
+        target: controls.target.clone(),
+        fov: camera.fov,
+        near: camera.near,
+        far: camera.far
+      };
+
+      // Continuous globe-to-city descent animation when explicit target coords exist + withFlight requested
+      if (req.withFlight && Number.isFinite(req.lat) && Number.isFinite(req.lon)) {
         const opts = {
-          regionId: stageOrOpts.regionId || 'seoul_hanyang',
-          lat: stageOrOpts.lat ?? 37.555815,
-          lon: stageOrOpts.lon ?? 127.045053,
-          name: stageOrOpts.name || '서울 성동 · 한양대학교',
-          shortName: stageOrOpts.shortName || '서울 한양대',
-          eventId: stageOrOpts.eventId || null,
-          stage: stageOrOpts.stage || 'CAMPUS_OVERVIEW'
+          ...req,
+          entryMode,
+          regionId: req.regionId || `loc_${Number(req.lat).toFixed(4)}_${Number(req.lon).toFixed(4)}`,
+          lat: req.lat,
+          lon: req.lon,
+          name: req.name || '선택 지역',
+          shortName: req.shortName || req.name || '선택 지역',
+          eventId: req.eventId || req.handedEvent?.eventId || null,
+          stage: req.stage || 'CAMPUS_OVERVIEW'
         };
         pendingLocalCityFlight = opts;
         controlSurface?.updateGlobalDevLabVisibility?.();
-        const flightTargetEvent = stageOrOpts.eventId || 'hist_1518_seoul';
-        await startDescentFlight(flightTargetEvent, { preservePendingLocalCity: true, durationSec: 1.75 });
+        const flightTargetEvent = opts.eventId || currentParsedEvent?.eventId || 'hist_2016_gyeongju';
+        await startDescentFlight(flightTargetEvent, { preservePendingLocalCity: true, durationSec: 1.55 });
         return { flyingToLocal: true, target: opts };
       }
 
-      preFlightGlobalOrbitPose = null;
       document.body.classList.add('in-local-evac-mode');
-      const stageKey = (typeof stageOrOpts === 'string' ? stageOrOpts : stageOrOpts?.stage) || 'CAMPUS_OVERVIEW';
-      const opts = typeof stageOrOpts === 'object' ? stageOrOpts : {};
+      const stageKey = (typeof stageOrOpts === 'string' ? stageOrOpts : req.stage) || 'CAMPUS_OVERVIEW';
+      const opts = { ...req, entryMode };
       const res = exhibitionModeManager.enterLocalResponseMode(stageKey, opts);
       controlSurface?.updateGlobalDevLabVisibility?.();
       return res;

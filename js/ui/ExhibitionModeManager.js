@@ -19,6 +19,7 @@ import { HanyangResponseAdapter } from '../response/HanyangResponseAdapter.js';
 import { PedestrianRoutingEngine } from '../response/PedestrianRoutingEngine.js';
 import { ResponseUIAdapter } from '../response/ResponseUIAdapter.js';
 import { GlobalLocalCameraTransition, CAMERA_STAGES } from '../response/GlobalLocalCameraTransition.js';
+import { UnifiedExperienceSession } from '../response/SpatialDataProviders.js';
 import { EvacuationExperienceController } from './EvacuationExperienceController.js';
 
 export const EXHIBITION_MODES = Object.freeze({
@@ -37,6 +38,11 @@ export class ExhibitionModeManager {
     this.renderer = options.renderer || null;
     this.controls = options.controls || null;
     this.hudMountRoot = options.hudMountRoot || null;
+    this.appContext = options.appContext || null;
+    this.session = options.session || this.appContext?.getSession?.() || new UnifiedExperienceSession();
+    if (this.appContext && typeof this.appContext.attachSession === 'function') {
+      this.appContext.attachSession(this.session);
+    }
     this.onReturnToGlobe = typeof options.onReturnToGlobe === 'function' ? options.onReturnToGlobe : null;
     this.getGlobalSceneObjects = typeof options.getGlobalSceneObjects === 'function'
       ? options.getGlobalSceneObjects
@@ -67,6 +73,8 @@ export class ExhibitionModeManager {
         controls: this.controls,
         mountRoot: this.hudMountRoot,
         domElement: this.renderer.domElement,
+        session: this.session,
+        deferInitialBoot: true,
         initialTheme: options.initialTheme || 'MONOLITH_NIGHT',
         autoPlay: false,
         onReturnToGlobe: () => {
@@ -236,7 +244,9 @@ export class ExhibitionModeManager {
         this.renderer.toneMappingExposure = 1.06;
       }
 
-      if (opts.lat && opts.lon && opts.regionId !== this.controller.activeRegionId) {
+      if (typeof this.controller.applySessionHandoff === 'function') {
+        this.controller.applySessionHandoff(opts, stageKey);
+      } else if (opts.lat && opts.lon && opts.regionId !== this.controller.activeRegionId) {
         this.controller.switchToRegion(opts.lat, opts.lon, {
           regionId: opts.regionId,
           name: opts.name,

@@ -62,7 +62,13 @@ console.log('--- 1. Geodesic Epicenter Context & Scientific Provenance ---');
     `dist=${g.distanceKm} km, bearing=${g.bearingDeg}° (${g.compassDirKo})`
   );
 
-  const resolvedGyeongju = resolveActiveSeismicEvent('hist_2016_gyeongju');
+  const noAnchorGyeongju = resolveActiveSeismicEvent('hist_2016_gyeongju');
+  assert(
+    noAnchorGyeongju.distanceKm === null && noAnchorGyeongju.bearingDeg === null,
+    '1.1b: resolveActiveSeismicEvent omits silent Hanyang fallback when no anchor is supplied'
+  );
+
+  const resolvedGyeongju = resolveActiveSeismicEvent('hist_2016_gyeongju', { anchor: DEFAULT_LOCAL_ANCHOR_COORDS });
   assert(
     resolvedGyeongju.mag === 5.8 &&
     resolvedGyeongju.pWaveEtaSec > 40 &&
@@ -70,7 +76,7 @@ console.log('--- 1. Geodesic Epicenter Context & Scientific Provenance ---');
     '1.2: resolveActiveSeismicEvent resolves real KMA 2016 Gyeongju parameters & P/S arrival windows'
   );
 
-  const histUnknown = resolveActiveSeismicEvent('hist_1681_0626');
+  const histUnknown = resolveActiveSeismicEvent('hist_1681_0626', { anchor: DEFAULT_LOCAL_ANCHOR_COORDS });
   assert(
     histUnknown.isHistorical === true &&
     histUnknown.depthKm === null &&
@@ -79,6 +85,7 @@ console.log('--- 1. Geodesic Epicenter Context & Scientific Provenance ---');
   );
 
   const mockUsgs = resolveActiveSeismicEvent('us7000test', {
+    anchor: DEFAULT_LOCAL_ANCHOR_COORDS,
     usgsFeatures: [{
       id: 'us7000test',
       properties: { place: '12 km SE of Pohang, South Korea', mag: 5.4, magType: 'mww', time: 1793899305897 },
@@ -157,7 +164,7 @@ console.log('\n--- 3. Volumetric 3D Path Tubes, Chevrons, Trees & Epicenter Vect
 
   const layerScene = new THREE.Scene();
   const layer = new LocalSpatialMapLayer(layerScene);
-  const ctx = resolveActiveSeismicEvent('hist_2016_gyeongju');
+  const ctx = resolveActiveSeismicEvent('hist_2016_gyeongju', { anchor: DEFAULT_LOCAL_ANCHOR_COORDS });
   layer.setEpicenterContext(ctx);
   const ray = layer.epicenterGuideGroup.getObjectByName('EpicenterBearingVectorLine');
   const diag = layer.getLayerDiagnostics();

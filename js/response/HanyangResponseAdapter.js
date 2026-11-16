@@ -471,14 +471,38 @@ export class HanyangResponseAdapter {
       tubeRadius = 1.45,
       color = 0xf8fafc,
       opacity = 0.92,
-      elevOffset = 1.0,
+      elevOffset = 1.18,
       name = 'Route_Tube',
       routeKind = 'SHORTEST',
       chevronStepMeters = 42.0,
-      chevronColor = 0x38bdf8
+      chevronColor = 0x38bdf8,
+      identicalToShortest = false
     } = options;
 
-    const elevated = waypoints.map(p => new THREE.Vector3(p.x, p.y + elevOffset, p.z));
+    // Subdivide any residual span > 12m as an extra safeguard against hillside ridge clipping
+    const sampler = typeof this.elevationSampler === 'function'
+      ? this.elevationSampler
+      : (typeof this.facility?.elevationSampler === 'function' ? this.facility.elevationSampler : null);
+    const elevated = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const p = waypoints[i];
+      if (i > 0) {
+        const prev = waypoints[i - 1];
+        const span = Math.hypot(p.x - prev.x, p.z - prev.z);
+        if (span > 12.0) {
+          const steps = Math.ceil(span / 8.0);
+          for (let s = 1; s < steps; s++) {
+            const t = s / steps;
+            const mx = prev.x + (p.x - prev.x) * t;
+            const mz = prev.z + (p.z - prev.z) * t;
+            const my = sampler ? Math.max(prev.y + (p.y - prev.y) * t, sampler(mx, -mz) + 0.42) : (prev.y + (p.y - prev.y) * t);
+            elevated.push(new THREE.Vector3(mx, my + elevOffset, mz));
+          }
+        }
+      }
+      elevated.push(new THREE.Vector3(p.x, p.y + elevOffset, p.z));
+    }
+
     // Exact piecewise-linear path geometry matching calculated graph coordinates (Section 4-3)
     const curve = new THREE.CurvePath();
     for (let i = 1; i < elevated.length; i++) {
@@ -487,31 +511,37 @@ export class HanyangResponseAdapter {
       }
     }
     if (curve.curves.length === 0) return;
-    const tubularSegments = Math.max(24, Math.min(220, curve.curves.length * 4));
+    const tubularSegments = Math.max(24, Math.min(360, curve.curves.length * 4));
 
     const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, 8, false);
     const tubeMat = new THREE.MeshBasicMaterial({
       color,
-      transparent: true,
-      opacity
+      transparent: opacity < 0.99,
+      opacity,
+      depthWrite: true
     });
     const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
     tubeMesh.name = name;
+    tubeMesh.renderOrder = routeKind === 'SHORTEST' ? 4 : 3;
     tubeMesh.userData.routeKind = routeKind;
+    tubeMesh.userData.identicalToShortest = identicalToShortest;
     this.pathGroup.add(tubeMesh);
     this.disposables.push(tubeGeo, tubeMat);
 
-    // Subtle dark halo underneath tube for daylight & night figure-ground separation
-    const railGeo = new THREE.TubeGeometry(curve, Math.max(18, Math.floor(tubularSegments / 2)), tubeRadius * 1.48, 6, false);
+    // Non-occluding dark outline halo strictly beneath the ribbon (depthWrite: false prevents obscuring the bright core)
+    const railGeo = new THREE.TubeGeometry(curve, Math.max(18, Math.floor(tubularSegments / 2)), tubeRadius * 1.45, 6, false);
     const railMat = new THREE.MeshBasicMaterial({
       color: 0x060b14,
       transparent: true,
-      opacity: opacity * 0.48
+      opacity: 0.72,
+      depthWrite: false
     });
     const railMesh = new THREE.Mesh(railGeo, railMat);
-    railMesh.position.y = -0.35;
+    railMesh.position.y = -0.22;
     railMesh.name = `${name}_Halo`;
+    railMesh.renderOrder = 2;
     railMesh.userData.routeKind = routeKind;
+    railMesh.userData.identicalToShortest = identicalToShortest;
     this.pathGroup.add(railMesh);
     this.disposables.push(railGeo, railMat);
 
@@ -522,12 +552,13 @@ export class HanyangResponseAdapter {
     chevGeo.rotateX(Math.PI * 0.5); // Tip points toward +Z
     const chevMat = new THREE.MeshBasicMaterial({
       color: chevronColor,
-      transparent: true,
-      opacity: 0.95
+      transparent: false
     });
     const chevInst = new THREE.InstancedMesh(chevGeo, chevMat, chevronCount);
     chevInst.name = `${name}_Chevrons`;
+    chevInst.renderOrder = 5;
     chevInst.userData.routeKind = routeKind;
+    chevInst.userData.identicalToShortest = identicalToShortest;
 
     const dummy = new THREE.Object3D();
     const lookTarget = new THREE.Vector3();
@@ -535,7 +566,7 @@ export class HanyangResponseAdapter {
       const u = (i + 0.5) / chevronCount;
       const pos = curve.getPointAt(u);
       const tan = curve.getTangentAt(u);
-      dummy.position.set(pos.x, pos.y + tubeRadius * 0.65, pos.z);
+      dummy.position.set(pos.x, pos.y + tubeRadius * 0.95, pos.z);
       lookTarget.copy(dummy.position).add(tan);
       dummy.lookAt(lookTarget);
       dummy.scale.set(1.0, 0.42, 1.0);
@@ -609,7 +640,7 @@ export class HanyangResponseAdapter {
         tubeRadius: 1.55,
         color: 0xf8fafc,
         opacity: 0.94,
-        elevOffset: 1.05,
+        elevOffset: 1.24,
         name: 'Ribbon_Shortest_Volume',
         routeKind: 'SHORTEST',
         chevronStepMeters: 44.0,
@@ -679,6 +710,15 @@ export class HanyangResponseAdapter {
     const stepFreeWaypoints = this._extractRoutePoints(stepFreeEdges);
     this.routePolylines.STEP_FREE = stepFreeWaypoints;
 
+    const arePolylinesIdentical = (a, b) => {
+      if (!a || !b || a.length !== b.length || a.length === 0) return false;
+      for (const idx of [0, Math.floor(a.length / 2), a.length - 1]) {
+        if (Math.hypot(a[idx].x - b[idx].x, a[idx].z - b[idx].z) > 0.5) return false;
+      }
+      return true;
+    };
+    const identicalToShortest = arePolylinesIdentical(shortestWaypoints, stepFreeWaypoints);
+
     if (stepFreeWaypoints.length >= 2) {
       const stepFreeGeo = new THREE.BufferGeometry().setFromPoints(stepFreeWaypoints);
       const stepFreeMat = new THREE.LineDashedMaterial({
@@ -691,21 +731,25 @@ export class HanyangResponseAdapter {
       stepFreeLine.computeLineDistances();
       stepFreeLine.name = names.stepFreeLineName || 'Path_StepFree_769m';
       stepFreeLine.userData.routeKind = 'STEP_FREE';
+      stepFreeLine.userData.identicalToShortest = identicalToShortest;
       stepFreeLine.userData.edgeIds = stepFreeEdges.map(e => e.edgeId);
       this.pathGroup.add(stepFreeLine);
       this.disposables.push(stepFreeGeo, stepFreeMat);
 
       this._addVolumetricRouteMeshes(stepFreeWaypoints, {
-        tubeRadius: 1.22,
+        tubeRadius: 1.28,
         color: 0x38bdf8,
-        opacity: 0.85,
-        elevOffset: 0.92,
+        opacity: 0.88,
+        elevOffset: 1.06,
         name: 'Ribbon_StepFree_Volume',
         routeKind: 'STEP_FREE',
         chevronStepMeters: 48.0,
-        chevronColor: 0xe0f2fe
+        chevronColor: 0xe0f2fe,
+        identicalToShortest
       });
     }
+
+    this.setRouteDisplay(this.config.activeRoute || 'ALL');
   }
 
   /**
@@ -847,7 +891,11 @@ export class HanyangResponseAdapter {
         child.visible = mode === 'ALL' || mode === 'SHORTEST';
       }
       if (child.userData?.routeKind === 'STEP_FREE' || child.name === 'Path_StepFree_769m') {
-        child.visible = mode === 'ALL' || mode === 'STEP_FREE';
+        if (child.userData?.identicalToShortest) {
+          child.visible = mode === 'STEP_FREE';
+        } else {
+          child.visible = mode === 'ALL' || mode === 'STEP_FREE';
+        }
       }
     });
   }
@@ -903,12 +951,13 @@ export class HanyangResponseAdapter {
     this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
     if (typeof this.router?.loadFacilityPackage === 'function') {
       this.router.loadFacilityPackage(this.facility);
-      if (this.useRealMapRouting && typeof this.router?.setRealMapRouting === 'function') {
+      // Do NOT overwrite active region walkGraph / OBBs if adapter holds stale constructor defaults
+      if (this.useRealMapRouting && typeof this.router?.setRealMapRouting === 'function' && (this.customWalkGraph || !this.router.customWalkGraph)) {
         this.router.setRealMapRouting({
           enabled: true,
-          buildingOBBs: this.buildingOBBs,
-          customWalkGraph: this.customWalkGraph,
-          elevationSampler: this.elevationSampler
+          buildingOBBs: this.router.buildingOBBs || this.buildingOBBs,
+          customWalkGraph: this.customWalkGraph ?? this.router.customWalkGraph,
+          elevationSampler: this.elevationSampler ?? this.router.elevationSampler
         });
       }
     }

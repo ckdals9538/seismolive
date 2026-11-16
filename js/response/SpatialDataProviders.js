@@ -83,25 +83,130 @@ export function geodesicBearingDeg(lat1, lon1, lat2, lon2) {
   return Number((((Math.atan2(y, x) * 180) / Math.PI + 360) % 360).toFixed(1));
 }
 
+export const EXPERIENCE_ENTRY_MODES = Object.freeze({
+  UNSELECTED: 'UNSELECTED',
+  FROM_GLOBE_EVENT: 'FROM_GLOBE_EVENT',
+  MY_LOCATION: 'MY_LOCATION',
+  FREE_MODE: 'FREE_MODE'
+});
+
+/**
+ * Single Session Truth Owner bridging Global Earth -> Earthquake -> Local Space -> Human Response.
+ * Strictly isolates userActualLocation (GPS) from analysisAnchor (search/map/vicinity) and activeEvent.
+ */
+export class UnifiedExperienceSession {
+  constructor() {
+    this.entryMode = EXPERIENCE_ENTRY_MODES.UNSELECTED;
+    this.userActualLocation = null; // Real GPS only: { lat, lon, accuracyMeters, timestamp, originType }
+    this.gpsPermissionState = 'prompt'; // 'prompt' | 'granted' | 'denied' | 'unavailable'
+    this.analysisAnchor = null; // { lat, lon, label, originType: 'GPS_OBSERVED' | 'FREE_MODE_SELECTED' | 'EVENT_VICINITY' }
+    this.handedGlobeEvent = null;
+    this.activeHazard = null;
+    this.activeImpactEval = null;
+    this.activeSpatialPackage = null;
+    this.activeGuidance = null;
+    this._listeners = new Set();
+  }
+
+  subscribe(fn) {
+    if (typeof fn === 'function') this._listeners.add(fn);
+    return () => this._listeners.delete(fn);
+  }
+
+  _emit(reason = 'update') {
+    for (const fn of this._listeners) {
+      try { fn(this, reason); } catch (_) {}
+    }
+  }
+
+  setGlobeEventHandoff(rawOrNormalizedEvent) {
+    this.entryMode = EXPERIENCE_ENTRY_MODES.FROM_GLOBE_EVENT;
+    this.handedGlobeEvent = rawOrNormalizedEvent ? HazardProvider.normalizeGlobeEvent(rawOrNormalizedEvent) : null;
+    this.activeHazard = this.handedGlobeEvent;
+    this._emit('globe_handoff');
+    return this.handedGlobeEvent;
+  }
+
+  setGpsLocationResult(gpsRes) {
+    if (gpsRes?.ok && Number.isFinite(gpsRes.lat) && Number.isFinite(gpsRes.lon)) {
+      this.gpsPermissionState = 'granted';
+      this.userActualLocation = {
+        lat: gpsRes.lat,
+        lon: gpsRes.lon,
+        accuracyMeters: gpsRes.location?.accuracyMeters ?? null,
+        timestamp: gpsRes.location?.timestamp ?? Date.now(),
+        originType: DATA_ORIGIN_TYPES.OBSERVED
+      };
+      this.entryMode = EXPERIENCE_ENTRY_MODES.MY_LOCATION;
+      this.analysisAnchor = {
+        lat: gpsRes.lat,
+        lon: gpsRes.lon,
+        label: '내 현재 위치 (GPS)',
+        originType: 'GPS_OBSERVED',
+        isActualUserGps: true
+      };
+    } else {
+      this.gpsPermissionState = gpsRes?.error?.includes('UNAVAILABLE') ? 'unavailable' : 'denied';
+      this.userActualLocation = null;
+    }
+    this._emit('gps_update');
+    return this.userActualLocation;
+  }
+
+  setFreeModeLocation(lat, lon, label = '선택 지역', sourceKind = 'FREE_MODE_SELECTED') {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return null;
+    this.entryMode = this.handedGlobeEvent && sourceKind === 'EVENT_VICINITY'
+      ? EXPERIENCE_ENTRY_MODES.FROM_GLOBE_EVENT
+      : EXPERIENCE_ENTRY_MODES.FREE_MODE;
+    this.analysisAnchor = {
+      lat: Number(Number(lat).toFixed(6)),
+      lon: Number(Number(lon).toFixed(6)),
+      label: label || `지정 좌표 (${Number(lat).toFixed(3)}, ${Number(lon).toFixed(3)})`,
+      originType: sourceKind,
+      isActualUserGps: false
+    };
+    this._emit('free_location_update');
+    return this.analysisAnchor;
+  }
+
+  setEntryMode(mode) {
+    const valid = Object.values(EXPERIENCE_ENTRY_MODES);
+    this.entryMode = valid.includes(mode) ? mode : EXPERIENCE_ENTRY_MODES.UNSELECTED;
+    this._emit('entry_mode');
+    return this.entryMode;
+  }
+
+  clearEventHandoff() {
+    this.handedGlobeEvent = null;
+    this.activeHazard = null;
+    this.activeImpactEval = null;
+    this._emit('clear_event');
+  }
+}
+
 // ----------------------------------------------------------------------------
 // 1. LocationProvider
 // ----------------------------------------------------------------------------
 export class LocationProvider {
   constructor(initial = {}) {
-    this.userCurrentLocation = initial.userCurrentLocation || null; // { lat, lon, accuracyMeters, source, timestamp }
-    this.userSelectedLocation = initial.userSelectedLocation || {
-      lat: initial.lat ?? 37.555815,
-      lon: initial.lon ?? 127.045053,
-      label: initial.label || '선택 지역'
-    };
+    this.userCurrentLocation = initial.userCurrentLocation || null; // Real GPS only
+    this.userSelectedLocation = (Number.isFinite(initial.lat) && Number.isFinite(initial.lon))
+      ? {
+          lat: initial.lat,
+          lon: initial.lon,
+          label: initial.label || '선택 지역',
+          originType: 'FREE_MODE_SELECTED',
+          isActualUserGps: false
+        }
+      : null;
     this.provenance = createProvenanceRecord({
-      source: initial.userCurrentLocation ? 'BROWSER_GEOLOCATION' : 'USER_MANUAL_SELECTION',
+      source: initial.userCurrentLocation ? 'BROWSER_GEOLOCATION' : 'USER_FREE_SELECTION',
       sourceType: initial.userCurrentLocation ? DATA_ORIGIN_TYPES.OBSERVED : DATA_ORIGIN_TYPES.PROVISIONAL,
       geometryAccuracy: initial.userCurrentLocation?.accuracyMeters ? `±${Math.round(initial.userCurrentLocation.accuracyMeters)}m` : '수동 지정 좌표',
       completeness: 'COMPLETE',
       verificationStatus: initial.userCurrentLocation ? VERIFICATION_STATUS.PARTIALLY_VERIFIED : VERIFICATION_STATUS.PROVISIONAL,
       confidence: initial.userCurrentLocation ? 0.72 : 0.85,
-      limitations: '실외 수평 좌표만 제공하며 건물 층수·실내 호실은 사용자가 직접 확인해야 합니다.'
+      limitations: '실외 수평 좌표 기준이며 건물 내부 위치·층수는 가정하지 않습니다.'
     });
   }
 
@@ -118,7 +223,7 @@ export class LocationProvider {
     return { lat: Number(a.toFixed(6)), lon: Number(b.toFixed(6)) };
   }
 
-  async detectBrowserLocation(timeoutMs = 5000) {
+  async detectBrowserLocation(timeoutMs = 5500) {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       return { ok: false, error: 'BROWSER_GEOLOCATION_UNAVAILABLE' };
     }
@@ -129,13 +234,10 @@ export class LocationProvider {
             lat: Number(pos.coords.latitude.toFixed(6)),
             lon: Number(pos.coords.longitude.toFixed(6)),
             accuracyMeters: pos.coords.accuracy ?? null,
-            timestamp: pos.timestamp || Date.now()
+            timestamp: pos.timestamp || Date.now(),
+            isActualUserGps: true
           };
-          this.userSelectedLocation = {
-            lat: this.userCurrentLocation.lat,
-            lon: this.userCurrentLocation.lon,
-            label: 'GPS 현재 위치'
-          };
+          this.userSelectedLocation = null; // Keep actual GPS distinct from Free Mode selection
           resolve({
             ok: true,
             lat: this.userCurrentLocation.lat,
@@ -149,25 +251,91 @@ export class LocationProvider {
     });
   }
 
-  setUserSelectedLocation(lat, lon, label = '선택 지역') {
+  setGpsLocation(lat, lon, accuracyMeters = null, label = '내 현재 위치(GPS)') {
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return null;
+    this.userSelectedLocation = null; // Clear Free Mode anchor once live GPS becomes active
+    this.userCurrentLocation = {
+      lat: Number(Number(lat).toFixed(6)),
+      lon: Number(Number(lon).toFixed(6)),
+      accuracyMeters: Number.isFinite(Number(accuracyMeters)) ? Math.round(Number(accuracyMeters)) : null,
+      label: label || '내 현재 위치(GPS)',
+      originType: 'GPS_ACTUAL',
+      isActualUserGps: true,
+      timestamp: Date.now()
+    };
+    return this.userCurrentLocation;
+  }
+
+  setUserSelectedLocation(lat, lon, label = '지정 지역 (자유 모드)') {
     if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return null;
     this.userSelectedLocation = {
       lat: Number(Number(lat).toFixed(6)),
       lon: Number(Number(lon).toFixed(6)),
-      label: label || '선택 지역'
+      label: label || '지정 지역 (자유 모드)',
+      originType: 'FREE_MODE_SELECTED',
+      isActualUserGps: false
     };
     return this.userSelectedLocation;
   }
 
   getActiveAnalysisLocation() {
-    return this.userSelectedLocation || this.userCurrentLocation || { lat: 37.555815, lon: 127.045053, label: '선택 위치' };
+    return this.userSelectedLocation || this.userCurrentLocation || null;
   }
 }
 
 // ----------------------------------------------------------------------------
 // 2. HazardProvider (Observed vs Educational Synthetic vs Historical)
 // ----------------------------------------------------------------------------
+function _unwrapEventVal(v) {
+  if (v && typeof v === 'object' && 'v' in v) return v.v;
+  return v ?? null;
+}
+
 export class HazardProvider {
+  /**
+   * Convert any catalog/USGS/Historical Globe event object into a strict normalized hazard contract
+   * preserving source authority, uncertainty, null fields, and official ShakeMap/OAF products.
+   */
+  static normalizeGlobeEvent(rawEv = {}, officialProducts = null) {
+    if (!rawEv || typeof rawEv !== 'object') return null;
+    const isHist =
+      rawEv.scenarioType === SCENARIO_TYPES.HISTORICAL_RECORD ||
+      rawEv.recordType === 'historical' ||
+      (typeof rawEv.century === 'number' && rawEv.century < 20);
+    const scenarioType = rawEv.scenarioType
+      || (isHist ? SCENARIO_TYPES.HISTORICAL_RECORD : SCENARIO_TYPES.OBSERVED_EVENT);
+
+    const coords = rawEv.spatial?.inferredCoordinates;
+    const rawLat = _unwrapEventVal(rawEv.lat) ?? rawEv.epicenterLat ?? coords?.lat ?? null;
+    const rawLon = _unwrapEventVal(rawEv.lon) ?? rawEv.epicenterLon ?? coords?.lon ?? null;
+    const rawMag = _unwrapEventVal(rawEv.mag) ?? rawEv.magnitude ?? null;
+    const rawDepth = _unwrapEventVal(rawEv.depth) ?? rawEv.depthKm ?? rawEv.spatial?.focalDepth?.valKm ?? null;
+    const rawTime = _unwrapEventVal(rawEv.time) ?? rawEv.occurredAt ?? rawEv.dateText ?? rawEv.temporal?.gregorianDate ?? null;
+    const occurredAt = typeof rawTime === 'number' && Number.isFinite(rawTime)
+      ? new Date(rawTime).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
+      : (rawTime || (scenarioType === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? '교육 훈련 시나리오' : '시각 정보 미상'));
+
+    return HazardProvider.createScenario({
+      id: rawEv.eventId || rawEv.id || `EV_${Date.now()}`,
+      scenarioType,
+      title: rawEv.titleKo || rawEv.title || rawEv.place || rawEv.spatial?.placeName || rawEv.id || '지진 사건',
+      epicenterLat: Number.isFinite(Number(rawLat)) ? Number(rawLat) : null,
+      epicenterLon: Number.isFinite(Number(rawLon)) ? Number(rawLon) : null,
+      magnitude: Number.isFinite(Number(rawMag)) ? Number(rawMag) : null,
+      magScale: rawEv.magType || rawEv.magnitudeScale || null,
+      depthKm: Number.isFinite(Number(rawDepth)) && Number(rawDepth) >= 0 ? Number(rawDepth) : null,
+      occurredAt,
+      isRealtimeLive: rawEv.recordType === 'usgs-live',
+      originText: rawEv.spatial?.placeName || rawEv.originText || rawEv.place || '진앙 위치 확인 중',
+      source: rawEv.sourceName || rawEv.source || (isHist ? '한국 역사지진 사료' : 'KMA / USGS 계측 기록'),
+      uncertaintyNote: rawEv.uncertaintyNote || rawEv.estimatedMagnitudeRange || null,
+      usgsDetailUrl: rawEv.usgsDetailUrl || rawEv.detail || null,
+      officialProducts: officialProducts || rawEv.officialProducts || null,
+      isGeneralAssumptionOnly: Boolean(rawEv.isGeneralAssumptionOnly),
+      selectionReasonKo: rawEv.selectionReasonKo || (scenarioType === SCENARIO_TYPES.OBSERVED_EVENT ? '글로벌 지구에서 선택한 관측 지진' : '글로벌 지구에서 선택한 역사 기록')
+    });
+  }
+
   /**
    * Normalize observed/synthetic/historical earthquake scenario independently of user city.
    */
@@ -175,38 +343,61 @@ export class HazardProvider {
     const type = spec.scenarioType || SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC;
     const isObs = type === SCENARIO_TYPES.OBSERVED_EVENT;
     const isHist = type === SCENARIO_TYPES.HISTORICAL_RECORD;
+    const officialProducts = spec.officialProducts || null;
+    const hasOfficialShakeMap = Boolean(officialProducts?.shakemap);
+
     const provenance = createProvenanceRecord({
-      source: spec.source || (isObs ? 'KMA / USGS 계기 관측 기록' : isHist ? '한국 역사 지진 문헌 사료' : '교육용 사용자 인공지진 설정'),
-      sourceType: isObs ? DATA_ORIGIN_TYPES.OBSERVED : isHist ? DATA_ORIGIN_TYPES.PROVISIONAL : DATA_ORIGIN_TYPES.SYNTHETIC,
-      geometryAccuracy: isObs ? '계기 진앙 오차 수 km 이내' : isHist ? '사료 추정 타원(수십 km 불확실)' : '사용자 직접 지정 좌표',
+      source: spec.source || (isObs ? 'KMA / USGS 계기 관측 기록' : isHist ? '한국 역사 지진 문헌 사료' : '교육용 일반 단층 가정 시나리오'),
+      sourceType: isObs ? (hasOfficialShakeMap ? DATA_ORIGIN_TYPES.OFFICIAL : DATA_ORIGIN_TYPES.OBSERVED) : isHist ? DATA_ORIGIN_TYPES.PROVISIONAL : DATA_ORIGIN_TYPES.SYNTHETIC,
+      geometryAccuracy: isObs ? '계기 진앙 오차 수 km 이내' : isHist ? '사료 추정 타원(수십 km 불확실)' : '교육용 일반 위치 가정',
       completeness: spec.magnitude != null && spec.depthKm != null ? 'COMPLETE' : 'PARTIAL',
       verificationStatus: isObs ? VERIFICATION_STATUS.VERIFIED : VERIFICATION_STATUS.PROVISIONAL,
-      confidence: isObs ? 0.92 : isHist ? 0.35 : 1.0,
+      confidence: isObs ? 0.92 : isHist ? 0.35 : 0.0,
       limitations: isObs
-        ? '단층 지반 증폭 및 건물 개별 응답은 현장 계측 없이 추론 불가합니다.'
+        ? (hasOfficialShakeMap
+          ? '공식 USGS ShakeMap 참고 정보가 포함되나, 개별 건물 내진성과 현장 지반 증폭은 별도 점검이 필요합니다.'
+          : '관측소 실시간 지반 진동/ShakeMap이 없어 단순 거리-규모 선별 기준을 적용합니다.')
         : isHist
-          ? '과거 문헌 기반 추정치로 현대 건축물 대응 근거로 직접 사용할 수 없습니다.'
-          : '교육 훈련용 인공 매개변수이며 실제 관측 지진이 아닙니다.'
+          ? '과거 문헌 사료 기록으로 현재 진행 중인 재난 경보가 아니며 좌표·규모 불확실성이 큽니다.'
+          : (spec.isGeneralAssumptionOnly !== false
+            ? '실제 단층 물리 모델에 근거하지 않은 교육·훈련용 일반 가정 시나리오입니다.'
+            : '교육·훈련용 합성 매개변수이며 실제 발생 지진이 아닙니다.')
     });
 
     return Object.freeze({
       id: spec.id || `${type}_${Date.now()}`,
       scenarioType: type,
-      title: spec.title || (type === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? '교육용 인공지진 시나리오' : '지진 시나리오'),
+      title: spec.title || (type === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? '교육용 합성 지진 시나리오' : '지진 시나리오'),
       epicenterLat: spec.epicenterLat ?? null,
       epicenterLon: spec.epicenterLon ?? null,
       magnitude: typeof spec.magnitude === 'number' ? spec.magnitude : null,
+      magScale: spec.magScale || (typeof spec.magnitude === 'number' ? 'M' : null),
       depthKm: typeof spec.depthKm === 'number' ? spec.depthKm : null,
-      occurredAt: spec.occurredAt || (type === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? 'DRILL_NOW' : null),
+      occurredAt: spec.occurredAt || (type === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? 'DRILL_SYNTHETIC' : null),
+      isRealtimeLive: Boolean(spec.isRealtimeLive),
       originText: spec.originText || '진원 위치 정보 확인 중',
+      uncertaintyNote: spec.uncertaintyNote || null,
+      usgsDetailUrl: spec.usgsDetailUrl || null,
+      officialProducts: officialProducts ? Object.freeze({
+        status: officialProducts.status || 'UNAVAILABLE',
+        shakemap: officialProducts.shakemap || null,
+        aftershockForecast: officialProducts.oaf || officialProducts.aftershockForecast || null
+      }) : Object.freeze({
+        status: 'OFFICIAL_PRODUCT_UNAVAILABLE',
+        shakemap: null,
+        aftershockForecast: null
+      }),
+      isGeneralAssumptionOnly: spec.isGeneralAssumptionOnly !== undefined ? Boolean(spec.isGeneralAssumptionOnly) : type === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+      selectionReasonKo: spec.selectionReasonKo || null,
       simulatedPga_g: spec.simulatedPga_g ?? null,
       provenance
     });
   }
 
   /**
-   * Evaluate whether a target (user or analysis location) falls within seismic impact zone.
-   * Never marks distant unrelated regions as affected evacuation emergencies.
+   * Evaluate whether a target (user or analysis location) falls within seismic screening zone.
+   * Incorporates official ShakeMap maxMMI when present, never treats OAF forecast as present PGA,
+   * and never equates "outside screening radius" with guaranteed safety.
    */
   static evaluateSeismicImpactAtLocation(hazard, userLat, userLon) {
     if (!hazard || !Number.isFinite(userLat) || !Number.isFinite(userLon) ||
@@ -217,8 +408,11 @@ export class HazardProvider {
         bearingDeg: null,
         pWaveEtaSec: null,
         sWaveEtaSec: null,
+        officialShakemapUsed: false,
+        maxReportedMmi: null,
+        aftershockProbabilityNote: null,
         shouldRecommendLocalEvacuation: false,
-        explanationKo: '지진 발생 좌표 또는 사용자 위치 정보가 부족하여 영향권 여부를 판단할 수 없습니다.',
+        explanationKo: '지진 발생 좌표 또는 분석 기준 위치가 확정되지 않아 영향권 여부를 평가할 수 없습니다.',
         limitations: '좌표 정보 부재로 인한 판단 보류'
       };
     }
@@ -230,7 +424,12 @@ export class HazardProvider {
     const pWaveEtaSec = Number((hypoKm / 6.0).toFixed(1));
     const sWaveEtaSec = Number((hypoKm / 3.5).toFixed(1));
 
-    // Historical record warning: never treat ancient chronicle coordinates as present shaking
+    const shake = hazard.officialProducts?.shakemap || null;
+    const oaf = hazard.officialProducts?.aftershockForecast || null;
+    const aftershockProbabilityNote = oaf && typeof oaf.maxProbM5Plus1Wk === 'number'
+      ? `USGS OAF 1주 내 M5+ 여진 통계 확률 ${(oaf.maxProbM5Plus1Wk * 100).toFixed(1)}% (현재 진동 실측 아님)`
+      : null;
+
     if (hazard.scenarioType === SCENARIO_TYPES.HISTORICAL_RECORD) {
       return {
         impactStatus: IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY,
@@ -238,20 +437,24 @@ export class HazardProvider {
         bearingDeg,
         pWaveEtaSec,
         sWaveEtaSec,
+        officialShakemapUsed: false,
+        maxReportedMmi: null,
+        aftershockProbabilityNote: null,
         shouldRecommendLocalEvacuation: false,
-        explanationKo: `과거 역사 문헌 사료(${hazard.title})와의 거리 ${distanceKm}km 참고 정보입니다. 실제 현재 지진 발생 상황이 아니며 사료 좌표 불확실성이 존재합니다.`,
-        limitations: '역사 기록 추정 진앙이며 현 지반 진동(PGA) 실측이 아닙니다.'
+        explanationKo: `과거 역사 문헌 사료(${hazard.title}) 진앙 추정 위치와 거리 ${distanceKm}km 참고 정보입니다. 현재 진행 중인 재난이 아닙니다.`,
+        limitations: '역사 문헌 추정 진앙으로 현대 건물 응답·지반 진동 실측이 아닙니다.'
       };
     }
 
     const mag = typeof hazard.magnitude === 'number' ? hazard.magnitude : 5.0;
-    // Conservative physical screening radii (NOT a site-specific ground motion GMPE claim)
-    // Near/strong-motion response radius (~27km at M4.8, ~65km at M5.8, ~186km at M7.0)
+    // Conservative physical screening radii (MODELLED screening rule — NOT a site-specific GMPE loss prediction)
     const impactRadiusKm = Math.max(15, Math.min(220, Math.pow(10, 0.38 * mag - 0.39)));
     const feltRadiusKm = Math.max(impactRadiusKm * 2.4, Math.min(600, impactRadiusKm * 3.2));
+    const shakeSuffix = shake?.maxMmi ? ` · 공식 ShakeMap 최대 MMI ${shake.maxMmi}` : '';
 
     if (hazard.scenarioType === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC) {
       const withinDrill = distanceKm <= impactRadiusKm;
+      const assumptionTag = hazard.isGeneralAssumptionOnly ? '실제 단층 미근거 · 교육용 일반 가정' : '교육용 합성 모델';
       return {
         impactStatus: withinDrill ? IMPACT_ZONE_STATUS.EDUCATIONAL_DRILL : IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE,
         distanceKm,
@@ -260,15 +463,17 @@ export class HazardProvider {
         sWaveEtaSec,
         impactRadiusKm: Math.round(impactRadiusKm),
         feltRadiusKm: Math.round(feltRadiusKm),
+        officialShakemapUsed: false,
+        maxReportedMmi: null,
+        aftershockProbabilityNote: null,
         shouldRecommendLocalEvacuation: withinDrill,
         explanationKo: withinDrill
-          ? `교육용 인공지진(M${mag.toFixed(1)}, 깊이 ${depthKm ?? '미상'}km) 설정 영향권(${Math.round(impactRadiusKm)}km 이내, 거리 ${distanceKm}km) 내 대피 훈련 시나리오입니다.`
-          : `설정한 교육용 인공지진 진앙(${distanceKm}km)은 현재 위치의 직하 영향권(참고 반경 약 ${Math.round(impactRadiusKm)}km) 밖입니다. 훈련 지역을 진앙 부근으로 옮기거나 진앙을 현재 지역으로 설정하십시오.`,
-        limitations: '교육용 합성 시나리오이며 거리 기반 단순 반경 모델(MODELLED)입니다.'
+          ? `교육용 합성 지진(M${mag.toFixed(1)}, 깊이 ${depthKm ?? '미상'}km)의 선별 참고 반경(${Math.round(impactRadiusKm)}km 이내, 거리 ${distanceKm}km)에 대한 대응 훈련입니다.`
+          : `설정한 가상 진앙(${distanceKm}km)은 단순 거리-규모 선별 반경(약 ${Math.round(impactRadiusKm)}km) 밖입니다. 진앙 인접 지역으로 이동해 대응 상황을 점검할 수 있습니다.`,
+        limitations: `${assumptionTag} · 정밀 피해 예측이 아니며 실제 발생 지진이 아닙니다.`
       };
     }
 
-    // Real Observed Event
     if (distanceKm <= impactRadiusKm) {
       return {
         impactStatus: IMPACT_ZONE_STATUS.IN_IMPACT_ZONE,
@@ -278,9 +483,14 @@ export class HazardProvider {
         sWaveEtaSec,
         impactRadiusKm: Math.round(impactRadiusKm),
         feltRadiusKm: Math.round(feltRadiusKm),
+        officialShakemapUsed: Boolean(shake),
+        maxReportedMmi: shake?.maxMmi ?? null,
+        aftershockProbabilityNote,
         shouldRecommendLocalEvacuation: true,
-        explanationKo: `실제 관측 지진(${hazard.title}, M${hazard.magnitude ?? '미상'})의 추정 주요 진동 영향 반경(약 ${Math.round(impactRadiusKm)}km) 내에 위치합니다(진앙 거리 ${distanceKm}km). 흔들림 및 주변 위험을 확인하십시오.`,
-        limitations: '개별 건물의 내진성·지반 증폭은 관측소 실측 및 현장 확인 전까지 알 수 없습니다.'
+        explanationKo: `실제 관측 지진(${hazard.title}, ${hazard.magScale || 'M'}${hazard.magnitude ?? '미상'})의 보수적 선별 반경(약 ${Math.round(impactRadiusKm)}km) 내 위치입니다(거리 ${distanceKm}km${shakeSuffix}).`,
+        limitations: shake
+          ? '공식 ShakeMap 참고값과 거리 기반 선별 결합 결과이나, 개별 건축물 손상은 현장 확인이 우선됩니다.'
+          : '공식 ShakeMap/관측소 실측이 부재한 거리-규모 선별 판단이며 정밀 피해 예측이 아닙니다.'
       };
     }
 
@@ -293,9 +503,12 @@ export class HazardProvider {
         sWaveEtaSec,
         impactRadiusKm: Math.round(impactRadiusKm),
         feltRadiusKm: Math.round(feltRadiusKm),
+        officialShakemapUsed: Boolean(shake),
+        maxReportedMmi: shake?.maxMmi ?? null,
+        aftershockProbabilityNote,
         shouldRecommendLocalEvacuation: false,
-        explanationKo: `실제 관측 지진(${hazard.title})으로부터 ${distanceKm}km 떨어져 있어 약한 진동만 감지될 수 있는 경계 구역입니다. 무작정 옥외 대피하기보다 실내 낙하물 점검 및 기상청 공식 특보를 우선 확인하십시오.`,
-        limitations: '약한 감진 구역은 현장 체감·관측소 PGA 확인이 우선됩니다.'
+        explanationKo: `실제 관측 지진(${hazard.title})으로부터 ${distanceKm}km 떨어져 있어 단순 선별 모델상 약한 진동 감진 권역으로 분류되었습니다${shakeSuffix}.`,
+        limitations: '단순 거리 기반 선별은 절대 안전을 보증하지 않습니다. 실제 체감 흔들림, 낙하물 및 기상청 특보를 우선 확인하십시오.'
       };
     }
 
@@ -307,10 +520,106 @@ export class HazardProvider {
       sWaveEtaSec,
       impactRadiusKm: Math.round(impactRadiusKm),
       feltRadiusKm: Math.round(feltRadiusKm),
+      officialShakemapUsed: Boolean(shake),
+      maxReportedMmi: shake?.maxMmi ?? null,
+      aftershockProbabilityNote,
       shouldRecommendLocalEvacuation: false,
-      explanationKo: `실제 관측 지진(${hazard.title})은 현재 분석 위치에서 ${distanceKm}km 떨어져 있어(영향권 밖) 이 위치에 임의 대피 경로를 생성하지 않습니다. 피해 현장 대응을 확인하려면 진앙 인근 지역을 선택하십시오.`,
-      limitations: '원거리 관측 사건 — 사용자 위치 직접 피해 가능성 낮음.'
+      explanationKo: `실제 관측 지진(${hazard.title})은 분석 기준 위치에서 ${distanceKm}km 떨어져 단순 선별 강진 반경 바깥입니다${shakeSuffix}.`,
+      limitations: '선별 반경 외 분류가 무조건적인 안전 또는 대피 불필요를 보증하지 않으며, 실제 피해 현장 확인은 진앙권 이동으로 점검할 수 있습니다.'
     };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 2B. AutoScenarioResolver (Automatic Relevant Event or Educational Assumption)
+// ----------------------------------------------------------------------------
+export class AutoScenarioResolver {
+  static resolveForLocation({
+    anchorLat,
+    anchorLon,
+    anchorLabel = '선택 지역',
+    catalogEvents = [],
+    handedEvent = null,
+    preferredMode = 'AUTO'
+  }) {
+    if (handedEvent && preferredMode === 'AUTO') {
+      return HazardProvider.normalizeGlobeEvent(handedEvent, handedEvent.officialProducts || null);
+    }
+
+    const candidates = (Array.isArray(catalogEvents) ? catalogEvents : [])
+      .map(ev => HazardProvider.normalizeGlobeEvent(ev, ev?.officialProducts || null))
+      .filter(ev => ev && Number.isFinite(ev.epicenterLat) && Number.isFinite(ev.epicenterLon))
+      .map(ev => ({
+        ev,
+        distKm: geodesicDistanceKm(anchorLat, anchorLon, ev.epicenterLat, ev.epicenterLon)
+      }));
+
+    if (preferredMode === 'HISTORICAL') {
+      const hist = candidates
+        .filter(c => c.ev.scenarioType === SCENARIO_TYPES.HISTORICAL_RECORD)
+        .sort((a, b) => a.distKm - b.distKm)[0];
+      if (hist) {
+        return HazardProvider.createScenario({
+          ...hist.ev,
+          selectionReasonKo: `${anchorLabel}에서 가장 가까운 한반도 역사 지진 문헌 기록(${Math.round(hist.distKm)}km)입니다.`
+        });
+      }
+    }
+
+    if (preferredMode === 'AUTO' || preferredMode === 'OBSERVED') {
+      const observedNearby = candidates
+        .filter(c => c.ev.scenarioType === SCENARIO_TYPES.OBSERVED_EVENT)
+        .filter(c => {
+          const mag = typeof c.ev.magnitude === 'number' ? c.ev.magnitude : 4.8;
+          const relRadiusKm = Math.max(40, Math.min(180, Math.pow(10, 0.38 * mag - 0.39) * 1.25));
+          return c.distKm <= relRadiusKm;
+        })
+        .sort((a, b) => a.distKm - b.distKm);
+
+      if (observedNearby.length > 0) {
+        const best = observedNearby[0];
+        return HazardProvider.createScenario({
+          ...best.ev,
+          selectionReasonKo: `${anchorLabel} 반경 ${best.distKm}km 내 계기 관측 지진(${best.ev.title})을 자동 연계했습니다.`
+        });
+      }
+
+      if (preferredMode === 'OBSERVED' && candidates.some(c => c.ev.scenarioType === SCENARIO_TYPES.OBSERVED_EVENT)) {
+        const closestObs = candidates
+          .filter(c => c.ev.scenarioType === SCENARIO_TYPES.OBSERVED_EVENT)
+          .sort((a, b) => a.distKm - b.distKm)[0];
+        return HazardProvider.createScenario({
+          ...closestObs.ev,
+          selectionReasonKo: `${anchorLabel} 주변 영향권 내 최근 지진이 없어 가장 인접한 관측 기록(${Math.round(closestObs.distKm)}km)을 표시합니다.`
+        });
+      }
+    }
+
+    const isEastCoast = anchorLon >= 128.4 && anchorLat >= 35.0;
+    const isSoutheastCoast = anchorLon >= 128.8 && anchorLat <= 35.6;
+    const mag = isSoutheastCoast ? 5.6 : isEastCoast ? 5.4 : 5.2;
+    const depthKm = isEastCoast ? 12 : 10;
+    const offsetLat = isEastCoast ? 0.036 : 0.032;
+    const offsetLon = isEastCoast ? 0.068 : 0.045;
+    const geoContextText = isEastCoast
+      ? '동해안 연안 해역 가정 진원 (실제 단층 모델이 아닌 교육용 일반 가정)'
+      : '인근 천부 단층 가정 진원 (실제 단층 모델이 아닌 교육용 일반 가정)';
+
+    return HazardProvider.createScenario({
+      id: `SYNTH_AUTO_${anchorLat.toFixed(2)}_${anchorLon.toFixed(2)}`,
+      scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+      title: `${anchorLabel} 교육용 합성 지진 시나리오 (M${mag.toFixed(1)})`,
+      epicenterLat: Number((anchorLat + offsetLat).toFixed(4)),
+      epicenterLon: Number((anchorLon + offsetLon).toFixed(4)),
+      magnitude: mag,
+      magScale: 'M',
+      depthKm,
+      occurredAt: 'EDUCATIONAL_GENERAL_ASSUMPTION',
+      originText: `${anchorLabel} 인근 (${geoContextText})`,
+      source: 'SEISMOLIVE 교육용 일반 가정 시나리오',
+      isGeneralAssumptionOnly: true,
+      selectionReasonKo: `${anchorLabel} 기준 실제 관측 강진 기록이 없어 지형 환경 기반 교육용 일반 가정 시나리오(M${mag.toFixed(1)})를 자동 구성했습니다.`
+    });
   }
 }
 
@@ -734,7 +1043,8 @@ export class FacilityProvider {
     waterways = [],
     impactStatus = IMPACT_ZONE_STATUS.UNKNOWN,
     originEN = [0, 0],
-    halfExtentMeters = 2000
+    halfExtentMeters = 2000,
+    officialShelters = []
   }) {
     const osmNodes = new Map();
     for (const el of elements) {
@@ -745,6 +1055,25 @@ export class FacilityProvider {
     }
 
     const rawCandidates = [];
+
+    // 1. Official Government API Designated Shelters (when provided by live /api/shelters)
+    for (const sh of (officialShelters || [])) {
+      if (!Number.isFinite(sh?.lat) || !Number.isFinite(sh?.lon)) continue;
+      const [e, n] = projectLatLonToEN(sh.lat, sh.lon, anchorLat, anchorLon);
+      if (Math.abs(e) > halfExtentMeters || Math.abs(n) > halfExtentMeters) continue;
+      rawCandidates.push({
+        id: sh.officialId || sh.id || `MOIS_${rawCandidates.length}`,
+        name: sh.name || '공식 지진옥외대피장소',
+        east_m: Number(e.toFixed(2)),
+        north_m: Number(n.toFixed(2)),
+        areaSqMeters: Number.isFinite(sh.areaSqMeters) ? sh.areaSqMeters : null,
+        capacityOverride: Number.isFinite(sh.capacityEstimate) ? sh.capacityEstimate : null,
+        isOsmAssemblyTagged: true,
+        isOfficialDesignated: true,
+        sourceName: sh.sourceName || '행정안전부 지진옥외대피장소 공식 DB',
+        address: sh.address || null
+      });
+    }
 
     for (const el of elements) {
       const tags = el.tags || {};
@@ -863,47 +1192,63 @@ export class FacilityProvider {
       const distPenalty = linearDistMeters * 0.03;
       const status = !graphConnected
         ? CANDIDATE_STATUS.UNAVAILABLE
-        : CANDIDATE_STATUS.CONDITIONAL; // OSM-only data lacks live open confirmation -> strictly CONDITIONAL
+        : (c.isOfficialDesignated ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
 
       const y = sampleGridHeightAt(terrainGrid, c.east_m, c.north_m);
       const dimensions = Object.freeze({
-        officialDesignation: 'UNCONFIRMED_IN_PUBLIC_SHELTER_API (공식 대피소 API 미연동)',
+        officialDesignation: c.isOfficialDesignated
+          ? `OFFICIAL_DESIGNATED (${c.sourceName || '행정안전부 지진옥외대피장소'})`
+          : 'UNCONFIRMED_IN_PUBLIC_SHELTER_API (공식 대피소 API 미연동)',
         facilityExists: true,
-        openStatus: 'UNKNOWN (개방 여부 현장 확인 필요)',
+        openStatus: c.isOfficialDesignated
+          ? 'UNVERIFIED_IN_DISASTER (공식 지정 확인 · 재난 당시 개방 현장 확인)'
+          : 'UNKNOWN (개방 여부 현장 확인 필요)',
         distanceMeters: linearDistMeters,
         graphConnected,
         snapDistanceMeters: Number.isFinite(snapDistMeters) ? Math.round(snapDistMeters) : null,
         clearanceRadiusMeters: Math.round(clearanceMeters),
         waterProximityCaution: nearWater,
         seismicImpactStatus: impactStatus,
-        confidenceLabel: c.isOsmAssemblyTagged ? 'MEDIUM (OSM 집결지 태그)' : 'LOW_TO_MEDIUM (개활지 추출)'
+        confidenceLabel: c.isOfficialDesignated
+          ? 'HIGH (행정안전부 공식 지정 DB · 개방 현장 확인)'
+          : (c.isOsmAssemblyTagged ? 'MEDIUM (OSM 집결지 태그)' : 'LOW_TO_MEDIUM (개활지 추출)')
       });
 
-      const selectionReason = graphConnected
-        ? `보행망으로 연결 가능한 ${c.areaSqMeters ? `면적 약 ${c.areaSqMeters.toLocaleString()}㎡ ` : ''}개활 후보(이격 ${Math.round(clearanceMeters)}m)입니다. 단, 공식 대피소 지정 여부 및 개방 상태는 현장 확인이 필요한 조건부(CONDITIONAL) 후보입니다.`
-        : '후보 공간은 존재하나 출발 지점으로부터 연결된 보행 네트워크가 확인되지 않았습니다.';
+      const selectionReason = c.isOfficialDesignated
+        ? (graphConnected
+            ? `${c.sourceName || '행정안전부 공식 지정'} 대피장소로 확인되었으며 보행망 연결이 가능합니다. 재난 당시 개방 상태는 현장 확인이 필요합니다.`
+            : `${c.sourceName || '행정안전부 공식 지정'} 대피장소이나 출발 지점과 연결되는 보행 네트워크가 확인되지 않았습니다.`)
+        : (graphConnected
+            ? `보행망으로 연결 가능한 ${c.areaSqMeters ? `면적 약 ${c.areaSqMeters.toLocaleString()}㎡ ` : ''}개활 후보(이격 ${Math.round(clearanceMeters)}m)입니다. 단, 공식 대피소 지정 여부 및 개방 상태는 현장 확인이 필요한 조건부(CONDITIONAL) 후보입니다.`
+            : '후보 공간은 존재하나 출발 지점으로부터 연결된 보행 네트워크가 확인되지 않았습니다.');
 
       evaluated.push({
         id: c.id,
         name: c.name,
-        facilityType: c.facilityType,
+        facilityType: c.facilityType || (c.isOfficialDesignated ? 'OFFICIAL_SHELTER' : 'OPEN_SPACE'),
         category: evaluated.length === 0 ? 'PRIMARY_SHELTER' : 'REGIONAL_SHELTER',
         candidateStatus: status,
-        subtitle: `${c.isOsmAssemblyTagged ? 'OSM 집결지(미검증)' : '개활 후보(공식아님)'} · ${linearDistMeters}m`,
+        subtitle: c.isOfficialDesignated
+          ? `공식 대피소(개방 현장확인) · ${linearDistMeters}m`
+          : `${c.isOsmAssemblyTagged ? 'OSM 집결지(미검증)' : '개활 후보(공식아님)'} · ${linearDistMeters}m`,
         positionThree: [Number(c.east_m.toFixed(2)), Number(y.toFixed(2)), Number((-c.north_m).toFixed(2))],
         east_m: c.east_m,
         north_m: c.north_m,
-        priority: Math.max(10, Math.round((graphConnected ? 65 : 15) + (c.isOsmAssemblyTagged ? 20 : 0) + Math.min(20, clearanceMeters * 0.5) - distPenalty)),
-        provenance: VERIFICATION_STATUS.PROVISIONAL,
-        provenanceLabel: c.isOsmAssemblyTagged ? 'OSM 집결지 태그 (공식 API 미확인)' : 'OSM 개활 공터 후보 (공식 대피소 아님)',
+        priority: Math.max(10, Math.round((graphConnected ? 65 : 15) + (c.isOfficialDesignated ? 35 : 0) + (c.isOsmAssemblyTagged ? 20 : 0) + Math.min(20, clearanceMeters * 0.5) - distPenalty)),
+        provenance: c.isOfficialDesignated ? VERIFICATION_STATUS.VERIFIED : VERIFICATION_STATUS.PROVISIONAL,
+        provenanceLabel: c.isOfficialDesignated
+          ? '행정안전부 공식 지정 대피장소 (현장 개방 별도 확인)'
+          : (c.isOsmAssemblyTagged ? 'OSM 집결지 태그 (공식 API 미확인)' : 'OSM 개활 공터 후보 (공식 대피소 아님)'),
         dimensions,
         justification: {
           id: c.id,
           candidateStatus: status,
           areaSqMeters: c.areaSqMeters,
-          capacityEstimate: c.areaSqMeters ? Math.round((c.areaSqMeters * 0.45) / 1.65) : null,
+          capacityEstimate: c.capacityOverride ?? (c.areaSqMeters ? Math.round((c.areaSqMeters * 0.45) / 1.65) : null),
           clearanceRadiusMeters: Math.round(clearanceMeters),
-          provenanceLabel: c.isOsmAssemblyTagged ? 'OSM 집결지 태그 · 개방 미확인' : '개활지·운동장 추출 (공식 대피소 지정 미확인)',
+          provenanceLabel: c.isOfficialDesignated
+            ? '공식 지진옥외대피장소 지정 확인 · 개방 현장 확인 필요'
+            : (c.isOsmAssemblyTagged ? 'OSM 집결지 태그 · 개방 미확인' : '개활지·운동장 추출 (공식 대피소 지정 미확인)'),
           selectionReason,
           hazardCaveat: nearWater
             ? '인접 하천 수계(45m 이내)가 탐지되어 여진·제방 위험을 우선 점검해야 합니다.'
@@ -922,20 +1267,25 @@ export class FacilityProvider {
       if (deduped.length >= 6) break;
     }
 
+    const confirmedCount = deduped.filter(c => c.candidateStatus === CANDIDATE_STATUS.CONFIRMED).length;
     const reachableCount = deduped.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE).length;
-    const overallStatus = reachableCount > 0
-      ? CANDIDATE_STATUS.CONDITIONAL
-      : (walkGraph.nodes.length === 0 ? CANDIDATE_STATUS.UNKNOWN : CANDIDATE_STATUS.UNAVAILABLE);
+    const overallStatus = confirmedCount > 0
+      ? CANDIDATE_STATUS.CONFIRMED
+      : (reachableCount > 0
+        ? CANDIDATE_STATUS.CONDITIONAL
+        : (walkGraph.nodes.length === 0 ? CANDIDATE_STATUS.UNKNOWN : CANDIDATE_STATUS.UNAVAILABLE));
 
     return {
       candidates: deduped,
       primaryCandidate: deduped.find(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE) || null,
       overallStatus,
-      limitations: overallStatus === CANDIDATE_STATUS.UNKNOWN
-        ? '주변 보행로 및 시설 공간 데이터가 부족하여 목적지를 판단할 수 없습니다.'
-        : overallStatus === CANDIDATE_STATUS.UNAVAILABLE
-          ? '확인 가능한 접근 가능 대피 후보가 없거나 보행 네트워크가 연결되지 않았습니다.'
-          : '추출된 후보는 개방 상태 및 공식 지진대피소 지정 여부가 미확인된 조건부(CONDITIONAL) 대안입니다.'
+      limitations: confirmedCount > 0
+        ? '공식 지진옥외대피장소 지정 정보는 확인되었으나, 지진 발생 시 실제 개방 여부와 도로 통행 안전은 별개입니다.'
+        : overallStatus === CANDIDATE_STATUS.UNKNOWN
+          ? '주변 보행로 및 시설 공간 데이터가 부족하여 목적지를 판단할 수 없습니다.'
+          : overallStatus === CANDIDATE_STATUS.UNAVAILABLE
+            ? '확인 가능한 접근 가능 대피 후보가 없거나 보행 네트워크가 연결되지 않았습니다.'
+            : '추출된 후보는 개방 상태 및 공식 지진대피소 지정 여부가 미확인된 조건부(CONDITIONAL) 대안입니다.'
     };
   }
 }

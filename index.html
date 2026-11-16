@@ -3,11 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <title>SEISMOLIVE v4.0 — The Continuous Living Earth</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual">
+  <meta name="theme-color" content="#05080f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="css/theme.css?v=5.5">
-  <link rel="stylesheet" href="css/surface.css?v=5.5">
-  <link rel="stylesheet" href="css/evacuation.css?v=6.0">
+  <link rel="stylesheet" href="css/theme.css?v=6.1">
+  <link rel="stylesheet" href="css/surface.css?v=6.1">
+  <link rel="stylesheet" href="css/evacuation.css?v=6.1">
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -18,27 +23,29 @@
     <div class="gallery-sub" id="gallery-event-title">한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)</div>
   </div>
 
-  <!-- Top-Right Restrained Earth Dock: Main-Globe-Only 3D Evacuation Lab + Quality Toggle -->
+  <!-- Top-Right Restrained Earth Dock: Main-Globe-Only Location-Aware Response + Quality Toggle -->
   <div id="top-right-earth-dock">
     <div id="dev-lab-global-wrap">
-      <button id="btn-dev-lab-global" class="global-evac-trigger-btn" title="지구 궤도에서 한반도 3D 지진·대피 공간으로 연속 비행 전환 (메인 지구본 전용)" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
+      <button id="btn-dev-lab-global" class="global-evac-trigger-btn" title="지구 궤도에서 현재 위치 또는 지정 지역의 3D 지진 영향·대응 공간으로 진입 (메인 지구본 전용)" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
         <span class="evac-dot"></span>
-        <span>3D 지진 대피 · 실험실 ▾</span>
+        <span>내 위치 · 지역 대응 ▾</span>
       </button>
       <div id="global-dev-lab-menu">
-        <span class="global-menu-eyebrow">Earth-to-City · 전국 3D 대피</span>
-        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="우주 궤도에서 지역 기반 3D 지진·대피 공간으로 연속 비행 진입" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'seoul_hanyang', withFlight: true })">
-          <strong>위치 기반 3D 지진 대응 · 서울 ▸</strong>
-          <small>실측 도시/지역 공간 진입 → 시나리오 판단 → 대피 안내</small>
+        <span class="global-menu-eyebrow">GLOBAL TO LOCAL · 실시간 지역 대응</span>
+        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="브라우저 현재 위치를 확인하여 가장 가까운/최근 지진 영향과 주변 대피 동선을 분석합니다" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'MY_LOCATION' })">
+          <strong>내 위치 기준 분석 (GPS) ▸</strong>
+          <small>현재 위치 기반 자동 시나리오 · 주변 대피 공간 조회</small>
+        </button>
+        <button id="btn-free-mode-local" class="global-menu-item" title="GPS 없이 전국 행정구역·좌표·지도를 직접 선택해 분석합니다 (실제 위치가 아님을 명확히 표시)" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE' })">
+          <strong>관심 지역 직접 선택 (자유 모드) ▸</strong>
+          <small>시·군·구 검색 또는 좌표 지정으로 임의 지역 탐색</small>
         </button>
         <div class="global-menu-subrow">
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'sokcho', lat: 38.2070, lon: 128.5918, name: '강원 속초 · 청초·교동 연안 도심', shortName: '속초 도심', withFlight: true })">속초 도심</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 도심', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'pohang', lat: 36.1086, lon: 129.3490, name: '경북 포항 · 흥해·중앙 지구', shortName: '포항 흥해권', eventId: 'hist_2017_pohang', withFlight: true })">포항 M5.4</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'sokcho', lat: 38.2070, lon: 128.5918, name: '강원 속초 · 청초·교동 연안 도심', shortName: '속초 도심', withFlight: true })">속초 도심</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 M5.8', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'pohang', lat: 36.1086, lon: 129.3490, name: '경북 포항 · 흥해·중앙 지구', shortName: '포항 M5.4', eventId: 'hist_2017_pohang', withFlight: true })">포항 M5.4</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ entryMode: 'FREE_MODE', regionId: 'seoul_seongdong', lat: 37.5596, lon: 127.0410, name: '서울 성동 · 사근·행당 도심', shortName: '서울 성동', withFlight: true })">서울 성동</button>
         </div>
-        <button id="btn-lab-open-campus" class="global-menu-item" title="독립 3D 대피 안내 페이지로 열기" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
-          <span>독립 3D 대피 뷰어 ↗</span>
-        </button>
       </div>
     </div>
 
@@ -307,9 +314,12 @@
           <input type="checkbox" id="chk-auto-continue" />
           <span>재생 완료 후 다음 사건 자동 연속</span>
         </label>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <button id="btn-launch-performance" class="surface-btn primary large">
             현장 강하 및 3D 시각화 재생 시작 →
+          </button>
+          <button id="btn-selected-local-response" class="surface-btn large" title="이 지진 사건을 현재 위치 또는 선택한 지역 기준 3D 대응 공간으로 이어서 봅니다">
+            내 위치 · 지역 대응 보기 ▸
           </button>
         </div>
       </div>
@@ -342,6 +352,9 @@
       </div>
 
       <div class="transport-exit">
+        <button id="btn-perf-local-response" class="surface-btn compact" title="이 지진이 현재 위치 또는 진앙 주변 지역에 미치는 영향·대응을 3D 로컬 공간에서 봅니다" style="border-color:rgba(234,230,223,0.34); color:var(--hanji);">
+          지역 대응 ▸
+        </button>
         <button id="btn-transport-immersive" class="surface-btn secondary compact" title="컨트롤 바 숨김 및 몰입형 전시 감상 [H]">
           감상 [H]
         </button>

@@ -7,6 +7,8 @@ import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../da
 import { computeTsunamiHydrodynamicParams } from '../geophysics/TravelTimeSolvers.js';
 import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, generateTsunamiBathymetrySVG } from './GeophysicsFolioView.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
+import { extractOfficialUsgsProducts } from '../data/UsgsOfficialProductsBridge.js';
+import { liveSeismicDataService } from '../data/LiveSeismicDataService.js';
 import { exhibitionAppContext } from './ExhibitionAppContext.js';
 
 const BENCHMARK_CATALOGS = {
@@ -175,6 +177,39 @@ export class UnifiedControlSurface {
       }
       togglePlayPause() {
         this.isPlaying = !this.isPlaying;
+      }
+
+      async _handoffToLocalResponse(rawEvent) {
+        if (!rawEvent) return null;
+        const evId = String(rawEvent.id || rawEvent.eventId || '');
+        const allReg = this.appContext?.getAllEvents ? this.appContext.getAllEvents() : [];
+        const canonical = allReg.find(e => e.id === evId || e.eventId === evId) || rawEvent;
+        const coords = getEventCoords(canonical);
+        const enriched = {
+          ...canonical,
+          eventId: canonical.eventId || canonical.id || evId,
+          lat: canonical.lat ?? coords?.lat ?? null,
+          lon: canonical.lon ?? coords?.lon ?? null
+        };
+
+        // Best-effort non-blocking fetch of USGS official products (ShakeMap / OAF / StationList) when detail URL exists; preserve null on failure
+        if (enriched.usgsDetailUrl && (!enriched.officialProducts || !enriched.officialProducts.stations)) {
+          try {
+            const products = await liveSeismicDataService.fetchOfficialEventProducts(
+              enriched,
+              Number.isFinite(enriched.lat) && Number.isFinite(enriched.lon) ? { lat: enriched.lat, lon: enriched.lon } : null,
+              { timeoutMs: 2600 }
+            );
+            if (products) {
+              enriched.officialProducts = products;
+              if (products.detailJson) enriched.usgsDetailJson = products.detailJson;
+            }
+          } catch (_) {
+            enriched.officialProducts = enriched.officialProducts || null;
+          }
+        }
+
+        return this.appContext.handoffEventToLocalResponse(enriched, { withFlight: false });
       }
 
       async selectEvent(eventData) {
@@ -405,6 +440,16 @@ export class UnifiedControlSurface {
           });
         }
 
+        const btnSelectedLocal = document.getElementById('btn-selected-local-response');
+        if (btnSelectedLocal) {
+          btnSelectedLocal.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const targetEv = this.selectedEvent || this.appContext.currentParsedEvent;
+            if (!targetEv) return;
+            await this._handoffToLocalResponse(targetEv);
+          });
+        }
+
         // Dossier Sub-Tabs (Corpus / T-X / Network)
         const dossierTabBtns = document.querySelectorAll('.dossier-tab-btn');
         dossierTabBtns.forEach(btn => {
@@ -431,6 +476,16 @@ export class UnifiedControlSurface {
             e.stopPropagation();
             this.previousState = 'PERFORMANCE';
             this.setState('SELECTED', this.selectedEvent || this.appContext.currentParsedEvent);
+          });
+        }
+
+        const btnPerfLocal = document.getElementById('btn-perf-local-response');
+        if (btnPerfLocal) {
+          btnPerfLocal.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const targetEv = this.selectedEvent || this.appContext.currentParsedEvent;
+            if (!targetEv) return;
+            await this._handoffToLocalResponse(targetEv);
           });
         }
         const btnPlayPause = document.getElementById('btn-transport-play-pause');
@@ -1628,30 +1683,50 @@ export class UnifiedControlSurface {
           maxSlip = `~${(Math.pow(10, 0.5 * mag - 2.5)).toFixed(2)} m (스케일링 모델)`;
           focalMech = "CMT 모멘트 텐서 주향이동/역단층 복합";
           momentStr = `${estM0} N·m (Mw ${mag.toFixed(1)})`;
-          eventNarrative = `USGS NEIC 실시간 텔레메트리 관측망에 포착된 규모 M ${mag.toFixed(1)} 지진입니다. 글로벌 브로드밴드 지진망(GSN)의 P파 및 S파 초동 위상 분석을 통해 진앙 좌표와 모멘트 텐서 역산이 실시간 수행되었습니다.`;
-          noteNarrative = "진앙 인근 글로벌 관측소의 최대지반가속도(PGA)와 지반 진동 응답 스펙트럼(SA)을 기반으로 광역 진도 맵(USGS ShakeMap)이 연속 생성됩니다.";
-          stations = [
-            { code: "GSN Station A", dist: "25 km", pga: `${(0.08 * Math.pow(1.5, mag - 5)).toFixed(2)} g`, pgaCms: `${Math.round(80 * Math.pow(1.5, mag - 5))} cm/s²`, comps: "3-Component Broadband", site: "기반암 관측소 (Vs30 ≈ 760 m/s)" },
-            { code: "GSN Station B", dist: "85 km", pga: `${(0.02 * Math.pow(1.5, mag - 5)).toFixed(2)} g`, pgaCms: `${Math.round(20 * Math.pow(1.5, mag - 5))} cm/s²`, comps: "3-Component Broadband", site: "충적 퇴적층 (Vs30 ≈ 360 m/s)" },
-            { code: "GEOFON Network C", dist: "160 km", pga: `${(0.006 * Math.pow(1.5, mag - 5)).toFixed(3)} g`, pgaCms: `${Math.round(6 * Math.pow(1.5, mag - 5))} cm/s²`, comps: "3-Component Broadband", site: "원거리 관측소" }
-          ];
-          obsSource = "USGS GSN / GEOFON 글로벌 광대역 실시간 텔레메트리";
-          invSource = "USGS W-phase 고속 모멘트 텐서 솔루션";
+          eventNarrative = `USGS NEIC 실시간 텔레메트리 관측망에 포착된 규모 ${Number.isFinite(mag) ? `M ${mag.toFixed(1)}` : '미상'} 지진입니다. 글로벌 브로드밴드 지진망(GSN)의 P파 및 S파 초동 위상 분석을 통해 진앙 좌표와 모멘트 텐서가 산정되었습니다.`;
+          const liveStations = Array.isArray(ev.officialProducts?.stations) ? ev.officialProducts.stations : [];
+          if (liveStations.length > 0) {
+            stations = liveStations.slice(0, 6).map(st => ({
+              code: `${st.network || 'GSN'} ${st.code}`,
+              dist: Number.isFinite(st.distanceKm) ? `${st.distanceKm} km` : '미상',
+              pga: st.pga_g !== null ? `${st.pga_g.toFixed(3)} g` : '미계측',
+              pgaCms: st.pgaCms !== null ? `${st.pgaCms} cm/s²` : '-',
+              comps: Number.isFinite(st.pgvCms) ? `PGV ${st.pgvCms.toFixed(1)} cm/s` : 'USGS ShakeMap Station',
+              site: Number.isFinite(st.vs30) ? `Vs30 ≈ ${st.vs30} m/s` : '부지 Vs30 미상'
+            }));
+            noteNarrative = "USGS 공식 ShakeMap StationList에서 수신된 실측 관측소 최대지반가속도(PGA)입니다.";
+            obsSource = "USGS 실시간 ShakeMap StationList 실측 강진 관측소 목록";
+          } else {
+            stations = [];
+            noteNarrative = "개별 관측소 PGA 실측치는 USGS 상세 제품(ShakeMap · StationList)이 제공될 때만 표시되며, 미수신 시 추정 가속도로 대체하지 않습니다.";
+            obsSource = "USGS GSN / 글로벌 실시간 카탈로그 피드 (상세 관측소 표 미포함 시 공백 유지)";
+          }
+          invSource = "USGS NEIC 이벤트 메타데이터";
           modSource = "AK135 / PREM 글로벌 표준 지구 모델";
         }
 
         let tableRowsHtml = "";
-        stations.forEach(s => {
-          tableRowsHtml += `
+        if (stations.length === 0) {
+          tableRowsHtml = `
             <tr>
-              <td><span style="font-weight:600; color:var(--hanji);">${s.code}</span></td>
-              <td>${s.dist}</td>
-              <td><span class="pga-val-highlight">${s.pga}</span> <span style="font-size:9.5px; color:var(--mist);">(${s.pgaCms})</span></td>
-              <td><span style="font-size:9.5px; color:var(--hanji-muted);">${s.comps}</span></td>
-              <td><span style="font-size:9.5px; color:var(--mist);">${s.site}</span></td>
+              <td colspan="5" style="color:var(--mist); font-size:10.5px; text-align:center; padding:12px 8px;">
+                실측 관측소 PGA 목록이 이 요약 레코드에 포함되어 있지 않습니다. (임의 추정 PGA 생성 안 함 · 지역 대응 화면에서 USGS ShakeMap 제품 여부 확인)
+              </td>
             </tr>
           `;
-        });
+        } else {
+          stations.forEach(s => {
+            tableRowsHtml += `
+              <tr>
+                <td><span style="font-weight:600; color:var(--hanji);">${s.code}</span></td>
+                <td>${s.dist}</td>
+                <td><span class="pga-val-highlight">${s.pga}</span> <span style="font-size:9.5px; color:var(--mist);">(${s.pgaCms})</span></td>
+                <td><span style="font-size:9.5px; color:var(--hanji-muted);">${s.comps}</span></td>
+                <td><span style="font-size:9.5px; color:var(--mist);">${s.site}</span></td>
+              </tr>
+            `;
+          });
+        }
 
         container.innerHTML = `
           <div class="editorial-section">

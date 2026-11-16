@@ -98,6 +98,9 @@ export function adaptUSGSFeature(f) {
     recordType: 'usgs-live',
     sourceName: '미국지질조사국(USGS) 글로벌 지진 관측망',
     verification: 'usgs-official',
+    usgsDetailUrl: p.detail || null,
+    usgsEventUrl: p.url || null,
+    occurredAtMs: isValidNumber(p.time) ? p.time : null,
     kind: 'instrumental-global',
     place: place,
     titleKo: `[글로벌] ${place} (M${mag.toFixed(1)})`,
@@ -222,4 +225,74 @@ export function buildUnifiedMasterCatalog(historicalEvents = [], instrumentalEve
   addList(usgsEvents);
 
   return master;
+}
+
+function _getEventCoordVal(v) {
+  if (v && typeof v === 'object' && 'v' in v) return v.v;
+  return v ?? null;
+}
+
+function _haversineKmSafe(lat1, lon1, lat2, lon2) {
+  if (![lat1, lon1, lat2, lon2].every(Number.isFinite)) return Infinity;
+  const r = Math.PI / 180;
+  const dp = (lat2 - lat1) * r;
+  const dl = (lon2 - lon1) * r;
+  const a = Math.sin(dp * 0.5) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(dl * 0.5) ** 2;
+  return 6371.0 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+}
+
+/**
+ * Conservatively associate potential cross-agency duplicates (e.g. KMA local + USGS global)
+ * without blindly overwriting uncertain differences in origin time, location, or magnitude.
+ */
+export function mergeCatalogWithUncertaintyPreservation(kmaOrLocalEvents = [], usgsEvents = []) {
+  const out = [...kmaOrLocalEvents.map(ev => ({ ...ev, alternateAgencyRecords: ev.alternateAgencyRecords || [] }))];
+
+  for (const uEv of (usgsEvents || [])) {
+    const uTime = uEv.occurredAtMs ?? (typeof _getEventCoordVal(uEv.time) === 'number' ? _getEventCoordVal(uEv.time) : null);
+    const uLat = _getEventCoordVal(uEv.lat);
+    const uLon = _getEventCoordVal(uEv.lon);
+    const uMag = _getEventCoordVal(uEv.mag);
+
+    const exactIdMatch = out.find(e => (e.id || e.eventId) === (uEv.id || uEv.eventId));
+    if (exactIdMatch) continue;
+
+    let uncertainMatch = null;
+    for (const localEv of out) {
+      const lTime = localEv.occurredAtMs ?? (typeof _getEventCoordVal(localEv.time) === 'number' ? _getEventCoordVal(localEv.time) : null);
+      const lLat = _getEventCoordVal(localEv.lat);
+      const lLon = _getEventCoordVal(localEv.lon);
+      const lMag = _getEventCoordVal(localEv.mag);
+
+      if (uTime === null || lTime === null) continue;
+      const dtSec = Math.abs(uTime - lTime) / 1000;
+      const distKm = _haversineKmSafe(lLat, lLon, uLat, uLon);
+      const dMag = (Number.isFinite(lMag) && Number.isFinite(uMag)) ? Math.abs(lMag - uMag) : 0;
+
+      // Flag potential same earthquake strictly under narrow window, preserving both original records
+      if (dtSec <= 90 && distKm <= 35 && dMag <= 0.7) {
+        uncertainMatch = { localEv, dtSec, distKm, dMag };
+        break;
+      }
+    }
+
+    if (uncertainMatch) {
+      uncertainMatch.localEv.alternateAgencyRecords = [
+        ...uncertainMatch.localEv.alternateAgencyRecords,
+        {
+          eventId: uEv.id || uEv.eventId,
+          sourceName: uEv.sourceName || 'USGS',
+          lat: uLat,
+          lon: uLon,
+          mag: uMag,
+          deltaKm: Number(uncertainMatch.distKm.toFixed(1)),
+          deltaSec: Math.round(uncertainMatch.dtSec),
+          matchConfidence: 'UNCERTAIN_CROSS_AGENCY_LINK'
+        }
+      ];
+    } else {
+      out.push({ ...uEv, alternateAgencyRecords: [] });
+    }
+  }
+  return out;
 }

@@ -78,7 +78,7 @@ export class ResponseUIAdapter {
         hasAftershock: false,
         reportedFireOrSmoke: false,
         reportedGasLeak: false,
-        pga_g: 0.0
+        pga_g: options.initialStation?.pga_g ?? null
       },
       user: {
         locationType: hasIndoorData ? 'INDOOR' : 'OUTDOOR',
@@ -101,11 +101,7 @@ export class ResponseUIAdapter {
         facilityName: meta.name || null
       },
       sources: {
-        station: {
-          timestamp: Date.now(),
-          pga_g: 0.08,
-          distanceKm: 8.4
-        },
+        station: options.initialStation || null,
         official: null,
         userReports: []
       }
@@ -356,22 +352,33 @@ export class ResponseUIAdapter {
     return this.reportHazard(hazardType, false);
   }
 
+  clearStationTelemetry() {
+    this.context.disaster.pga_g = null;
+    this.context.disaster.isShakingActive = false;
+    this.context.sources.station = null;
+    return this.reassess();
+  }
+
   /**
    * Ingest ground station motion telemetry or simulation scenario event.
    *
-   * @param {number} pga - Peak Ground Acceleration in g
+   * @param {number|null} pga - Peak Ground Acceleration in g (null when station telemetry unavailable)
    * @param {number} [timestamp=Date.now()]
    * @param {string} [provenance=DATA_PROVENANCE_SOURCE.OBSERVED_STATION] - OBSERVED_STATION | SIMULATED_SCENARIO
+   * @param {Object} [stationMeta] - Optional station distance / metadata
    */
-  updateStationMotion(pga, timestamp = Date.now(), provenance = DATA_PROVENANCE_SOURCE.OBSERVED_STATION) {
+  updateStationMotion(pga, timestamp = Date.now(), provenance = DATA_PROVENANCE_SOURCE.OBSERVED_STATION, stationMeta = {}) {
     this.context.timestamp = timestamp;
+    if (pga === null || pga === undefined || !Number.isFinite(pga)) {
+      return this.clearStationTelemetry();
+    }
     this.context.disaster.pga_g = pga;
     this.context.disaster.isShakingActive = isProtectiveShakingOnset(pga);
 
     this.context.sources.station = {
       timestamp,
       pga_g: pga,
-      distanceKm: 8.4,
+      distanceKm: Number.isFinite(stationMeta.distanceKm) ? stationMeta.distanceKm : null,
       provenanceType: provenance,
       note: provenance === DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO
         ? '시연 및 훈련 목적의 가상 시나리오 입력치 (DEMO SIMULATION)'

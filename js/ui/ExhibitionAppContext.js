@@ -43,7 +43,7 @@ export class ExhibitionAppContext {
 
   registerHandlers(handlers = {}) {
     Object.entries(handlers).forEach(([k, fn]) => {
-      if (k in this._handlers && typeof fn === 'function') {
+      if ((k in this._handlers || k === 'enterInSceneLocalResponse') && typeof fn === 'function') {
         this._handlers[k] = fn;
       }
     });
@@ -144,6 +144,66 @@ export class ExhibitionAppContext {
     if (typeof window !== 'undefined' && typeof window.setGeophysics3DProbe === 'function') {
       return window.setGeophysics3DProbe(distKm, xCritKm, xCrossKm);
     }
+  }
+
+  /**
+   * Bind the UnifiedExperienceSession instance owned by the runtime orchestrator.
+   */
+  attachSession(sessionInstance) {
+    this.session = sessionInstance;
+    return this.session;
+  }
+
+  getSession() {
+    return this.session || null;
+  }
+
+  /**
+   * Carry a selected globe earthquake cleanly into Local Response Space.
+   */
+  async handoffEventToLocalResponse(rawEvent, opts = {}) {
+    const handed = this.session ? this.session.setGlobeEventHandoff(rawEvent) : rawEvent;
+    const payload = {
+      ...opts,
+      entryMode: 'FROM_GLOBE_EVENT',
+      handedEvent: handed,
+      eventId: handed?.id || handed?.eventId || rawEvent?.eventId || rawEvent?.id || opts.eventId || null
+    };
+    if (typeof this._handlers.enterInSceneLocalResponse === 'function') {
+      return this._handlers.enterInSceneLocalResponse(payload);
+    }
+    if (typeof window !== 'undefined' && typeof window.enterInSceneLocalResponse === 'function') {
+      return window.enterInSceneLocalResponse(payload);
+    }
+    return payload;
+  }
+
+  async startMyLocationResponse(opts = {}) {
+    if (this.session) {
+      this.session.setEntryMode('MY_LOCATION');
+    }
+    const payload = { ...opts, entryMode: 'MY_LOCATION' };
+    if (typeof this._handlers.enterInSceneLocalResponse === 'function') {
+      return this._handlers.enterInSceneLocalResponse(payload);
+    }
+    if (typeof window !== 'undefined' && typeof window.enterInSceneLocalResponse === 'function') {
+      return window.enterInSceneLocalResponse(payload);
+    }
+    return payload;
+  }
+
+  async startFreeModeResponse(opts = {}) {
+    if (this.session) {
+      this.session.setEntryMode('FREE_MODE');
+    }
+    const payload = { ...opts, entryMode: 'FREE_MODE' };
+    if (typeof this._handlers.enterInSceneLocalResponse === 'function') {
+      return this._handlers.enterInSceneLocalResponse(payload);
+    }
+    if (typeof window !== 'undefined' && typeof window.enterInSceneLocalResponse === 'function') {
+      return window.enterInSceneLocalResponse(payload);
+    }
+    return payload;
   }
 }
 

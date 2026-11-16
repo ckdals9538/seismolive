@@ -2,7 +2,12 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual" />
+  <meta name="theme-color" content="#050912" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="format-detection" content="telephone=no" />
   <title>SEISMOLIVE v4.0 — 지진 대응 3D 보행 대피 안내</title>
   <link rel="icon" href="data:," />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -91,7 +96,12 @@
       mountRoot: hudRoot,
       domElement: renderer.domElement,
       initialTheme,
-      initialEventId: requestedEventId || 'hist_1681_0626',
+      initialEventId: requestedEventId || null,
+      initialRegionId: params.get('region') || null,
+      entryMode: params.get('mode') || null,
+      lat: params.has('lat') ? Number(params.get('lat')) : null,
+      lon: params.has('lon') ? Number(params.get('lon')) : null,
+      devMode: params.get('dev') === '1',
       onReturnToGlobe: () => {
         window.location.href = './index.html';
       }
