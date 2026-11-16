@@ -45,7 +45,7 @@ export async function onRequestGet({ request, ctx }) {
     fetcher: async () => {
       try {
         const detailResp = await fetch(detailUrl, { signal: AbortSignal.timeout(4500) });
-        if (!detailResp.ok) {
+        if (!detailResp.ok || (detailResp.url && !isAllowedUsgsUrl(detailResp.url))) {
           return { status: 200, cacheable: false, body: { ok: false, status: 'DETAIL_UNAVAILABLE' } };
         }
         const detailJson = await detailResp.json();
@@ -57,7 +57,7 @@ export async function onRequestGet({ request, ctx }) {
         if (stationUrl && isAllowedUsgsUrl(stationUrl)) {
           try {
             const stResp = await fetch(stationUrl, { signal: AbortSignal.timeout(4000) });
-            if (stResp.ok) {
+            if (stResp.ok && (!stResp.url || isAllowedUsgsUrl(stResp.url))) {
               const stJson = await stResp.json();
               stationFeatures = Array.isArray(stJson.features) ? stJson.features.slice(0, 24) : null;
             }

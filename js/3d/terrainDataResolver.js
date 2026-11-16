@@ -115,7 +115,7 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
   const timeoutId = setTimeout(() => controller.abort(), 6000);
   try {
     const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
-    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
+    const response = await fetch(fetchUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`Failed to load DEM binary from ${binUrl}: ${response.status} ${response.statusText}`);
@@ -152,7 +152,7 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const fetchUrl = url.includes('?') ? url : `${url}?v=6.0`;
-      const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
+      const response = await fetch(fetchUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`Failed to load global relief binary (${url}): ${response.status}`);
@@ -213,7 +213,7 @@ export async function loadKoreaMacroElevationTexture(THREE, binUrl = 'assets/ter
   const timeoutId = setTimeout(() => controller.abort(), 7000);
   try {
     const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
-    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
+    const response = await fetch(fetchUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`Failed to load Korea macro relief binary: ${response.status}`);

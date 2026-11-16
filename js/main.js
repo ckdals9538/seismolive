@@ -204,24 +204,26 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
 
-    const syncPortraitOrbitFovAndDpr = () => {
+    const handleViewportResize = () => {
       if (!renderer || !camera) return;
-      const w = window.innerWidth;
+      const w = Math.max(1, window.innerWidth);
       const h = Math.max(1, window.innerHeight);
+      camera.aspect = w / h;
       const portraitNarrow = (w <= 640 && (w / h) < 0.78);
       if (typeof flightState !== 'undefined' && flightState === FLIGHT_STATES.ORBIT) {
         const targetFov = portraitNarrow ? 48 : 36;
         if (Math.abs(camera.fov - targetFov) > 0.1) {
           camera.fov = targetFov;
-          camera.updateProjectionMatrix();
         }
       }
+      camera.updateProjectionMatrix();
       if (typeof qualityMode !== 'undefined') {
         const dprCap = (qualityMode === 'CLASSROOM') ? 1.0 : Math.min(window.devicePixelRatio || 1, 2.0);
         renderer.setPixelRatio(dprCap);
       }
+      renderer.setSize(w, h);
     };
-    window.addEventListener('resize', syncPortraitOrbitFovAndDpr);
+    window.addEventListener('resize', handleViewportResize);
     container.appendChild(renderer.domElement);
 
     // Low-spec and mobile WebGL Context Loss Recovery
@@ -1382,9 +1384,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       if (eventMeta.demBinUrl) {
         try {
           const regionalTex = await loadRegionalDEMTexture(THREE, eventMeta.demBinUrl, eventMeta.width, eventMeta.height);
-          if (demTexture && demTexture !== regionalTex) {
-            demTexture.dispose();
-          }
+          // Regional DEM textures are owned & memoized by demTextureCache; do not dispose on event switches
           demTexture = regionalTex;
           currentDemWidth = eventMeta.width;
           currentDemHeight = eventMeta.height;
@@ -1415,10 +1415,14 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (terrainMesh) {
           const segW = (qualityMode === 'CLASSROOM') ? 540 : 900;
           const segH = (qualityMode === 'CLASSROOM') ? 432 : 720;
-          const stagingTerrainGeo = createWGS84CurvedPlaneGeometry(curW, curH, segW, segH, lat0, lon0);
-          const oldTerrainGeo = terrainMesh.geometry;
-          terrainMesh.geometry = stagingTerrainGeo;
-          if (oldTerrainGeo) oldTerrainGeo.dispose();
+          const geoKey = `${curW.toFixed(4)}|${curH.toFixed(4)}|${segW}|${segH}|${lat0.toFixed(4)}|${lon0.toFixed(4)}`;
+          if (terrainMesh.userData.geoKey !== geoKey) {
+            const stagingTerrainGeo = createWGS84CurvedPlaneGeometry(curW, curH, segW, segH, lat0, lon0);
+            const oldTerrainGeo = terrainMesh.geometry;
+            terrainMesh.geometry = stagingTerrainGeo;
+            if (oldTerrainGeo) oldTerrainGeo.dispose();
+            terrainMesh.userData.geoKey = geoKey;
+          }
           terrainMesh.visible = regionalDemReady && (inCloseStage || Boolean(snapCamera));
           terrainMesh.renderOrder = 2;
         }
@@ -2055,6 +2059,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           if (gu.u_faultStrike) gu.u_faultStrike.value = terrainUniforms.u_faultStrike.value;
           if (gu.u_ruptureVelocity) gu.u_ruptureVelocity.value = terrainUniforms.u_ruptureVelocity.value;
           if (gu.u_isFiniteFault) gu.u_isFiniteFault.value = terrainUniforms.u_isFiniteFault.value;
+          if (gu.u_depthUnits) gu.u_depthUnits.value = terrainUniforms.u_depthUnits.value;
+          if (gu.u_regionFade && terrainUniforms.u_regionFade) gu.u_regionFade.value = terrainUniforms.u_regionFade.value;
           if (gu.u_regionActive) gu.u_regionActive.value = (terrainMesh && terrainMesh.visible) ? 1.0 : 0.0;
           if (gu.u_regionCenter) gu.u_regionCenter.value.set(lat0, lon0);
           if (gu.u_regionHalfSize && terrainUniforms.u_physicalSize) {
@@ -2076,6 +2082,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         const newGeo = createWGS84CurvedPlaneGeometry(curW, curH, segW, segH, lat0, lon0);
         const oldGeo = terrainMesh.geometry;
         terrainMesh.geometry = newGeo;
+        terrainMesh.userData.geoKey = `${curW.toFixed(4)}|${curH.toFixed(4)}|${segW}|${segH}|${lat0.toFixed(4)}|${lon0.toFixed(4)}`;
         if (oldGeo) oldGeo.dispose();
       }
       return {
@@ -2392,25 +2399,31 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     window.pauseSimulation = function() { isPlaying = false; };
     window.resumeSimulation = function() { isPlaying = true; };
 
+    // Cached optional DOM readouts (eliminates per-frame getElementById queries)
+    const hudReadoutCache = {
+      timeDisp: document.getElementById('time-display'),
+      timeSlider: document.getElementById('slider-time'),
+      pRadiusDisp: document.getElementById('p-radius-display'),
+      sRadiusDisp: document.getElementById('s-radius-display'),
+      fpsLabel: document.getElementById('fps-label')
+    };
+
     // Update Wave Displays & Dynamic Lifecycle for Reformed Memories
     function updateWaveDisplays() {
       if (controlSurface && controlSurface.currentState === 'PERFORMANCE') {
         controlSurface.updatePerformanceTime(simTime, currentMaxSimTime);
       }
 
-      const tDisp = document.getElementById('time-display');
-      if (tDisp) tDisp.textContent = `t +${simTime.toFixed(2)}s`;
-      const tSlider = document.getElementById('slider-time');
-      if (tSlider) tSlider.value = simTime;
+      if (hudReadoutCache.timeDisp) hudReadoutCache.timeDisp.textContent = `t +${simTime.toFixed(2)}s`;
+      if (hudReadoutCache.timeSlider) hudReadoutCache.timeSlider.value = simTime;
 
-      const depthKm = paramFocalDepthKm;
-      const pSurfRadiusKm = Math.sqrt(Math.max(0.0, Math.pow(simTime * V_P_KM_S, 2.0) - depthKm * depthKm));
-      const sSurfRadiusKm = Math.sqrt(Math.max(0.0, Math.pow(simTime * V_S_KM_S, 2.0) - depthKm * depthKm));
-
-      const pRadiusDisp = document.getElementById('p-radius-display');
-      if (pRadiusDisp) pRadiusDisp.textContent = (simTime * V_P_KM_S >= depthKm) ? `${pSurfRadiusKm.toFixed(1)} km` : `Emerging...`;
-      const sRadiusDisp = document.getElementById('s-radius-display');
-      if (sRadiusDisp) sRadiusDisp.textContent = (simTime * V_S_KM_S >= depthKm) ? `${sSurfRadiusKm.toFixed(1)} km` : `Emerging...`;
+      if (hudReadoutCache.pRadiusDisp || hudReadoutCache.sRadiusDisp) {
+        const depthKm = paramFocalDepthKm;
+        const pSurfRadiusKm = Math.sqrt(Math.max(0.0, Math.pow(simTime * V_P_KM_S, 2.0) - depthKm * depthKm));
+        const sSurfRadiusKm = Math.sqrt(Math.max(0.0, Math.pow(simTime * V_S_KM_S, 2.0) - depthKm * depthKm));
+        if (hudReadoutCache.pRadiusDisp) hudReadoutCache.pRadiusDisp.textContent = (simTime * V_P_KM_S >= depthKm) ? `${pSurfRadiusKm.toFixed(1)} km` : `Emerging...`;
+        if (hudReadoutCache.sRadiusDisp) hudReadoutCache.sRadiusDisp.textContent = (simTime * V_S_KM_S >= depthKm) ? `${sSurfRadiusKm.toFixed(1)} km` : `Emerging...`;
+      }
 
       terrainUniforms.u_simTime.value = simTime;
       waterMat.uniforms.u_simTime.value = simTime;
@@ -2909,29 +2922,36 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     function animate(now) {
       requestAnimationFrame(animate);
 
-      const delta = (now - lastClock) * 0.001;
+      const rawDelta = Math.max(0.0, (now - lastClock) * 0.001);
       lastClock = now;
+      const flightDelta = Math.min(rawDelta, 0.5);
+      const delta = Math.min(rawDelta, 0.15);
 
       frameCount++;
-      const currentFps = 1.0 / Math.max(0.001, delta);
-      fpsHistory.push(currentFps);
-      if (fpsHistory.length > 30) fpsHistory.shift();
+      const currentFps = 1.0 / Math.max(0.001, rawDelta);
+      if (fpsHistory.length < 30) {
+        fpsHistory.push(currentFps);
+      } else {
+        fpsHistory[frameCount % 30] = currentFps;
+      }
 
-      if (frameCount % 20 === 0) {
-        const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
-        const fpsLabel = document.getElementById('fps-label');
-        if (fpsLabel) fpsLabel.textContent = `${avgFps.toFixed(1)} FPS (WebGL2 ANGLE Metal)`;
+      if (frameCount % 20 === 0 && hudReadoutCache.fpsLabel) {
+        let sumFps = 0;
+        for (let fi = 0; fi < fpsHistory.length; fi++) sumFps += fpsHistory[fi];
+        hudReadoutCache.fpsLabel.textContent = `${(sumFps / fpsHistory.length).toFixed(1)} FPS (WebGL2 ANGLE Metal)`;
       }
 
       // Single-Canvas Stage R4 Mode Branch (avoids scale collision between 100km globe and 1m local ENU space)
       if (exhibitionModeManager && exhibitionModeManager.isLocalModeActive()) {
-        exhibitionModeManager.update(Math.min(delta, 0.05), now * 0.001);
+        if (!(typeof document !== 'undefined' && document.hidden)) {
+          exhibitionModeManager.update(Math.min(delta, 0.05), now * 0.001);
+        }
         renderer.render(scene, camera);
         return;
       }
 
       // Flight State Machine & Discovery update (hide sibling event beacons when focused on a single quake)
-      updateFlight(delta);
+      updateFlight(flightDelta);
       const isOrbitView = (flightState === FLIGHT_STATES.ORBIT) &&
         controlSurface?.currentState !== 'SELECTED' &&
         controlSurface?.currentState !== 'PERFORMANCE';
@@ -2979,6 +2999,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
 
       if (flightState !== FLIGHT_STATES.DESCEND && flightState !== FLIGHT_STATES.ASCEND) {
+        // Frame-rate-independent damping calibration (60Hz reference = 0.08) so 120Hz ProMotion & low-FPS settle uniformly
+        controls.dampingFactor = 1.0 - Math.pow(0.92, Math.max(0.25, Math.min(4.0, rawDelta * 60.0)));
         controls.update();
       }
 
@@ -3006,12 +3028,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     init();
     requestAnimationFrame(animate);
 
-    // Resize Handler
-    window.addEventListener('resize', () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
+    // Resize handling merged into unified handleViewportResize() above
 
     // Single canonical window.seekToSimulationTime alias already registered above.
 

@@ -250,7 +250,7 @@ export async function loadTerrainMetadataSidecar(demBinUrl) {
     return sidecarCache.get(jsonUrl);
   }
   try {
-    const res = await fetch(jsonUrl, { cache: 'no-cache' });
+    const res = await fetch(jsonUrl);
     if (!res.ok) return null;
     const json = await res.json();
     const physical = computePhysicalUnitsFromBounds(json.bounds);

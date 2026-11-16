@@ -43,6 +43,11 @@ controls.screenSpacePanning = false;
 controls.rotateSpeed = 0.65;
 controls.zoomSpeed = 0.9;
 
+const rawLat = params.has('lat') ? Number(params.get('lat')) : null;
+const rawLon = params.has('lon') ? Number(params.get('lon')) : null;
+const safeLat = (rawLat !== null && Number.isFinite(rawLat) && rawLat >= -90 && rawLat <= 90) ? rawLat : null;
+const safeLon = (rawLon !== null && Number.isFinite(rawLon) && rawLon >= -180 && rawLon <= 180) ? rawLon : null;
+
 const controller = new EvacuationExperienceController({
   scene,
   localWorldGroup: scene,
@@ -55,8 +60,8 @@ const controller = new EvacuationExperienceController({
   initialEventId: requestedEventId || null,
   initialRegionId: params.get('region') || null,
   entryMode: params.get('mode') || null,
-  lat: params.has('lat') ? Number(params.get('lat')) : null,
-  lon: params.has('lon') ? Number(params.get('lon')) : null,
+  lat: safeLat,
+  lon: safeLon,
   devMode: params.get('dev') === '1',
   onReturnToGlobe: () => {
     window.location.href = './index.html';
@@ -88,6 +93,7 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.05);
+  if (typeof document !== 'undefined' && document.hidden) return;
   controller.update(dt, clock.elapsedTime);
   renderer.render(scene, camera);
 }

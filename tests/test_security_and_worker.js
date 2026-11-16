@@ -124,6 +124,23 @@ assert(
   '3.2: Terrain binary assets receive 24h cache header and nosniff'
 );
 
+const versionedJsRes = await workerDefault.fetch(
+  new Request('https://seismolive.ckdals9538.workers.dev/js/main.js?v=6.1'),
+  {
+    ASSETS: {
+      fetch: async () => new Response('export {};', {
+        status: 200,
+        headers: { 'Content-Type': 'application/javascript; charset=utf-8' }
+      })
+    }
+  },
+  {}
+);
+assert(
+  versionedJsRes.headers.get('Cache-Control') === 'public, max-age=3600, stale-while-revalidate=86400',
+  '3.3: Versioned JS bundles receive 1h cache with stale-while-revalidate'
+);
+
 // 4. SSRF & Input Validation on /api/shakemap and /api/shelters
 assert(
   isAllowedUsgsUrl('https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000jllz&format=geojson') &&
@@ -158,6 +175,27 @@ assert(
   !localCsp.includes('upgrade-insecure-requests'),
   '4.4: Local HTTP CSP omits upgrade-insecure-requests so local E2E remains unblocked'
 );
+
+// 4.5: Redirected upstream USGS response to off-allowlist URL must be rejected
+const origFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async () => ({
+    ok: true,
+    url: 'https://evil-redirect.example/leak.json',
+    json: async () => ({ leaked: true })
+  });
+  const redirRes = await shakemapGet({
+    request: new Request('https://seismolive.ckdals9538.workers.dev/api/shakemap?detailUrl=https://earthquake.usgs.gov/earthquakes/feed/v1.0/detail/us6000jllz.geojson'),
+    ctx: {}
+  });
+  const redirBody = await redirRes.json();
+  assert(
+    redirBody.ok === false && redirBody.status === 'DETAIL_UNAVAILABLE',
+    '4.5: /api/shakemap blocks off-allowlist HTTP redirect target'
+  );
+} finally {
+  globalThis.fetch = origFetch;
+}
 
 console.log('\n====================================================================');
 console.log(`SECURITY & WORKER HARDENING TESTS: ${passed} PASSED | ${failed} FAILED`);

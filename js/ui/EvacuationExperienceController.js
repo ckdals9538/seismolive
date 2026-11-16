@@ -1598,7 +1598,7 @@ export class EvacuationExperienceController {
       this._el('btn-fac-paiknam')?.addEventListener('click', () => this.switchFacilityPackage('BLDG_104_PAIKNAM'));
     } else {
       group.innerHTML = `
-        <button type="button" class="origin-pill active" id="btn-fac-dynamic">${customOriginLabel}</button>
+        <button type="button" class="origin-pill active" id="btn-fac-dynamic">${escapeHtml(customOriginLabel)}</button>
       `;
     }
   }
@@ -1701,7 +1701,7 @@ export class EvacuationExperienceController {
         if (altBundle.primaryRoute?.found) list.push(altBundle.primaryRoute);
         if (
           altBundle.alternativeRoute?.found &&
-          JSON.stringify(altBundle.alternativeRoute.waypoints3D) !== JSON.stringify(altBundle.primaryRoute?.waypoints3D)
+          !this._areRoutesIdentical3D(altBundle.alternativeRoute.waypoints3D, altBundle.primaryRoute?.waypoints3D)
         ) {
           list.push(altBundle.alternativeRoute);
         }
@@ -1761,7 +1761,7 @@ export class EvacuationExperienceController {
         dynPill.textContent = originPillLabel;
       }
     } else if (originGroup) {
-      originGroup.innerHTML = `<button type="button" class="origin-pill active" id="btn-fac-dynamic">${originPillLabel}</button>`;
+      originGroup.innerHTML = `<button type="button" class="origin-pill active" id="btn-fac-dynamic">${escapeHtml(originPillLabel)}</button>`;
     }
 
     if (opts.snapStage !== false || this.camTransition.currentStage === CAMERA_STAGES.GLOBAL_ORBIT) {
@@ -2208,9 +2208,9 @@ export class EvacuationExperienceController {
       const protoRow = this._el('arrival-protocol-row');
       if (protoRow) {
         protoRow.innerHTML = POST_ARRIVAL_SAFETY_PROTOCOLS.map(p => `
-          <button type="button" class="arrival-proto-btn ${this.activeArrivalProtocolId === p.id ? 'active' : ''}" data-proto-id="${p.id}">
-            <span class="ap-step">${p.stepNumber} · ${p.title}</span>
-            <span class="ap-action">${p.actionLabel}</span>
+          <button type="button" class="arrival-proto-btn ${this.activeArrivalProtocolId === p.id ? 'active' : ''}" data-proto-id="${escapeHtml(p.id)}">
+            <span class="ap-step">${escapeHtml(p.stepNumber)} · ${escapeHtml(p.title)}</span>
+            <span class="ap-action">${escapeHtml(p.actionLabel)}</span>
           </button>
         `).join('');
         protoRow.querySelectorAll('.arrival-proto-btn').forEach(btn => {
@@ -2536,8 +2536,8 @@ export class EvacuationExperienceController {
       if (auditList) {
         auditList.innerHTML = fc.items.map(it =>
           `<div style="display:flex; justify-content:space-between; gap:8px;">
-            <span><strong>${it.code}</strong> ${it.title}</span>
-            <span style="color:${it.verified ? '#38bdf8' : '#94a3b8'}; white-space:nowrap;">${it.status}</span>
+            <span><strong>${escapeHtml(it.code)}</strong> ${escapeHtml(it.title)}</span>
+            <span style="color:${it.verified ? '#38bdf8' : '#94a3b8'}; white-space:nowrap;">${escapeHtml(it.status)}</span>
           </div>`
         ).join('');
       }
@@ -2670,7 +2670,7 @@ export class EvacuationExperienceController {
       } else {
         const resEl = this._el('region-search-results');
         if (resEl) {
-          resEl.innerHTML = `<div style="font-size:10.5px; color:#fb7185; padding:4px 2px;">${pos.error || '위치 권한을 확인할 수 없어 자유 모드 검색으로 전환합니다.'}</div>`;
+          resEl.innerHTML = `<div style="font-size:10.5px; color:#fb7185; padding:4px 2px;">${escapeHtml(pos.error || '위치 권한을 확인할 수 없어 자유 모드 검색으로 전환합니다.')}</div>`;
         }
       }
     });
@@ -3088,6 +3088,18 @@ export class EvacuationExperienceController {
     this.domElement.addEventListener('pointerup', this._onPointerUp);
   }
 
+  _areRoutesIdentical3D(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      const p = a[i];
+      const q = b[i];
+      if (!p || !q || Math.abs(p[0] - q[0]) > 0.05 || Math.abs(p[1] - q[1]) > 0.05 || Math.abs(p[2] - q[2]) > 0.05) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   /**
    * Frame tick driven cleanly either by viewer_p2_6.html or ExhibitionModeManager.
    */
@@ -3097,13 +3109,17 @@ export class EvacuationExperienceController {
       this.controls.update();
     }
 
-    const needle = this._el('compass-needle');
+    if (!this._compassNeedleEl) this._compassNeedleEl = this._el('compass-needle');
+    const needle = this._compassNeedleEl;
     if (needle && this.controls && this.camera) {
       const angleDeg = -Math.atan2(
         this.camera.position.x - this.controls.target.x,
         this.camera.position.z - this.controls.target.z
       ) * 180 / Math.PI;
-      needle.style.transform = `rotate(${angleDeg.toFixed(1)}deg)`;
+      if (this._lastNeedleDeg === undefined || Math.abs(angleDeg - this._lastNeedleDeg) > 0.05) {
+        this._lastNeedleDeg = angleDeg;
+        needle.style.transform = `rotate(${angleDeg.toFixed(1)}deg)`;
+      }
     }
 
     this.localSpatialLayer.updateAtmosphericPulse(elapsed);

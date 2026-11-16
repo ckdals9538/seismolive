@@ -160,17 +160,19 @@ export async function loadUSGSFeed(feedUrl = 'https://earthquake.usgs.gov/earthq
   let geojson = null;
 
   // 1. Try live fetch with 3.5s timeout
+  let timeoutId = null;
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    timeoutId = setTimeout(() => controller.abort(), 3500);
     const res = await fetch(feedUrl, { signal: controller.signal });
-    clearTimeout(timeoutId);
     if (res.ok) {
       geojson = await res.json();
       console.log(`[USGS Connector] Fetched ${geojson.features?.length || 0} live events from USGS`);
     }
   } catch (err) {
     console.warn('[USGS Connector] Live fetch timed out or offline; falling back to local snapshot:', err.message);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
   }
 
   // 2. Fallback to local snapshot

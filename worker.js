@@ -55,8 +55,10 @@ export default {
 
       if (isHtml) {
         securedHeaders.set('Cache-Control', 'public, max-age=60, must-revalidate');
-      } else if (url.pathname.startsWith('/assets/terrain/') && url.pathname.endsWith('.bin')) {
+      } else if (url.pathname.startsWith('/assets/terrain/') && (url.pathname.endsWith('.bin') || url.pathname.endsWith('.json'))) {
         securedHeaders.set('Cache-Control', 'public, max-age=86400');
+      } else if (url.searchParams.has('v') && (url.pathname.endsWith('.js') || url.pathname.endsWith('.css'))) {
+        securedHeaders.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
       } else if (!securedHeaders.has('Cache-Control')) {
         securedHeaders.set('Cache-Control', 'public, max-age=300, must-revalidate');
       }

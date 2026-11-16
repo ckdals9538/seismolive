@@ -394,7 +394,7 @@ export function distanceMetersLatLon(lat1, lon1, lat2, lon2) {
  * Search South Korean locations via Nominatim (falling back to curated benchmarks).
  */
 export async function geocodeKoreaQuery(query) {
-  const clean = (query || '').trim();
+  const clean = (query || '').trim().slice(0, 120);
   if (!clean) return [];
 
   const lower = clean.toLowerCase();
@@ -413,24 +413,31 @@ export async function geocodeKoreaQuery(query) {
 
   if (typeof fetch !== 'function') return localMatches;
 
+  let timer = null;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3200);
+    timer = setTimeout(() => controller.abort(), 3200);
     const url =
       `https://nominatim.openstreetmap.org/search?countrycodes=kr&format=json&limit=5&accept-language=ko&q=${encodeURIComponent(clean)}`;
     const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timer);
     if (!res.ok) return localMatches;
     const rows = await res.json();
     if (!Array.isArray(rows)) return localMatches;
-    const remoteMatches = rows.map((row, i) => ({
-      id: `nominatim_${i}_${Math.round(Number(row.lat) * 1e4)}`,
-      displayName: row.display_name || clean,
-      shortName: (row.name || row.display_name || clean).split(',')[0].trim(),
-      lat: Number(row.lat),
-      lon: Number(row.lon),
-      source: 'NOMINATIM_OSM'
-    }));
+    const remoteMatches = rows
+      .map((row, i) => {
+        const rLat = Number(row?.lat);
+        const rLon = Number(row?.lon);
+        if (!Number.isFinite(rLat) || !Number.isFinite(rLon)) return null;
+        return {
+          id: `nominatim_${i}_${Math.round(rLat * 1e4)}`,
+          displayName: String(row.display_name || clean).slice(0, 200),
+          shortName: String(row.name || row.display_name || clean).split(',')[0].trim().slice(0, 80),
+          lat: rLat,
+          lon: rLon,
+          source: 'NOMINATIM_OSM'
+        };
+      })
+      .filter(Boolean);
     const merged = [...localMatches];
     for (const rm of remoteMatches) {
       if (!merged.some(m => distanceMetersLatLon(m.lat, m.lon, rm.lat, rm.lon) < 500)) {
@@ -440,6 +447,8 @@ export async function geocodeKoreaQuery(query) {
     return merged.slice(0, 6);
   } catch (_) {
     return localMatches;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
@@ -931,27 +940,29 @@ function pickAnalysisOriginPoint(walkGraph, terrainGrid, label = '분석 기준 
 
 async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
   if (typeof fetch !== 'function') return null;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85 || Math.abs(lon) > 180) return null;
 
+  const clampedSpan = Math.min(3500, Math.max(200, Number(halfSpanMeters) || 900));
   const latDegPerMeter = 1 / 111320;
   const lonDegPerMeter = 1 / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
-  const dLat = halfSpanMeters * latDegPerMeter;
-  const dLon = halfSpanMeters * lonDegPerMeter;
-  const south = (lat - dLat).toFixed(5);
-  const west = (lon - dLon).toFixed(5);
-  const north = (lat + dLat).toFixed(5);
-  const east = (lon + dLon).toFixed(5);
+  const dLat = clampedSpan * latDegPerMeter;
+  const dLon = clampedSpan * lonDegPerMeter;
+  const south = Math.max(-85, lat - dLat).toFixed(5);
+  const west = Math.max(-180, lon - dLon).toFixed(5);
+  const north = Math.min(85, lat + dLat).toFixed(5);
+  const east = Math.min(180, lon + dLon).toFixed(5);
 
   // 1. Fast OSM 0.6 XML/JSON bbox API for tighter bounding boxes (< ~1km half-span)
-  if (halfSpanMeters <= 1000) {
+  if (clampedSpan <= 1000) {
+    let timer = null;
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4500);
+      timer = setTimeout(() => controller.abort(), 4500);
       const bbox = `${west},${south},${east},${north}`;
       const res = await fetch(`https://api.openstreetmap.org/api/0.6/map.json?bbox=${bbox}`, {
         mode: 'cors',
         signal: controller.signal
       });
-      clearTimeout(timer);
       if (res.ok) {
         const json = await res.json();
         if (json && Array.isArray(json.elements) && json.elements.length > 0) {
@@ -960,17 +971,20 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
       }
     } catch (_) {
       // Fall through to Overpass API
+    } finally {
+      if (timer) clearTimeout(timer);
     }
   }
 
   // 2. Overpass API (handles wider ~2.4km radius queries in a single expansion pass)
+  let ovTimer = null;
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 7000);
-    const includeBuildings = halfSpanMeters <= 2400
+    ovTimer = setTimeout(() => controller.abort(), 7000);
+    const includeBuildings = clampedSpan <= 2400
       ? `way["building"](${south},${west},${north},${east});`
       : '';
-    const roadSelector = halfSpanMeters <= 2400
+    const roadSelector = clampedSpan <= 2400
       ? `way["highway"](${south},${west},${north},${east});`
       : `way["highway"~"primary|secondary|tertiary|unclassified|residential|footway|pedestrian|path|steps"](${south},${west},${north},${east});`;
     const overpassQuery =
@@ -988,12 +1002,13 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
       `(._;>;);out body;`;
     const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
     const res = await fetch(url, { mode: 'cors', signal: controller.signal });
-    clearTimeout(timer);
     if (!res.ok) return null;
     const json = await res.json();
     if (json && Array.isArray(json.elements)) return json;
   } catch (_) {
     return null;
+  } finally {
+    if (ovTimer) clearTimeout(ovTimer);
   }
   return null;
 }

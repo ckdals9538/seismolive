@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
-import { escapeHtml } from '../lib/htmlEscape.js';
+import { escapeHtml, sanitizeExternalHref } from '../lib/htmlEscape.js';
 import { computeTsunamiHydrodynamicParams } from '../geophysics/TravelTimeSolvers.js';
 import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, generateTsunamiBathymetrySVG } from './GeophysicsFolioView.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
@@ -150,9 +150,9 @@ export class UnifiedControlSurface {
           btn.setAttribute('data-id', item.id);
           btn.setAttribute('title', item.title || item.name);
           btn.innerHTML = `
-            <span class="s-idx">${item.num}</span>
-            <span class="s-name">${item.name}</span>
-            <span class="s-mag">${item.mag}</span>
+            <span class="s-idx">${escapeHtml(item.num)}</span>
+            <span class="s-name">${escapeHtml(item.name)}</span>
+            <span class="s-mag">${escapeHtml(item.mag)}</span>
           `;
           btn.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -926,15 +926,15 @@ export class UnifiedControlSurface {
             geodeticStripEl.innerHTML = `
               <div class="meta-block">
                 <span class="meta-lbl">사료 연대</span>
-                <span class="meta-val">${dateStr}</span>
+                <span class="meta-val">${escapeHtml(dateStr)}</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">사료 진앙</span>
-                <span class="meta-val">${coordStr}</span>
+                <span class="meta-val">${escapeHtml(coordStr)}</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">추정 규모</span>
-                <span class="meta-val">${rangeStr}${mmiText}</span>
+                <span class="meta-val">${escapeHtml(rangeStr)}${escapeHtml(mmiText)}</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">물리 제원</span>
@@ -948,7 +948,7 @@ export class UnifiedControlSurface {
             geodeticStripEl.innerHTML = `
               <div class="meta-block">
                 <span class="meta-lbl">계측 시각</span>
-                <span class="meta-val">${dateStr}</span>
+                <span class="meta-val">${escapeHtml(dateStr)}</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">진앙 좌표</span>
@@ -956,11 +956,11 @@ export class UnifiedControlSurface {
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">지진 규모</span>
-                <span class="meta-val">${magStr}</span>
+                <span class="meta-val">${escapeHtml(magStr)}</span>
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">진원 심도</span>
-                <span class="meta-val">${depthStr}</span>
+                <span class="meta-val">${escapeHtml(depthStr)}</span>
               </div>
             `;
           }
@@ -1092,7 +1092,7 @@ export class UnifiedControlSurface {
           linkedRecs.forEach((rec, idx) => {
             const btn = document.createElement('button');
             btn.className = 'hist-source-pill' + (idx === 0 ? ' active' : '');
-            btn.innerHTML = `<span style="opacity:0.6;">[0${idx+1}]</span> ${rec.corpusTitleKo.split('(')[0].trim()}`;
+            btn.innerHTML = `<span style="opacity:0.6;">[0${idx+1}]</span> ${escapeHtml(rec.corpusTitleKo.split('(')[0].trim())}`;
             btn.addEventListener('click', (e) => {
               e.stopPropagation();
               sourceBar.querySelectorAll('.hist-source-pill').forEach(b => b.classList.remove('active'));
@@ -1111,8 +1111,10 @@ export class UnifiedControlSurface {
                 }
               }
               if (archiveLinkBtn) {
-                if (rec.archiveUrl) {
-                  archiveLinkBtn.href = rec.archiveUrl;
+                const safeHref = sanitizeExternalHref(rec.archiveUrl);
+                if (safeHref) {
+                  archiveLinkBtn.href = safeHref;
+                  archiveLinkBtn.rel = 'noopener noreferrer';
                   archiveLinkBtn.style.display = 'inline-block';
                 } else {
                   archiveLinkBtn.style.display = 'none';
@@ -1131,9 +1133,15 @@ export class UnifiedControlSurface {
             hanjaRowEl.style.display = 'block';
             hanjaTextEl.textContent = `[원문] ${initialRec.originalHanja}`;
           }
-          if (archiveLinkBtn && initialRec.archiveUrl) {
-            archiveLinkBtn.href = initialRec.archiveUrl;
-            archiveLinkBtn.style.display = 'inline-block';
+          if (archiveLinkBtn) {
+            const safeInitHref = sanitizeExternalHref(initialRec.archiveUrl);
+            if (safeInitHref) {
+              archiveLinkBtn.href = safeInitHref;
+              archiveLinkBtn.rel = 'noopener noreferrer';
+              archiveLinkBtn.style.display = 'inline-block';
+            } else {
+              archiveLinkBtn.style.display = 'none';
+            }
           }
         } else if (sourceBar) {
           sourceBar.style.display = 'none';
@@ -1280,10 +1288,10 @@ export class UnifiedControlSurface {
               scholarHtml += `
                 <div style="background:rgba(255,255,255,0.02); border:1px solid var(--hairline); padding:7px 10px; border-radius:2px; display:flex; flex-direction:column; gap:2px;">
                   <div style="display:flex; justify-content:space-between; align-items:baseline;">
-                    <strong style="color:var(--hanji); font-size:11px;">${authorName}</strong>
-                    <span style="color:var(--brass); font-family:var(--font-mono); font-size:10.5px; font-weight:600;">${mBest}${mRange}${mmiStr}</span>
+                    <strong style="color:var(--hanji); font-size:11px;">${escapeHtml(authorName)}</strong>
+                    <span style="color:var(--brass); font-family:var(--font-mono); font-size:10.5px; font-weight:600;">${escapeHtml(mBest)}${escapeHtml(mRange)}${escapeHtml(mmiStr)}</span>
                   </div>
-                  <div style="color:var(--mist); font-size:10px; line-height:1.5;">${basisStr}${errKm}</div>
+                  <div style="color:var(--mist); font-size:10px; line-height:1.5;">${escapeHtml(basisStr)}${escapeHtml(errKm)}</div>
                 </div>
               `;
             });
@@ -1532,10 +1540,10 @@ export class UnifiedControlSurface {
             gaz.forEach(g => {
               gazRows += `
                 <tr>
-                  <td><strong style="color:var(--hanji);">${g.ancientKo}</strong></td>
-                  <td style="color:var(--brass); font-size:10px;">${g.modernAdmin}</td>
-                  <td style="color:var(--mist); font-size:10px;">${g.role}</td>
-                  <td style="font-family:var(--font-mono); font-size:10px; color:var(--hanji-muted);">${g.distanceToEpicenter}</td>
+                  <td><strong style="color:var(--hanji);">${escapeHtml(g.ancientKo)}</strong></td>
+                  <td style="color:var(--brass); font-size:10px;">${escapeHtml(g.modernAdmin)}</td>
+                  <td style="color:var(--mist); font-size:10px;">${escapeHtml(g.role)}</td>
+                  <td style="font-family:var(--font-mono); font-size:10px; color:var(--hanji-muted);">${escapeHtml(g.distanceToEpicenter)}</td>
                 </tr>
               `;
             });
