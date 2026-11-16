@@ -19,15 +19,13 @@ import {
   HANYANG_BLDG212_ANCHOR
 } from './LocalTangentAnchor.js';
 import {
-  HANYANG_BUILDING_METADATA,
-  HANYANG_3F_INDOOR_GRAPH,
-  HANYANG_1F_INDOOR_GRAPH,
-  HANYANG_MAIN_STADIUM_SHELTER,
-  ROUTE_BASELINES,
+  DEFAULT_HANYANG_FACILITY_PACKAGE,
+  BLDG_212_OSM_FOOTPRINT_METERS,
   VERIFICATION_STATUS
 } from './HanyangBuildingData.js';
-import { HANYANG_BLDG212_SE_CONNECTOR } from './IndoorOutdoorConnector.js';
-import { PedestrianRoutingEngine, PATH_TYPE } from './PedestrianRoutingEngine.js';
+import { PedestrianRoutingEngine } from './PedestrianRoutingEngine.js';
+
+export { BLDG_212_OSM_FOOTPRINT_METERS };
 
 export const VISUAL_THEME = Object.freeze({
   BACKGROUND: 0x020408,
@@ -43,45 +41,44 @@ export const VISUAL_THEME = Object.freeze({
   STADIUM_TRACK: 0x475569              // Muted athletics perimeter
 });
 
-export const BLDG_212_OSM_FOOTPRINT_METERS = Object.freeze([
-  [21.53, -110.44],
-  [17.39, -103.34],
-  [11.83, -93.90],
-  [22.68, -87.58],
-  [25.59, -92.35],
-  [69.63, -66.49],
-  [60.54, -51.17],
-  [70.16, -45.51], // South-East Corner (Exit side)
-  [78.81, -40.51],
-  [94.78, -67.60],
-  [51.01, -93.24],
-  [21.53, -110.44]
-]);
-
 export class HanyangResponseAdapter {
   /**
-   * @param {Object} options
-   * @param {THREE.Scene} [options.scene]
-   * @param {number} [options.visualScale=1.0] - Visual magnification scale factor
+   * Supports both `new HanyangResponseAdapter(options)` and `new HanyangResponseAdapter(scene, options)`.
+   * @param {Object|THREE.Scene} [arg1]
+   * @param {Object} [arg2]
    */
-  constructor(options = {}) {
-    this.scene = options.scene || null;
-    this.anchor = new LocalTangentAnchor(HANYANG_BLDG212_ANCHOR);
-    this.router = new PedestrianRoutingEngine();
+  constructor(arg1 = {}, arg2 = null) {
+    let scene = null;
+    let options = {};
+    if (arg1 && (arg1.isScene || typeof arg1.add === 'function')) {
+      scene = arg1;
+      options = arg2 || {};
+    } else {
+      options = arg1 || {};
+      scene = options.scene || null;
+    }
+
+    this.scene = scene;
+    this.facility = options.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
+    this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
+    this.router = options.router || new PedestrianRoutingEngine({ facilityPackage: this.facility });
+
+    const bldgMeta = this.facility.buildingMetadata || {};
 
     // Explicit Separation: Physical vs Visual Coordinate System
     this.config = {
-      visualScale: options.visualScale ?? 1.0,
+      visualScale: options.visualScale ?? options.scale ?? 1.0,
       worldUnitScale: 1.0e-5, // 1 Three.js unit = 100km in global continuous Earth
-      floorHeightMeters: 3.6,
-      totalLevels: 5,
-      selectedFloor: 3, // Default to 3F
+      floorHeightMeters: options.floorHeightMeters ?? this.facility.floorHeightMeters ?? 3.6,
+      totalLevels: options.totalLevels ?? bldgMeta.levels?.aboveGround ?? this.facility.totalLevels ?? 5,
+      selectedFloor: options.selectedFloor ?? this.facility.defaultFloor ?? 3,
       activeRoute: 'ALL' // 'ALL' | 'SHORTEST' | 'STEP_FREE' | 'NONE'
     };
 
     // Root Group anchored in Three.js Local Space
     this.rootGroup = new THREE.Group();
-    this.rootGroup.name = 'HanyangBldg212_ResponseRoot';
+    const bldgId = bldgMeta.id || 'FACILITY';
+    this.rootGroup.name = bldgId === 'BLDG_212_ENG1' ? 'HanyangBldg212_ResponseRoot' : `${bldgId}_ResponseRoot`;
 
     this.floorGroups = new Map();
     this.pathGroup = new THREE.Group();
@@ -98,6 +95,10 @@ export class HanyangResponseAdapter {
     this.buildPedestrianPaths();
     this.buildShelterRepresentation();
     this.highlightFloor(this.config.selectedFloor);
+
+    if (this.config.visualScale !== 1.0) {
+      this.rootGroup.scale.set(this.config.visualScale, this.config.visualScale, this.config.visualScale);
+    }
 
     if (this.scene) {
       this.scene.add(this.rootGroup);
@@ -173,8 +174,9 @@ export class HanyangResponseAdapter {
   // --------------------------------------------------------------------------
 
   buildBuildingStructure() {
-    const footprint = BLDG_212_OSM_FOOTPRINT_METERS;
+    const footprint = this.facility.footprintMeters || BLDG_212_OSM_FOOTPRINT_METERS;
     const hFloor = this.config.floorHeightMeters;
+    const interiorTargetFloor = this.facility.defaultFloor ?? 3;
 
     for (let level = 1; level <= this.config.totalLevels; level++) {
       const floorGroup = new THREE.Group();
@@ -240,9 +242,9 @@ export class HanyangResponseAdapter {
       colLines.name = `Columns_${level}F`;
       floorGroup.add(colLines);
 
-      // Add schematic partitions if 3F (PROVISIONAL)
-      if (level === 3) {
-        const interiorGroup = this.build3FProvisionalInterior(yBottom);
+      // Add schematic partitions on default target floor (PROVISIONAL)
+      if (level === interiorTargetFloor) {
+        const interiorGroup = this.build3FProvisionalInterior(yBottom, level);
         floorGroup.add(interiorGroup);
       }
 
@@ -269,63 +271,79 @@ export class HanyangResponseAdapter {
     this.rootGroup.add(new THREE.LineSegments(roofGeo, roofMat));
     this.disposables.push(roofGeo, roofMat);
 
-    // Add South-East Vertical Stair Core (Zinc line cylinder/box)
+    // Add Vertical Stair Core (Zinc wireframe)
     this.buildStairCoreWireframe();
 
-    // Add Explicit 1F SE Connector Egress Portal
+    // Add Explicit Connector Egress Portal
     this.build1FEgressConnector();
   }
 
   /**
-   * Build 3F Schematic Classrooms & Corridors (Tagged strictly as PROVISIONAL).
+   * Build Target-Floor Schematic Classrooms & Corridors (Tagged strictly as PROVISIONAL).
    */
-  build3FProvisionalInterior(yLevel) {
+  build3FProvisionalInterior(yLevel, level = 3) {
     const interiorGroup = new THREE.Group();
-    interiorGroup.name = 'Interior_3F_Provisional';
+    const names = this.facility.routeDisplayNames || {};
+    interiorGroup.name = names.interiorGroupName || `Interior_${level}F_Provisional`;
 
-    // Room 301, 302, 303 schematic partitions
-    // Using clean rectilinear wall lines inside building envelope
+    const floorGraph = this.facility.indoorGraphs?.[level];
     const wallLines = [];
 
-    // Main corridor line from West wing to East stairwell
-    wallLines.push(new THREE.Vector3(25.0, yLevel, -90.0));
-    wallLines.push(new THREE.Vector3(70.0, yLevel, -46.0));
+    if (Array.isArray(floorGraph?.wallSegments) && floorGraph.wallSegments.length > 0) {
+      floorGraph.wallSegments.forEach(([a, b]) => {
+        wallLines.push(new THREE.Vector3(a[0], yLevel, a[1] ?? a[2] ?? 0));
+        wallLines.push(new THREE.Vector3(b[0], yLevel, b[1] ?? b[2] ?? 0));
+      });
+    } else if (this.facility.packageId === 'FACILITY_HANYANG_BLDG_212' || this.facility.buildingMetadata?.id === 'BLDG_212_ENG1') {
+      // Hanyang Bldg 212 3F Provisional Classroom Partitions
+      wallLines.push(new THREE.Vector3(25.0, yLevel, -90.0), new THREE.Vector3(70.0, yLevel, -46.0));
+      wallLines.push(new THREE.Vector3(25.0, yLevel, -90.0), new THREE.Vector3(38.0, yLevel, -78.0));
+      wallLines.push(new THREE.Vector3(38.0, yLevel, -78.0), new THREE.Vector3(50.0, yLevel, -90.0));
+      wallLines.push(new THREE.Vector3(42.0, yLevel, -74.0), new THREE.Vector3(56.0, yLevel, -62.0));
+      wallLines.push(new THREE.Vector3(58.0, yLevel, -60.0), new THREE.Vector3(70.0, yLevel, -48.0));
+    } else if (Array.isArray(floorGraph?.rooms) && floorGraph.rooms.length > 0) {
+      // Generic schematic room frames from centerLocalPos for arbitrary facilities
+      floorGraph.rooms.forEach(r => {
+        const cx = r.centerLocalPos?.[0] ?? 0;
+        const cz = r.centerLocalPos?.[2] ?? 0;
+        const hw = 4.0;
+        const hd = 3.0;
+        wallLines.push(
+          new THREE.Vector3(cx - hw, yLevel, cz - hd), new THREE.Vector3(cx + hw, yLevel, cz - hd),
+          new THREE.Vector3(cx + hw, yLevel, cz - hd), new THREE.Vector3(cx + hw, yLevel, cz + hd),
+          new THREE.Vector3(cx + hw, yLevel, cz + hd), new THREE.Vector3(cx - hw, yLevel, cz + hd),
+          new THREE.Vector3(cx - hw, yLevel, cz + hd), new THREE.Vector3(cx - hw, yLevel, cz - hd)
+        );
+      });
+    }
 
-    // Classroom 301 partition
-    wallLines.push(new THREE.Vector3(25.0, yLevel, -90.0));
-    wallLines.push(new THREE.Vector3(38.0, yLevel, -78.0));
-    wallLines.push(new THREE.Vector3(38.0, yLevel, -78.0));
-    wallLines.push(new THREE.Vector3(50.0, yLevel, -90.0));
+    if (wallLines.length >= 2) {
+      const wallGeo = new THREE.BufferGeometry().setFromPoints(wallLines);
+      const wallMat = new THREE.LineBasicMaterial({
+        color: VISUAL_THEME.SELECTED_FLOOR_LINE,
+        transparent: true,
+        opacity: 0.85
+      });
+      const walls = new THREE.LineSegments(wallGeo, wallMat);
+      walls.name = `${level}F_Provisional_Partitions`;
+      interiorGroup.add(walls);
+      this.disposables.push(wallGeo, wallMat);
+    }
 
-    // Classroom 302 partition
-    wallLines.push(new THREE.Vector3(42.0, yLevel, -74.0));
-    wallLines.push(new THREE.Vector3(56.0, yLevel, -62.0));
-
-    // Classroom 303 (Research Lab) partition
-    wallLines.push(new THREE.Vector3(58.0, yLevel, -60.0));
-    wallLines.push(new THREE.Vector3(70.0, yLevel, -48.0));
-
-    const wallGeo = new THREE.BufferGeometry().setFromPoints(wallLines);
-    const wallMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.SELECTED_FLOOR_LINE,
-      transparent: true,
-      opacity: 0.85
-    });
-    const walls = new THREE.LineSegments(wallGeo, wallMat);
-    walls.name = '3F_Provisional_Partitions';
-    interiorGroup.add(walls);
-
-    this.disposables.push(wallGeo, wallMat);
     return interiorGroup;
   }
 
   /**
-   * Vertical Stair Core Wireframe at South-East Egress Corner.
+   * Vertical Stair Core Wireframe at Facility Egress Corner.
    */
   buildStairCoreWireframe() {
-    const pSE = [70.16, -45.51];
-    const w = 4.0;
-    const d = 5.0;
+    const conn = this.facility.connector || {};
+    const pSE = conn.stairCoreCorner || conn.doorPos ? [
+      (conn.stairCoreCorner?.[0] ?? conn.doorPos[0]),
+      (conn.stairCoreCorner?.[1] ?? conn.doorPos[2])
+    ] : [70.16, -45.51];
+    const w = conn.stairCoreSize?.width ?? 4.0;
+    const d = conn.stairCoreSize?.depth ?? 5.0;
     const h = this.config.totalLevels * this.config.floorHeightMeters;
 
     const corePoints = [
@@ -360,11 +378,14 @@ export class HanyangResponseAdapter {
   }
 
   /**
-   * Explicit 1F SE Doorway Portal and 4.0m Transition Vector.
+   * Explicit 1F Doorway Portal and Transition Vector to Outdoor Pedestrian Network.
    */
   build1FEgressConnector() {
-    const doorPos = new THREE.Vector3(70.16, 0.0, -45.51);
-    const footwayPos = new THREE.Vector3(73.68, -0.15, -43.61); // OSM Node 6415394841 (Bearing 118.4°, 4.0m)
+    const conn = this.facility.connector || {};
+    const dp = conn.doorPos || [70.16, 0.0, -45.51];
+    const fp = conn.footwayPos || [73.68, -0.15, -43.61];
+    const doorPos = new THREE.Vector3(dp[0], dp[1], dp[2]);
+    const footwayPos = new THREE.Vector3(fp[0], fp[1], fp[2]);
 
     // Doorway frame (width 1.8m, height 2.1m)
     const dw = 1.8;
@@ -381,7 +402,7 @@ export class HanyangResponseAdapter {
     });
     this.rootGroup.add(new THREE.LineSegments(doorGeo, doorMat));
 
-    // 4.0m Vector line connecting door to outdoor pedestrian node
+    // Vector line connecting door to outdoor pedestrian node
     const connLinePoints = [doorPos, footwayPos];
     const connGeo = new THREE.BufferGeometry().setFromPoints(connLinePoints);
     const connMat = new THREE.LineDashedMaterial({
@@ -391,104 +412,142 @@ export class HanyangResponseAdapter {
     });
     const connLine = new THREE.Line(connGeo, connMat);
     connLine.computeLineDistances();
-    connLine.name = 'Connector_1F_SE_Line';
+    const names = this.facility.routeDisplayNames || {};
+    connLine.name = names.connectorLineName || 'Connector_1F_SE_Line';
     this.rootGroup.add(connLine);
 
     this.disposables.push(doorGeo, doorMat, connGeo, connMat);
   }
 
   // --------------------------------------------------------------------------
-  // 3. PEDESTRIAN PATH RENDERING (Shortest vs Step-Free)
+  // 3. PEDESTRIAN PATH RENDERING (Graph-Driven Shortest vs Step-Free)
   // --------------------------------------------------------------------------
 
+  /**
+   * Resolve sequential 3D waypoints directly from routing graph edges.
+   * Eliminates manual coordinate duplication between Dijkstra topology and Three.js rendering.
+   *
+   * @param {Array} edges - Ordered edges returned by PedestrianRoutingEngine
+   * @returns {THREE.Vector3[]}
+   */
+  _extractRoutePoints(edges = []) {
+    const pts = [];
+    const pushPoint = (coords) => {
+      if (!Array.isArray(coords) || coords.length < 3) return;
+      const v = new THREE.Vector3(coords[0], coords[1], coords[2]);
+      if (pts.length === 0 || pts[pts.length - 1].distanceToSquared(v) > 1e-8) {
+        pts.push(v);
+      }
+    };
+
+    edges.forEach(edge => {
+      if (Array.isArray(edge.waypoints) && edge.waypoints.length >= 2) {
+        edge.waypoints.forEach(wp => pushPoint(wp));
+      } else {
+        const fromPos = this.router.nodes.get(edge.from)?.localPos;
+        const toPos = this.router.nodes.get(edge.to)?.localPos;
+        if (fromPos) pushPoint(fromPos);
+        if (toPos) pushPoint(toPos);
+      }
+    });
+
+    return pts;
+  }
+
   buildPedestrianPaths() {
-    const egressNode = new THREE.Vector3(73.68, -0.15, -41.98); // OSM Node 6415394841
-    const stadiumNode = new THREE.Vector3(226.75, -13.50, 218.17); // OSM Node 8577408700
+    const names = this.facility.routeDisplayNames || {};
+    const shortestRoute = this.router.findOutdoorShortestPath();
+    const stepFreeRoute = this.router.findOutdoorStepFreePath();
 
-    // Shortest Path (651.9m) with 4 outdoor stair flights
-    // Intermediate waypoints in local metric coordinates
-    const shortestWaypoints = [
-      egressNode,
-      new THREE.Vector3(77.0, -1.0, -38.0),   // Stair 1 Top (Way 684692285, 19.1m)
-      new THREE.Vector3(88.0, -4.5, -23.0),   // Stair 1 Bot
-      new THREE.Vector3(95.0, -5.0, -16.0),   // Living street
-      new THREE.Vector3(104.0, -5.5, -12.0),  // Stair 2 Top (Way 187409275, 23.0m)
-      new THREE.Vector3(118.0, -9.0, 5.0),    // Stair 2 Bot
-      new THREE.Vector3(135.0, -9.5, 30.0),   // Pedestrian way
-      new THREE.Vector3(145.0, -10.0, 45.0),  // Stair 3 Top (Way 409637898, 16.5m)
-      new THREE.Vector3(155.0, -12.5, 57.0),  // Stair 3 Bot
-      new THREE.Vector3(175.0, -12.8, 95.0),  // Footway
-      new THREE.Vector3(182.0, -13.0, 110.0), // Stair 4 (Way 187436400, 9.9m)
-      new THREE.Vector3(190.0, -13.2, 125.0), // Service junction
-      new THREE.Vector3(210.0, -13.4, 175.0), // Secondary link
-      stadiumNode
-    ];
+    // 1. Shortest Path Polyline & Stair Hazard Segments (Derived directly by edge.hasStairs / edgeId / wayId)
+    const shortestEdges = shortestRoute?.found ? shortestRoute.edges : [];
+    const shortestWaypoints = this._extractRoutePoints(shortestEdges);
 
-    const shortestGeo = new THREE.BufferGeometry().setFromPoints(shortestWaypoints);
-    const shortestMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.PATH_SHORTEST,
-      linewidth: 2.0
-    });
-    const shortestLine = new THREE.Line(shortestGeo, shortestMat);
-    shortestLine.name = 'Path_Shortest_651m';
-    this.pathGroup.add(shortestLine);
+    if (shortestWaypoints.length >= 2) {
+      const shortestGeo = new THREE.BufferGeometry().setFromPoints(shortestWaypoints);
+      const shortestMat = new THREE.LineBasicMaterial({
+        color: VISUAL_THEME.PATH_SHORTEST,
+        linewidth: 2.0
+      });
+      const shortestLine = new THREE.Line(shortestGeo, shortestMat);
+      shortestLine.name = names.shortestLineName || 'Path_Shortest_651m';
+      shortestLine.userData.routeKind = 'SHORTEST';
+      shortestLine.userData.edgeIds = shortestEdges.map(e => e.edgeId);
+      this.pathGroup.add(shortestLine);
+      this.disposables.push(shortestGeo, shortestMat);
+    }
 
-    // Highlight the 4 Stair Segments in Amber Caution Tone
-    const stairSegments = [
-      [shortestWaypoints[1], shortestWaypoints[2]],
-      [shortestWaypoints[4], shortestWaypoints[5]],
-      [shortestWaypoints[6], shortestWaypoints[7]],
-      [shortestWaypoints[9], shortestWaypoints[10]]
-    ];
+    // Highlight exact stair edges identified by graph metadata (edge.hasStairs === true)
     const stairPoints = [];
-    stairSegments.forEach(pair => {
-      stairPoints.push(pair[0]);
-      stairPoints.push(pair[1]);
-    });
-    const stairGeo = new THREE.BufferGeometry().setFromPoints(stairPoints);
-    const stairMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.PATH_STAIRS_HAZARD,
-      linewidth: 3.0
-    });
-    const stairLines = new THREE.LineSegments(stairGeo, stairMat);
-    stairLines.name = 'Stairs_Hazard_Segments';
-    this.pathGroup.add(stairLines);
+    const stairSegmentsMeta = [];
+    shortestEdges
+      .filter(edge => edge.hasStairs === true)
+      .forEach(edge => {
+        const edgePts = this._extractRoutePoints([edge]);
+        if (edgePts.length >= 2) {
+          for (let i = 0; i < edgePts.length - 1; i++) {
+            stairPoints.push(edgePts[i], edgePts[i + 1]);
+          }
+          stairSegmentsMeta.push({
+            edgeId: edge.edgeId,
+            wayId: edge.wayId,
+            source: edge.from,
+            target: edge.to,
+            distance: edge.distance,
+            startPos: [edgePts[0].x, edgePts[0].y, edgePts[0].z],
+            endPos: [edgePts[edgePts.length - 1].x, edgePts[edgePts.length - 1].y, edgePts[edgePts.length - 1].z]
+          });
+        }
+      });
 
-    // Step-Free Detour Path (769.1m) - Bypasses stair hill via gradual service road curve
-    const stepFreeWaypoints = [
-      egressNode,
-      new THREE.Vector3(55.0, -0.5, -25.0),
-      new THREE.Vector3(45.0, -2.0, 15.0),
-      new THREE.Vector3(65.0, -5.0, 65.0),
-      new THREE.Vector3(110.0, -8.5, 110.0),
-      new THREE.Vector3(160.0, -11.0, 135.0),
-      new THREE.Vector3(190.0, -13.2, 125.0), // Merges at service junction
-      new THREE.Vector3(210.0, -13.4, 175.0),
-      stadiumNode
-    ];
+    if (stairPoints.length >= 2) {
+      const stairGeo = new THREE.BufferGeometry().setFromPoints(stairPoints);
+      const stairMat = new THREE.LineBasicMaterial({
+        color: VISUAL_THEME.PATH_STAIRS_HAZARD,
+        linewidth: 3.0
+      });
+      const stairLines = new THREE.LineSegments(stairGeo, stairMat);
+      stairLines.name = names.stairHazardsName || 'Stairs_Hazard_Segments';
+      stairLines.userData.routeKind = 'SHORTEST';
+      stairLines.userData.stairSegments = Object.freeze(stairSegmentsMeta);
+      this.pathGroup.add(stairLines);
+      this.disposables.push(stairGeo, stairMat);
+    }
 
-    const stepFreeGeo = new THREE.BufferGeometry().setFromPoints(stepFreeWaypoints);
-    const stepFreeMat = new THREE.LineDashedMaterial({
-      color: VISUAL_THEME.PATH_STEP_FREE,
-      dashSize: 2.0,
-      gapSize: 1.0,
-      linewidth: 1.5
-    });
-    const stepFreeLine = new THREE.Line(stepFreeGeo, stepFreeMat);
-    stepFreeLine.computeLineDistances();
-    stepFreeLine.name = 'Path_StepFree_769m';
-    this.pathGroup.add(stepFreeLine);
+    // 2. Step-Free Detour Path Polyline
+    const stepFreeEdges = stepFreeRoute?.found ? stepFreeRoute.edges : [];
+    const stepFreeWaypoints = this._extractRoutePoints(stepFreeEdges);
 
-    this.disposables.push(shortestGeo, shortestMat, stairGeo, stairMat, stepFreeGeo, stepFreeMat);
+    if (stepFreeWaypoints.length >= 2) {
+      const stepFreeGeo = new THREE.BufferGeometry().setFromPoints(stepFreeWaypoints);
+      const stepFreeMat = new THREE.LineDashedMaterial({
+        color: VISUAL_THEME.PATH_STEP_FREE,
+        dashSize: 2.0,
+        gapSize: 1.0,
+        linewidth: 1.5
+      });
+      const stepFreeLine = new THREE.Line(stepFreeGeo, stepFreeMat);
+      stepFreeLine.computeLineDistances();
+      stepFreeLine.name = names.stepFreeLineName || 'Path_StepFree_769m';
+      stepFreeLine.userData.routeKind = 'STEP_FREE';
+      stepFreeLine.userData.edgeIds = stepFreeEdges.map(e => e.edgeId);
+      this.pathGroup.add(stepFreeLine);
+      this.disposables.push(stepFreeGeo, stepFreeMat);
+    }
   }
 
   /**
-   * Hanyang Main Stadium (Athletics Track & Central Pitch Polygon).
+   * Shelter Representation (Athletics Track & Central Pitch Polygon or Configured Shelter Bounds).
    */
   buildShelterRepresentation() {
-    const center = new THREE.Vector3(226.75, -13.50, 218.17);
-    const trackRadiusX = 40.0;
-    const trackRadiusZ = 65.0;
+    const shelter = this.facility.shelter || {};
+    const names = this.facility.routeDisplayNames || {};
+    const lc = shelter.localCenter || this.router.nodes.get(this.facility.defaultOutdoorTargetNodeId)?.localPos || [226.75, -13.50, 218.17];
+    const center = new THREE.Vector3(lc[0], lc[1], lc[2]);
+    const trackRadiusX = shelter.trackRadiusX ?? 40.0;
+    const trackRadiusZ = shelter.trackRadiusZ ?? 65.0;
+    const pitchHalfWidth = shelter.pitchHalfWidth ?? 20.0;
+    const pitchHalfLength = shelter.pitchHalfLength ?? 35.0;
 
     // Elliptical track line
     const trackPoints = [];
@@ -508,16 +567,16 @@ export class HanyangResponseAdapter {
       opacity: 0.6
     });
     const trackLine = new THREE.Line(trackGeo, trackMat);
-    trackLine.name = 'Stadium_Track_Outline';
+    trackLine.name = names.shelterTrackName || 'Stadium_Track_Outline';
     this.shelterGroup.add(trackLine);
 
     // Central Safe Gathering Zone (Grass Pitch Box)
     const pitchPoints = [
-      new THREE.Vector3(center.x - 20, center.y, center.z - 35),
-      new THREE.Vector3(center.x + 20, center.y, center.z - 35),
-      new THREE.Vector3(center.x + 20, center.y, center.z + 35),
-      new THREE.Vector3(center.x - 20, center.y, center.z + 35),
-      new THREE.Vector3(center.x - 20, center.y, center.z - 35)
+      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z - pitchHalfLength),
+      new THREE.Vector3(center.x + pitchHalfWidth, center.y, center.z - pitchHalfLength),
+      new THREE.Vector3(center.x + pitchHalfWidth, center.y, center.z + pitchHalfLength),
+      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z + pitchHalfLength),
+      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z - pitchHalfLength)
     ];
     const pitchGeo = new THREE.BufferGeometry().setFromPoints(pitchPoints);
     const pitchMat = new THREE.LineBasicMaterial({
@@ -526,7 +585,7 @@ export class HanyangResponseAdapter {
       opacity: 0.75
     });
     const pitchLine = new THREE.Line(pitchGeo, pitchMat);
-    pitchLine.name = 'Stadium_Pitch_Safe_Zone';
+    pitchLine.name = names.shelterPitchName || 'Stadium_Pitch_Safe_Zone';
     this.shelterGroup.add(pitchLine);
 
     this.disposables.push(trackGeo, trackMat, pitchGeo, pitchMat);
@@ -540,11 +599,13 @@ export class HanyangResponseAdapter {
    * Accentuate a specific floor (e.g. 3F) with high-contrast ivory lines,
    * while ghosting other floors to subtle dark basalt tones.
    *
-   * @param {number} targetLevel - Floor level (1 to 5)
+   * @param {number} targetLevel - Floor level (1 to totalLevels)
    */
   highlightFloor(targetLevel) {
     if (targetLevel < 1 || targetLevel > this.config.totalLevels) return;
     this.config.selectedFloor = targetLevel;
+
+    const interiorGroupName = this.facility.routeDisplayNames?.interiorGroupName || `Interior_${this.facility.defaultFloor ?? 3}F_Provisional`;
 
     this.floorGroups.forEach((group, level) => {
       const isSelected = level === targetLevel;
@@ -565,7 +626,7 @@ export class HanyangResponseAdapter {
           );
           child.material.opacity = isSelected ? 0.65 : 0.15;
         }
-        if (child.name === 'Interior_3F_Provisional') {
+        if (child.name === interiorGroupName || child.name === 'Interior_3F_Provisional' || child.name.startsWith('Interior_')) {
           child.visible = isSelected;
         }
       });
@@ -579,10 +640,10 @@ export class HanyangResponseAdapter {
   setRouteDisplay(mode) {
     this.config.activeRoute = mode;
     this.pathGroup.traverse(child => {
-      if (child.name === 'Path_Shortest_651m' || child.name === 'Stairs_Hazard_Segments') {
+      if (child.userData?.routeKind === 'SHORTEST' || child.name === 'Path_Shortest_651m' || child.name === 'Stairs_Hazard_Segments') {
         child.visible = mode === 'ALL' || mode === 'SHORTEST';
       }
-      if (child.name === 'Path_StepFree_769m') {
+      if (child.userData?.routeKind === 'STEP_FREE' || child.name === 'Path_StepFree_769m') {
         child.visible = mode === 'ALL' || mode === 'STEP_FREE';
       }
     });

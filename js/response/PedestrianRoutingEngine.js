@@ -15,39 +15,31 @@
 // ============================================================================
 
 import {
-  HANYANG_3F_INDOOR_GRAPH,
-  HANYANG_1F_INDOOR_GRAPH,
-  INDOOR_NAV_EDGES,
-  HANYANG_MAIN_STADIUM_SHELTER,
+  DEFAULT_HANYANG_FACILITY_PACKAGE
+} from './HanyangBuildingData.js';
+import {
+  DATA_PROVENANCE_SOURCE,
+  VERIFICATION_STATUS,
+  PATH_TYPE,
+  USER_MOBILITY_PROFILE,
+  LINK_STATE
+} from './ResponseDomainTypes.js';
+
+export {
+  PATH_TYPE,
+  USER_MOBILITY_PROFILE,
+  LINK_STATE,
   DATA_PROVENANCE_SOURCE,
   VERIFICATION_STATUS
-} from './HanyangBuildingData.js';
-
-import { HANYANG_BLDG212_SE_CONNECTOR } from './IndoorOutdoorConnector.js';
-
-export const PATH_TYPE = Object.freeze({
-  SHORTEST_RAPID: 'PATH_SHORTEST_RAPID',
-  STEP_FREE_DETOUR: 'PATH_STEP_FREE_DETOUR',
-  COMPLETE_INDOOR_OUTDOOR: 'PATH_COMPLETE_INDOOR_OUTDOOR'
-});
-
-export const USER_MOBILITY_PROFILE = Object.freeze({
-  STANDARD_EVACUEE: 'STANDARD_EVACUEE',
-  INJURED_LIGHT: 'INJURED_LIGHT',
-  WHEELCHAIR_USER: 'WHEELCHAIR_USER',
-  ELDERLY_SLOW: 'ELDERLY_SLOW'
-});
-
-export const LINK_STATE = Object.freeze({
-  OPEN: 'OPEN',           // 통행 가능 (기본 상태 또는 점검 완료)
-  SUSPECTED: 'SUSPECTED', // 미확인 장애물/위험 신고 (비용 페널티 적용, 우회 선호)
-  CLOSED: 'CLOSED',       // 신뢰할 수 있는 근거로 통행 불가 확정 (경로 계산에서 원천 배제)
-  UNKNOWN: 'UNKNOWN'      // 정보 없음 (신선도 소실 또는 미확인)
-});
+};
 
 export class PedestrianRoutingEngine {
-  constructor() {
-    // Adjacency map: nodeId -> Array<{ to, distance, hasStairs, isWheelchairPassable, wayId, highway, hazardRisk, edgeId }>
+  /**
+   * @param {Object} [options]
+   * @param {Object} [options.facilityPackage] - Injectable building/campus dataset (defaults to Hanyang Bldg 212)
+   */
+  constructor(options = {}) {
+    // Adjacency map: nodeId -> Array<{ to, distance, hasStairs, isWheelchairPassable, wayId, highway, hazardRisk, edgeId, branch, waypoints }>
     this.graph = new Map();
     this.nodes = new Map();
     this.edges = new Map(); // edgeId -> Edge Object
@@ -59,6 +51,25 @@ export class PedestrianRoutingEngine {
     this.blockedNodes = new Set();
     this.blockedEdges = new Set();
 
+    this.facility = options.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
+    this.initializeDefaultCampusGraph();
+  }
+
+  /**
+   * Load or switch to a new FacilityPackage cleanly (supports multi-building / multi-campus injection).
+   * @param {Object} facilityPackage
+   */
+  loadFacilityPackage(facilityPackage) {
+    if (!facilityPackage) {
+      throw new Error('[PedestrianRoutingEngine] facilityPackage is required.');
+    }
+    this.facility = facilityPackage;
+    this.graph.clear();
+    this.nodes.clear();
+    this.edges.clear();
+    this.linkStates.clear();
+    this.blockedNodes.clear();
+    this.blockedEdges.clear();
     this.initializeDefaultCampusGraph();
   }
 
@@ -69,6 +80,11 @@ export class PedestrianRoutingEngine {
     if (!this.nodes.has(nodeId)) {
       this.nodes.set(nodeId, {
         id: nodeId,
+        ...metadata
+      });
+    } else if (metadata && Object.keys(metadata).length > 0) {
+      this.nodes.set(nodeId, {
+        ...this.nodes.get(nodeId),
         ...metadata
       });
     }
@@ -95,6 +111,8 @@ export class PedestrianRoutingEngine {
       wayId: options.wayId || 'virtual_link',
       highway: options.highway || 'footway',
       hazardRisk: options.hazardRisk || 'LOW',
+      branch: options.branch || null,
+      waypoints: options.waypoints || null,
       edgeId
     };
 
@@ -107,6 +125,7 @@ export class PedestrianRoutingEngine {
         ...edgeObj,
         from: target,
         to: source,
+        waypoints: Array.isArray(edgeObj.waypoints) ? [...edgeObj.waypoints].reverse() : null,
         edgeId: reverseId
       };
       this.graph.get(target).push(reverseEdge);
@@ -115,132 +134,101 @@ export class PedestrianRoutingEngine {
   }
 
   /**
-   * Populate indoor network, connector, and campus outdoor paths.
+   * Populate indoor network, connector, and campus outdoor paths from the injected FacilityPackage.
    */
   initializeDefaultCampusGraph() {
-    // 1. Add Indoor Nodes from 3F
-    HANYANG_3F_INDOOR_GRAPH.rooms.forEach(r => {
-      this.addNode(r.nodeId, { name: r.name, localPos: r.centerLocalPos });
-    });
-    HANYANG_3F_INDOOR_GRAPH.corridors[0].centerlineNodes.forEach(c => {
-      this.addNode(c, { name: '3F Corridor' });
-    });
-    this.addNode(HANYANG_3F_INDOOR_GRAPH.stairwells[0].landingNodeId, {
-      name: HANYANG_3F_INDOOR_GRAPH.stairwells[0].name,
-      localPos: HANYANG_3F_INDOOR_GRAPH.stairwells[0].localPos
+    const f = this.facility || DEFAULT_HANYANG_FACILITY_PACKAGE;
+
+    // 1. Add Indoor Nodes across all configured floors
+    Object.values(f.indoorGraphs || {}).forEach(floorGraph => {
+      (floorGraph.rooms || []).forEach(r => {
+        this.addNode(r.nodeId, { name: r.name, localPos: r.centerLocalPos, floor: floorGraph.levelIndex });
+      });
+      (floorGraph.corridors || []).forEach(corr => {
+        (corr.centerlineNodes || []).forEach(c => {
+          this.addNode(c, { name: `${floorGraph.floorId || 'Floor'} Corridor`, floor: floorGraph.levelIndex });
+        });
+      });
+      (floorGraph.stairwells || []).forEach(sw => {
+        this.addNode(sw.landingNodeId, {
+          name: sw.name || sw.stairwellId,
+          localPos: sw.localPos,
+          floor: floorGraph.levelIndex
+        });
+      });
+      (floorGraph.exits || []).forEach(ex => {
+        this.addNode(ex.portalNodeId, {
+          name: ex.name || ex.exitId,
+          localPos: ex.localPos,
+          floor: floorGraph.levelIndex
+        });
+      });
     });
 
-    // 2. Add Indoor Nodes from 1F
-    this.addNode(HANYANG_1F_INDOOR_GRAPH.stairwells[0].landingNodeId, {
-      name: '1F SE Stair Landing',
-      localPos: HANYANG_1F_INDOOR_GRAPH.stairwells[0].localPos
-    });
-    this.addNode(HANYANG_1F_INDOOR_GRAPH.exits[0].portalNodeId, {
-      name: HANYANG_1F_INDOOR_GRAPH.exits[0].name,
-      localPos: HANYANG_1F_INDOOR_GRAPH.exits[0].localPos
-    });
-
-    // 3. Add Indoor Navigation Edges
-    INDOOR_NAV_EDGES.forEach(e => {
+    // 2. Add Indoor Navigation Edges
+    (f.indoorEdges || []).forEach(e => {
       this.addEdge(e.source, e.target, {
         distance: e.distance,
         hasStairs: e.hasStairs,
         isWheelchairPassable: e.isWheelchairPassable,
-        highway: e.edgeType
+        highway: e.edgeType,
+        edgeId: e.edgeId
       });
     });
 
-    // 4. Add Explicit 1F SE Connector (4.0m)
-    const connectorEdge = HANYANG_BLDG212_SE_CONNECTOR.getGraphEdge();
-    this.addEdge(connectorEdge.source, connectorEdge.target, {
-      distance: connectorEdge.distance,
-      hasStairs: connectorEdge.hasStairs,
-      isWheelchairPassable: connectorEdge.isWheelchairPassable,
-      edgeId: connectorEdge.connectorId,
-      highway: 'portal_connector'
-    });
+    // 3. Add Explicit Indoor-Outdoor Connector Portal
+    if (f.connector) {
+      this.addEdge(f.connector.source, f.connector.target, {
+        distance: f.connector.distance,
+        hasStairs: f.connector.hasStairs ?? false,
+        isWheelchairPassable: f.connector.isWheelchairPassable ?? false,
+        edgeId: f.connector.connectorId,
+        highway: 'portal_connector'
+      });
+    }
 
-    // 5. Add Outdoor Campus Graph Segments (Derived from OSM API 0.6 live query)
+    // 4. Add Outdoor Campus Graph Segments
     this.buildCampusOutdoorNetwork();
 
-    // 6. Add Shelter Terminal Link
-    this.addEdge('OSM_NODE_8577408700', HANYANG_MAIN_STADIUM_SHELTER.shelterId, {
-      distance: 21.7, // Track perimeter to pitch centroid
-      hasStairs: false,
-      isWheelchairPassable: true,
-      highway: 'shelter_ingress'
-    });
+    // 5. Add Shelter Terminal Link
+    if (f.shelter && f.defaultOutdoorTargetNodeId) {
+      this.addEdge(f.defaultOutdoorTargetNodeId, f.shelter.shelterId, {
+        distance: f.shelter.ingressDistanceMeters ?? 21.7,
+        hasStairs: false,
+        isWheelchairPassable: true,
+        highway: 'shelter_ingress'
+      });
+    }
   }
 
   /**
-   * Build calibrated outdoor graph from real OSM Way geometry.
+   * Build calibrated outdoor graph from the injected FacilityPackage.outdoorGraph.
    */
   buildCampusOutdoorNetwork() {
-    const egressNode = 'OSM_NODE_6415394841';
-    const stadiumNode = 'OSM_NODE_8577408700';
+    const outdoorGraph = this.facility?.outdoorGraph;
+    if (!outdoorGraph) return;
 
-    this.addNode(egressNode, { lat: 37.5556064, lon: 127.0452288, name: '1F SE Outdoor Footway' });
-    this.addNode(stadiumNode, { lat: 37.554032, lon: 127.047460, name: 'Stadium Ingress Perimeter' });
-
-    // BRANCH A: Shortest Rapid Path (4 Staircases = 68.5m, Total 651.9m)
-    // Way 684692287: footway (4.1m)
-    this.addEdge(egressNode, 'NODE_STAIR1_TOP', { distance: 4.1, hasStairs: false, wayId: '684692287', highway: 'footway' });
-
-    // Staircase 1: Way 684692285 (19.1m)
-    this.addEdge('NODE_STAIR1_TOP', 'NODE_STAIR1_BOT', { distance: 19.1, hasStairs: true, isWheelchairPassable: false, wayId: '684692285', highway: 'steps', hazardRisk: 'HIGH' });
-
-    // Way 684692288: footway (7.7m)
-    this.addEdge('NODE_STAIR1_BOT', 'NODE_LIVING_STREET_1', { distance: 7.7, hasStairs: false, wayId: '684692288', highway: 'footway' });
-
-    // Living Street 187184710: (15.7m)
-    this.addEdge('NODE_LIVING_STREET_1', 'NODE_PATH_1487575142', { distance: 15.7, hasStairs: false, wayId: '187184710', highway: 'living_street' });
-
-    // Path 1487575142: (4.4m)
-    this.addEdge('NODE_PATH_1487575142', 'NODE_STAIR2_TOP', { distance: 4.4, hasStairs: false, wayId: '1487575142', highway: 'path' });
-
-    // Staircase 2: Way 187409275 (23.0m)
-    this.addEdge('NODE_STAIR2_TOP', 'NODE_STAIR2_BOT', { distance: 23.0, hasStairs: true, isWheelchairPassable: false, wayId: '187409275', highway: 'steps', hazardRisk: 'HIGH' });
-
-    // Pedestrian Way 187646030: (50.4m)
-    this.addEdge('NODE_STAIR2_BOT', 'NODE_STAIR3_TOP', { distance: 50.4, hasStairs: false, wayId: '187646030', highway: 'pedestrian' });
-
-    // Staircase 3: Way 409637898 (16.5m)
-    this.addEdge('NODE_STAIR3_TOP', 'NODE_STAIR3_BOT', { distance: 16.5, hasStairs: true, isWheelchairPassable: false, wayId: '409637898', highway: 'steps', hazardRisk: 'HIGH' });
-
-    // Footway Way 227120060: (62.4m)
-    this.addEdge('NODE_STAIR3_BOT', 'NODE_STAIR4_TOP', { distance: 62.4, hasStairs: false, wayId: '227120060', highway: 'footway' });
-
-    // Staircase 4: Way 187436400 (9.9m)
-    this.addEdge('NODE_STAIR4_TOP', 'NODE_STAIR4_BOT', { distance: 9.9, hasStairs: true, isWheelchairPassable: false, wayId: '187436400', highway: 'steps', hazardRisk: 'HIGH' });
-
-    // Service Way 187157368: (47.2m)
-    this.addEdge('NODE_STAIR4_BOT', 'NODE_SERVICE_JUNCTION', { distance: 47.2, hasStairs: false, wayId: '187157368', highway: 'service' });
-
-    // BRANCH B: Step-Free Detour Alternative (0m Stairs, 769.1m Total)
-    // Way 187443876 & 187409280: Egress Node -> RAMP_MID (145.4m)
-    this.addEdge(egressNode, 'NODE_RAMP_MID', {
-      distance: 145.4,
-      hasStairs: false,
-      isWheelchairPassable: true,
-      wayId: '187443876',
-      highway: 'living_street'
+    (outdoorGraph.nodes || []).forEach(node => {
+      this.addNode(node.id, {
+        lat: node.lat,
+        lon: node.lon,
+        name: node.name,
+        localPos: node.localPos
+      });
     });
 
-    // Way 187409281: RAMP_MID -> SERVICE_JUNCTION (232.2m)
-    this.addEdge('NODE_RAMP_MID', 'NODE_SERVICE_JUNCTION', {
-      distance: 232.2,
-      hasStairs: false,
-      isWheelchairPassable: true,
-      wayId: '187409281',
-      highway: 'service'
-    });
-
-    // COMMON LOWER WALKWAY TO STADIUM: (391.5m)
-    this.addEdge('NODE_SERVICE_JUNCTION', stadiumNode, {
-      distance: 391.5,
-      hasStairs: false,
-      isWheelchairPassable: true,
-      highway: 'service_footway_network'
+    (outdoorGraph.edges || []).forEach(edge => {
+      this.addEdge(edge.source, edge.target, {
+        edgeId: edge.edgeId || `${edge.source}->${edge.target}`,
+        distance: edge.distance,
+        hasStairs: !!edge.hasStairs,
+        isWheelchairPassable: edge.isWheelchairPassable,
+        wayId: edge.wayId,
+        highway: edge.highway,
+        hazardRisk: edge.hazardRisk,
+        branch: edge.branch,
+        waypoints: edge.waypoints
+      });
     });
   }
 
@@ -490,14 +478,17 @@ export class PedestrianRoutingEngine {
     const isStepFree = stairFlightCount === 0;
 
     // Detect if this path was replanned / diverted from baseline shortest
-    const isBaselineShortest = (Math.round(actualPhysicalDistance * 10) / 10 === 651.9) ||
-                               (Math.round(actualPhysicalDistance * 10) / 10 === 737.9);
+    const roundedDist = Math.round(actualPhysicalDistance * 10) / 10;
+    const outdoorBaselineLen = this.facility?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters ?? 651.9;
+    const stepFreeBaselineLen = this.facility?.routeBaselines?.PATH_STEP_FREE_DETOUR?.targetLengthMeters ?? 769.1;
+    const completeBaselineLen = this.facility?.routeBaselines?.COMPLETE_SHORTEST?.targetLengthMeters ?? 737.9;
+    const isBaselineShortest = (roundedDist === outdoorBaselineLen) || (roundedDist === completeBaselineLen);
     const replanned = !isBaselineShortest || traversedSuspected || traversedUnknown;
 
     let replanReason = null;
     if (replanned) {
       if (isWheelchair) {
-        replanReason = '휠체어 이용자 계단 제약으로 인한 무단차 우회로(769.1m) 산출';
+        replanReason = `휠체어 이용자 계단 제약으로 인한 무단차 우회로(${stepFreeBaselineLen}m) 산출`;
       } else if (traversedSuspected) {
         replanReason = '최단 경로 상 미확인 위험(SUSPECTED) 회피 불가로 주의 통행 적용';
       } else {
@@ -542,22 +533,35 @@ export class PedestrianRoutingEngine {
   }
 
   findOutdoorShortestPath() {
-    return this.findDynamicPath('OSM_NODE_6415394841', 'OSM_NODE_8577408700', {
+    const startId = this.facility?.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
+    const targetId = this.facility?.defaultOutdoorTargetNodeId || 'OSM_NODE_8577408700';
+    return this.findDynamicPath(startId, targetId, {
       excludeStairs: false
     });
   }
 
   findOutdoorStepFreePath() {
-    return this.findDynamicPath('OSM_NODE_6415394841', 'OSM_NODE_8577408700', {
+    const startId = this.facility?.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
+    const targetId = this.facility?.defaultOutdoorTargetNodeId || 'OSM_NODE_8577408700';
+    return this.findDynamicPath(startId, targetId, {
       excludeStairs: true
     });
   }
 
-  findCompleteIndoorOutdoorPath(originRoomId = 'ROOM_301', options = {}) {
-    const room = HANYANG_3F_INDOOR_GRAPH.rooms.find(r => r.roomId === originRoomId || r.nodeId === originRoomId);
-    if (!room) {
-      throw new Error(`[PedestrianRoutingEngine] Unknown origin room: ${originRoomId}`);
+  findCompleteIndoorOutdoorPath(originRoomId = null, options = {}) {
+    const lookupRoomId = originRoomId || this.facility?.defaultRoomId || 'ROOM_301';
+    let room = null;
+    for (const floorGraph of Object.values(this.facility?.indoorGraphs || {})) {
+      const found = (floorGraph.rooms || []).find(r => r.roomId === lookupRoomId || r.nodeId === lookupRoomId);
+      if (found) {
+        room = found;
+        break;
+      }
     }
-    return this.findDynamicPath(room.nodeId, HANYANG_MAIN_STADIUM_SHELTER.shelterId, options);
+    if (!room) {
+      throw new Error(`[PedestrianRoutingEngine] Unknown origin room: ${lookupRoomId}`);
+    }
+    const targetShelterId = this.facility?.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM';
+    return this.findDynamicPath(room.nodeId, targetShelterId, options);
   }
 }

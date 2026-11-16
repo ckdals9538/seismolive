@@ -19,43 +19,27 @@
 
 import {
   DATA_PROVENANCE_SOURCE,
-  VERIFICATION_STATUS
-} from './HanyangBuildingData.js';
+  VERIFICATION_STATUS,
+  SEISMIC_MOTION_POLICY,
+  isProtectiveShakingOnset,
+  isQuiescenceSubsided,
+  ASSESSMENT_URGENCY,
+  LOCATION_CERTAINTY,
+  MOBILITY_PROFILE,
+  CONFLICT_RESOLUTION_STRATEGY
+} from './ResponseDomainTypes.js';
 
 import { RESPONSE_STATES } from './ResponseStateMachine.js';
 
-export const ASSESSMENT_URGENCY = Object.freeze({
-  IMMEDIATE: 'IMMEDIATE', // 즉각 방어/대피 행동 필요 (흔들림 중 엄폐, 화재 연기 직면)
-  HIGH: 'HIGH',           // 높은 주의: 탈출로 확보 및 조심스러운 이동 단계
-  CAUTION: 'CAUTION',     // 주의 관찰: 여진 대비, 낙하물 경계, 미확인 정보 확인
-  STABLE: 'STABLE'        // 안전 집결지 도착 및 안정 상태
-});
-
-export const LOCATION_CERTAINTY = Object.freeze({
-  MANUAL_EXACT: 'MANUAL_EXACT',         // 사용자가 직접 호실(Room 301 등)을 선택함
-  FLOOR_ONLY: 'FLOOR_ONLY',             // 층(3층)만 선택하고 세부 호실 미지정
-  BUILDING_ONLY: 'BUILDING_ONLY',       // 건물(제1공학관)만 선택하고 층 미지정
-  ESTIMATED_COARSE: 'ESTIMATED_COARSE', // 단말 대략적 위치(캠퍼스 반경 수백미터)
-  UNKNOWN: 'UNKNOWN'                    // 위치 정보 없음
-});
-
-export const MOBILITY_PROFILE = Object.freeze({
-  NONE: 'NONE',                         // 이동 제약 없음 (일반 보행 가능)
-  WHEELCHAIR: 'WHEELCHAIR',             // 휠체어 이용자 (계단 단차 원천 불가)
-  CRUTCHES: 'CRUTCHES',                 // 목발/지팡이 이용 (경사로 선호, 계단 지양)
-  INJURED_WALKING: 'INJURED_WALKING',   // 보행 가능한 경상자 (속도 저하, 난간 필요)
-  UNKNOWN: 'UNKNOWN'                    // 이동 특성 미입력
-});
-
-export const CONFLICT_RESOLUTION_STRATEGY = Object.freeze({
-  NO_CONFLICT: 'NO_CONFLICT',
-  // 공식 지침을 무효화하지 않고, 미확인 현장 감각 위험에 대비한 보수적 예비 조치 안내
-  LOCAL_UNVERIFIED_HAZARD_PRECAUTION: 'LOCAL_UNVERIFIED_HAZARD_PRECAUTION',
-  // 물리적 차단(문틀 뒤틀림 등)으로 인해 공식 외부 대피 지침과 무관하게 실내 방어 격리 발동
-  CONSERVATIVE_PHYSICAL_BARRIER_HOLD: 'CONSERVATIVE_PHYSICAL_BARRIER_HOLD',
-  // 정보 상충이 완전히 해소되지 않아 불확실성을 공표하고 방어적 대기 유지
-  UNRESOLVED_CONFLICT_CAUTIONARY_DEFENSE: 'UNRESOLVED_CONFLICT_CAUTIONARY_DEFENSE'
-});
+export {
+  ASSESSMENT_URGENCY,
+  LOCATION_CERTAINTY,
+  MOBILITY_PROFILE,
+  CONFLICT_RESOLUTION_STRATEGY,
+  DATA_PROVENANCE_SOURCE,
+  VERIFICATION_STATUS,
+  SEISMIC_MOTION_POLICY
+};
 
 /**
  * SituationAssessmentEngine
@@ -173,7 +157,7 @@ export class SituationAssessmentEngine {
     // ------------------------------------------------------------------------
     // 3. 재난 위험 요인 다차원 평가 (Multi-Hazard Synthesis)
     // ------------------------------------------------------------------------
-    const isShakingActive = disaster.isShakingActive === true || (stationPga !== null && stationPga >= 0.05 && !isStationStale);
+    const isShakingActive = disaster.isShakingActive === true || (stationPga !== null && isProtectiveShakingOnset(stationPga) && !isStationStale);
     const hasAftershock = disaster.hasAftershock === true;
 
     // 사용자 보고 기반 위험 (절대 '사실로 단정'하지 않고 '보고됨/의심됨'으로 처리)

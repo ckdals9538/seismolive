@@ -13,13 +13,14 @@
 // ============================================================================
 
 import * as THREE from '../lib/three.module.js';
+import { DEFAULT_HANYANG_FACILITY_PACKAGE } from './HanyangBuildingData.js';
 
 export const CAMERA_STAGES = Object.freeze({
   GLOBAL_ORBIT: 'GLOBAL_ORBIT',           // Cosmic view of Earth (r ~ 140 units)
   REGIONAL_APPROACH: 'REGIONAL_APPROACH', // Korean peninsula & Seoul metropolitan scale
-  CAMPUS_OVERVIEW: 'CAMPUS_OVERVIEW',     // Aerial view: Bldg 212, evacuation paths, Stadium
-  BUILDING_INSPECTION: 'BUILDING_INSPECTION', // Axonometric close-up of Bldg 212 & selected 3F
-  PERSONAL_LOCATION: 'PERSONAL_LOCATION'  // Immersive close-up on user 3F Room 301 & egress core
+  CAMPUS_OVERVIEW: 'CAMPUS_OVERVIEW',     // Aerial view: Bldg, evacuation paths, Shelter
+  BUILDING_INSPECTION: 'BUILDING_INSPECTION', // Axonometric close-up of facility & selected floor
+  PERSONAL_LOCATION: 'PERSONAL_LOCATION'  // Immersive close-up on user personal location & egress core
 });
 
 export const TRANSITION_STATUS = Object.freeze({
@@ -29,12 +30,21 @@ export const TRANSITION_STATUS = Object.freeze({
   COMPLETED: 'COMPLETED'
 });
 
+function toVec3(val) {
+  if (val && val.isVector3) return val.clone();
+  if (Array.isArray(val) && val.length >= 3) return new THREE.Vector3(val[0], val[1], val[2]);
+  if (val && typeof val.x === 'number') return new THREE.Vector3(val.x, val.y, val.z);
+  return new THREE.Vector3();
+}
+
 export class GlobalLocalCameraTransition {
   /**
    * @param {Object} config
    * @param {THREE.PerspectiveCamera} config.camera
    * @param {Object} [config.controls] - OrbitControls instance
    * @param {THREE.Vector3} [config.anchorWorldPosition] - Local tangent anchor origin in world units
+   * @param {Object} [config.facilityPackage] - Injectable facility package supplying cameraViewpoints
+   * @param {Object} [config.viewpoints] - Explicit viewpoint overrides keyed by CAMERA_STAGES
    */
   constructor(config = {}) {
     if (!config.camera) {
@@ -44,49 +54,14 @@ export class GlobalLocalCameraTransition {
     this.camera = config.camera;
     this.controls = config.controls || null;
     this.anchorWorldPos = config.anchorWorldPosition || new THREE.Vector3(0, 0, 0);
+    this.facility = config.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
 
     this.status = TRANSITION_STATUS.IDLE;
     this.currentStage = CAMERA_STAGES.GLOBAL_ORBIT;
 
-    // Viewpoint Definitions (Positions and LookAt Targets)
-    // Note: Coordinates in metric/scaled visual space
-    this.viewpoints = Object.freeze({
-      [CAMERA_STAGES.GLOBAL_ORBIT]: {
-        position: new THREE.Vector3(10.0, 140.0, 40.0),
-        target: new THREE.Vector3(0.0, 0.0, 0.0),
-        near: 0.1,
-        far: 2000.0,
-        description: '글로벌 우주 궤도 (전 지구적 지진학적 맥락)'
-      },
-      [CAMERA_STAGES.REGIONAL_APPROACH]: {
-        position: new THREE.Vector3(1.2, 8.5, 3.0),
-        target: new THREE.Vector3(0.0, 0.0, 0.0),
-        near: 0.05,
-        far: 1500.0,
-        description: '한반도 및 수도권 광역 접근 궤도'
-      },
-      [CAMERA_STAGES.CAMPUS_OVERVIEW]: {
-        position: new THREE.Vector3(230.0, 240.0, -90.0),
-        target: new THREE.Vector3(145.0, -8.0, 80.0),
-        near: 0.1,
-        far: 1500.0,
-        description: '캠퍼스 전체 조망: 제1공학관, 대피 경로 및 대운동장'
-      },
-      [CAMERA_STAGES.BUILDING_INSPECTION]: {
-        position: new THREE.Vector3(135.0, 68.0, -12.0),
-        target: new THREE.Vector3(50.0, 9.0, -75.0),
-        near: 0.1,
-        far: 1000.0,
-        description: '제1공학관 엑소노메트릭 상세: 3층 피난 평면 및 수직 코어'
-      },
-      [CAMERA_STAGES.PERSONAL_LOCATION]: {
-        position: new THREE.Vector3(88.0, 32.0, -35.0),
-        target: new THREE.Vector3(68.0, 9.2, -45.0),
-        near: 0.05,
-        far: 800.0,
-        description: '개인화 위치 상세: 제1공학관 3층 301호 및 비상계단 진입부'
-      }
-    });
+    // Viewpoint Definitions (Positions and LookAt Targets) built from injected viewpoints or FacilityPackage
+    const baseViewpoints = this.facility?.cameraViewpoints || DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints;
+    this.viewpoints = this._normalizeViewpoints(config.viewpoints || baseViewpoints, baseViewpoints);
 
     // Interpolation state
     this.anim = {
@@ -108,6 +83,33 @@ export class GlobalLocalCameraTransition {
     if (this.controls) {
       this.attachControlsListener();
     }
+  }
+
+  _normalizeViewpoints(rawViewpoints = {}, fallbackViewpoints = {}) {
+    const normalized = {};
+    const stageKeys = Object.values(CAMERA_STAGES);
+    for (const key of stageKeys) {
+      const vp = rawViewpoints[key] || fallbackViewpoints[key];
+      if (vp) {
+        normalized[key] = {
+          position: toVec3(vp.position),
+          target: toVec3(vp.target),
+          near: vp.near ?? 0.1,
+          far: vp.far ?? 1500.0,
+          description: vp.description || key
+        };
+      }
+    }
+    return Object.freeze(normalized);
+  }
+
+  /**
+   * Update camera stage viewpoints dynamically when switching active facilities/campuses.
+   * @param {Object} viewpoints
+   */
+  setFacilityViewpoints(viewpoints) {
+    const fallback = this.facility?.cameraViewpoints || DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints;
+    this.viewpoints = this._normalizeViewpoints(viewpoints, fallback);
   }
 
   /**

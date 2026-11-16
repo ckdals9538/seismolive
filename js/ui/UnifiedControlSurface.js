@@ -4,8 +4,10 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
-import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, computeTsunamiHydrodynamicParams, generateTsunamiBathymetrySVG } from '../geophysics/TravelTimeSolvers.js';
+import { computeTsunamiHydrodynamicParams } from '../geophysics/TravelTimeSolvers.js';
+import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, generateTsunamiBathymetrySVG } from './GeophysicsFolioView.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
+import { exhibitionAppContext } from './ExhibitionAppContext.js';
 
 const BENCHMARK_CATALOGS = {
   usgs: [
@@ -24,7 +26,8 @@ const BENCHMARK_CATALOGS = {
 };
 
 export class UnifiedControlSurface {
-      constructor() {
+      constructor({ appContext = exhibitionAppContext } = {}) {
+        this.appContext = appContext;
         this.container = document.getElementById('unified-control-surface');
         this.currentState = 'EXPLORE';
         this.previousState = 'EXPLORE';
@@ -36,7 +39,8 @@ export class UnifiedControlSurface {
         this.isScrubbing = false;
         this.activeDossierTab = 'hist_corpus';
 
-        window.controlSurface = this;
+        this.appContext.controlSurface = this;
+        if (typeof window !== 'undefined') window.controlSurface = this;
         this.bindEvents();
         this.setExploreCategory(null);
       }
@@ -59,12 +63,12 @@ export class UnifiedControlSurface {
             if (shelfTitle) shelfTitle.textContent = "현대 글로벌 정밀 계측 지진 (USGS / 국제 표준)";
             this.renderShelfItems(shelfContainer, BENCHMARK_CATALOGS.usgs);
           }
-          const globalCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.id?.includes('global_') || e.id?.includes('usgs')).length || 727;
+          const globalCount = this.appContext.getAllEvents().filter(e => e.recordType === 'usgs-live' || e.catalogType === 'INSTRUMENTAL_GLOBAL' || e.id?.includes('global_') || e.id?.includes('usgs')).length || 727;
           if (subCount) subCount.textContent = `${globalCount} 글로벌 관측 노드`;
           if (btnLabel) btnLabel.textContent = "글로벌 관측 피드";
           this.activeFilter = 'global';
           
-          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
+          const isOrbit = this.appContext.flightState === this.appContext.FLIGHT_STATES.ORBIT;
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && isOrbit) {
             sub.textContent = "USGS 현대 정밀 계측 지진을 선택하여 사료 및 탐사 주시를 확인하십시오";
@@ -77,12 +81,12 @@ export class UnifiedControlSurface {
             if (shelfTitle) shelfTitle.textContent = "한반도 2,000년 역사 문헌 대표 사료 (조선·고려·신라)";
             this.renderShelfItems(shelfContainer, BENCHMARK_CATALOGS.historical);
           }
-          const histCount = (window.MASTER_EVENTS_REGISTRY || []).filter(e => e.country === 'KOREA' || (!e.id?.includes('global_') && !e.id?.includes('usgs') && e.catalogType !== 'INSTRUMENTAL_GLOBAL')).length || 48;
+          const histCount = this.appContext.getAllEvents().filter(e => e.country === 'KOREA' || (!e.id?.includes('global_') && !e.id?.includes('usgs') && e.catalogType !== 'INSTRUMENTAL_GLOBAL')).length || 48;
           if (subCount) subCount.textContent = `${histCount} 한반도 역사 사료`;
           if (btnLabel) btnLabel.textContent = "한반도 사료 목록";
           this.activeFilter = 'all-historical';
 
-          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
+          const isOrbit = this.appContext.flightState === this.appContext.FLIGHT_STATES.ORBIT;
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && isOrbit) {
             sub.textContent = "한반도 2,000년 역사 문헌 사료를 선택하여 원전 번역과 학술 역산을 확인하십시오";
@@ -95,7 +99,7 @@ export class UnifiedControlSurface {
           if (btnLabel) btnLabel.textContent = "아카이브 탐색";
           this.activeFilter = 'all';
 
-          const isOrbit = typeof window.getFlightState === 'function' ? window.getFlightState() === window.FLIGHT_STATES?.ORBIT : true;
+          const isOrbit = this.appContext.flightState === this.appContext.FLIGHT_STATES.ORBIT;
           const sub = document.getElementById('chronicle-subtitle-text');
           if (sub && isOrbit) {
             sub.textContent = "지구 표면의 지진 노드를 탐색하십시오 · [글로벌 계측] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
@@ -131,21 +135,17 @@ export class UnifiedControlSurface {
 
       async openEventArchiveById(eventId) {
         if (!eventId) return;
-        const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
+        const allEvents = this.appContext.getAllEvents();
         const ev = allEvents.find(e => (e.id === eventId || e.eventId === eventId)) || { id: eventId, eventId: eventId };
         this.previousState = (this.currentState === 'PERFORMANCE') ? 'PERFORMANCE' : 'EXPLORE';
         this.setState('SELECTED', ev);
       }
 
       get isPlaying() {
-        return (typeof window.isPlaying !== 'undefined') ? window.isPlaying : true;
+        return this.appContext ? this.appContext.isPlaying : true;
       }
       set isPlaying(val) {
-        if (typeof window.setSimulationPlaying === 'function') {
-          window.setSimulationPlaying(val);
-        } else {
-          window.isPlaying = !!val;
-        }
+        this.appContext.setSimulationPlaying(val);
         const playBtn = document.getElementById('btn-transport-play-pause');
         if (playBtn) playBtn.textContent = val ? '⏸' : '▶';
       }
@@ -159,7 +159,7 @@ export class UnifiedControlSurface {
         const targetId = eventData.eventId || eventData.id;
         console.log(`[Unified Control Surface] selectEvent triggered for: ${targetId}`);
         this.setState('PERFORMANCE', eventData);
-        await startDescentFlight(targetId);
+        await this.appContext.startDescentFlight(targetId);
       }
 
       async selectEventById(eventId) {
@@ -266,7 +266,7 @@ export class UnifiedControlSurface {
           btnAutoContinue.addEventListener('click', (e) => {
             e.stopPropagation();
             this.autoContinue = !this.autoContinue;
-            autonomousMode = this.autoContinue;
+            this.appContext.setAutonomousMode(this.autoContinue);
             this.updateAutoContinueUI();
           });
         }
@@ -275,9 +275,10 @@ export class UnifiedControlSurface {
         if (btnSurfaceAudio) {
           btnSurfaceAudio.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (livingSoundfield) {
-              const nextMuted = !livingSoundfield.isMuted;
-              await livingSoundfield.setMuted(nextMuted);
+            const sound = this.appContext.livingSoundfield;
+            if (sound) {
+              const nextMuted = !sound.isMuted;
+              await sound.setMuted(nextMuted);
               this.updateAudioUI(nextMuted);
             }
           });
@@ -342,7 +343,7 @@ export class UnifiedControlSurface {
         if (chkAuto) {
           chkAuto.addEventListener('change', (e) => {
             this.autoContinue = e.target.checked;
-            autonomousMode = this.autoContinue;
+            this.appContext.setAutonomousMode(this.autoContinue);
             this.updateAutoContinueUI();
           });
         }
@@ -352,8 +353,9 @@ export class UnifiedControlSurface {
           btnLaunch.addEventListener('click', async (e) => {
             e.stopPropagation();
             if (!this.selectedEvent) return;
-            if (window.livingSoundfield && typeof window.livingSoundfield.ensureAudioContext === 'function') {
-              try { await window.livingSoundfield.ensureAudioContext(); } catch (_) {}
+            const sound = this.appContext.livingSoundfield;
+            if (sound && typeof sound.ensureAudioContext === 'function') {
+              try { await sound.ensureAudioContext(); } catch (_) {}
             }
             await this.selectEvent(this.selectedEvent);
           });
@@ -384,7 +386,7 @@ export class UnifiedControlSurface {
           btnPerfDetail.addEventListener('click', (e) => {
             e.stopPropagation();
             this.previousState = 'PERFORMANCE';
-            this.setState('SELECTED', this.selectedEvent || currentParsedEvent);
+            this.setState('SELECTED', this.selectedEvent || this.appContext.currentParsedEvent);
           });
         }
         const btnPlayPause = document.getElementById('btn-transport-play-pause');
@@ -400,12 +402,10 @@ export class UnifiedControlSurface {
           btnSpeed.addEventListener('click', (e) => {
             e.stopPropagation();
             const speeds = [1.0, 2.0, 0.5];
-            const curSpeed = window.playbackSpeed || 1.0;
+            const curSpeed = this.appContext.playbackSpeed || 1.0;
             const nextIdx = (speeds.indexOf(curSpeed) + 1) % speeds.length;
             const nextSpeed = speeds[nextIdx];
-            if (typeof window.setPlaybackSpeed === 'function') {
-              window.setPlaybackSpeed(nextSpeed);
-            }
+            this.appContext.setPlaybackSpeed(nextSpeed);
           });
         }
 
@@ -421,9 +421,9 @@ export class UnifiedControlSurface {
               'closeup_alpine_spires',
               'closeup_maritime_shelf'
             ];
-            const curIdx = shotKeys.indexOf(currentShotKey);
+            const curIdx = shotKeys.indexOf(this.appContext.currentShotKey);
             const nextIdx = (curIdx + 1) % shotKeys.length;
-            applyCameraShot(shotKeys[nextIdx]);
+            this.appContext.applyCameraShot(shotKeys[nextIdx]);
             btnShot.textContent = `구도 ${nextIdx + 1}/6`;
           });
         }
@@ -433,17 +433,13 @@ export class UnifiedControlSurface {
         if (btnImmersive) {
           btnImmersive.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (typeof window.toggleImmersiveUI === 'function') {
-              window.toggleImmersiveUI(true);
-            }
+            this.appContext.toggleImmersiveUI(true);
           });
         }
         if (restorePill) {
           restorePill.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (typeof window.toggleImmersiveUI === 'function') {
-              window.toggleImmersiveUI(false);
-            }
+            this.appContext.toggleImmersiveUI(false);
           });
         }
 
@@ -453,12 +449,12 @@ export class UnifiedControlSurface {
           window.addEventListener('mouseup', () => { this.isScrubbing = false; });
           scrubber.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
-            seekToSimulationTime(val);
+            this.appContext.seekToSimulationTime(val);
           });
           scrubber.addEventListener('change', (e) => {
             this.isScrubbing = false;
             const val = parseFloat(e.target.value);
-            seekToSimulationTime(val);
+            this.appContext.seekToSimulationTime(val);
           });
         }
 
@@ -466,9 +462,10 @@ export class UnifiedControlSurface {
         if (btnTransportAudio) {
           btnTransportAudio.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (livingSoundfield) {
-              const nextMuted = !livingSoundfield.isMuted;
-              await livingSoundfield.setMuted(nextMuted);
+            const sound = this.appContext.livingSoundfield;
+            if (sound) {
+              const nextMuted = !sound.isMuted;
+              await sound.setMuted(nextMuted);
               this.updateAudioUI(nextMuted);
             }
           });
@@ -478,8 +475,9 @@ export class UnifiedControlSurface {
         if (volSlider) {
           volSlider.addEventListener('input', (e) => {
             const v = parseFloat(e.target.value);
-            if (livingSoundfield && livingSoundfield.gainMaster && livingSoundfield.ctx) {
-              livingSoundfield.gainMaster.gain.setValueAtTime(v, livingSoundfield.ctx.currentTime);
+            const sound = this.appContext.livingSoundfield;
+            if (sound && sound.gainMaster && sound.ctx) {
+              sound.gainMaster.gain.setValueAtTime(v, sound.ctx.currentTime);
             }
           });
         }
@@ -488,7 +486,7 @@ export class UnifiedControlSurface {
         if (btnReturn) {
           btnReturn.addEventListener('click', (e) => {
             e.stopPropagation();
-            startAscentFlight();
+            this.appContext.startAscentFlight();
           });
         }
       }
@@ -518,7 +516,7 @@ export class UnifiedControlSurface {
         if (!container) return;
         container.innerHTML = '';
 
-        const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
+        const allEvents = this.appContext.getAllEvents();
         let filtered = allEvents;
 
         // Filter by Category / Era
@@ -699,10 +697,10 @@ export class UnifiedControlSurface {
         if (!ev) return;
 
         const evId = String(ev.id || ev.eventId || "");
-        const allRegistered = window.MASTER_EVENTS_REGISTRY || [...(window.HISTORICAL_EVENTS || []), ...(window.INSTRUMENTAL_EVENTS || [])];
+        const allRegistered = this.appContext.getAllEvents();
         const canonicalEv = allRegistered.find(e => (e.id === evId || e.eventId === evId))
-          || (window.INSTRUMENTAL_EVENTS || []).find(e => (e.id === evId || e.eventId === evId))
-          || (window.HISTORICAL_EVENTS || []).find(e => (e.id === evId || e.eventId === evId))
+          || (this.appContext.instrumentalEvents || []).find(e => (e.id === evId || e.eventId === evId))
+          || (this.appContext.historicalEvents || []).find(e => (e.id === evId || e.eventId === evId))
           || ev;
 
         const isHist = isHistoricalRecord(canonicalEv);
@@ -900,8 +898,8 @@ export class UnifiedControlSurface {
         Object.entries(panes).forEach(([k, el]) => {
           if (el) el.style.display = (k === tabName) ? 'flex' : 'none';
         });
-        if (tabName !== 'inst_geophysics' && typeof window.setGeophysics3DProbe === 'function') {
-          window.setGeophysics3DProbe(0, 0, 0);
+        if (tabName !== 'inst_geophysics') {
+          this.appContext.setGeophysics3DProbe(0, 0, 0);
         }
         const scrollBody = document.getElementById('selected-scroll-body');
         if (scrollBody) scrollBody.scrollTop = 0;
@@ -1397,7 +1395,7 @@ export class UnifiedControlSurface {
         if (!histEl || !uncertEl) return;
 
         const evId = String(ev.id || ev.eventId || "");
-        const rawHist = (window.HISTORICAL_EVENTS || []).find(h => h.id === evId) || ev;
+        const rawHist = (this.appContext.historicalEvents || []).find(h => h.id === evId) || ev;
         const isHist = isHistoricalRecord(ev);
         const isUSGS = ev.recordType === 'usgs-live' || ev.catalogType === 'INSTRUMENTAL_GLOBAL';
 
@@ -1438,7 +1436,7 @@ export class UnifiedControlSurface {
               btn.textContent = item.label;
               btn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const allEvents = window.MASTER_EVENTS_REGISTRY || [...(HISTORICAL_EVENTS || []), ...(INSTRUMENTAL_EVENTS || [])];
+                const allEvents = this.appContext.getAllEvents();
                 const targetEv = allEvents.find(x => (x.id === item.id || x.eventId === item.id));
                 if (targetEv) {
                   this.setState('SELECTED', targetEv);
@@ -1642,7 +1640,9 @@ export class UnifiedControlSurface {
         if (!container) return;
         const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 10.0;
         container.innerHTML = renderGeophysicsFolioHTML(depth);
-        initTravelTimeInteractiveProbe(container, depth);
+        initTravelTimeInteractiveProbe(container, depth, (dist, xCrit, xCross) => {
+          this.appContext.setGeophysics3DProbe(dist, xCrit, xCross);
+        });
       }
 
       updatePerformanceHeader(ev) {

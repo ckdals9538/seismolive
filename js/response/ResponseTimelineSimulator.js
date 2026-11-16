@@ -24,7 +24,7 @@ import {
 import {
   DATA_PROVENANCE_SOURCE,
   VERIFICATION_STATUS
-} from './HanyangBuildingData.js';
+} from './ResponseDomainTypes.js';
 
 /**
  * Standard P2.5 Timeline Event Definitions

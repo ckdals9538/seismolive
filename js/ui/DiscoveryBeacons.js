@@ -3,12 +3,12 @@
 // Sublime, non-game-VFX epicenter beacons on continuous WGS84 globe
 // ============================================================================
 
+import { THREE } from '../lib/three-runtime.js';
 import { getEventCoords, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
 import { geodeticToThree, computeGlobeCenterAndPolarAxis } from '../3d/geodeticEllipsoidCoord.js';
 
 export class DiscoveryNode {
   constructor(eventData, lat0, lon0) {
-    const THREE = window.THREE;
     this.eventData = eventData;
     this.id = eventData.id || eventData.eventId;
     const coords = getEventCoords(eventData);
@@ -65,7 +65,6 @@ export class DiscoveryNode {
   }
 
   updatePosition(lat0, lon0) {
-    const THREE = window.THREE;
     if (this.lat != null && this.lon != null) {
       const [x, y, z] = geodeticToThree(this.lat, this.lon, 0.015, lat0, lon0, 0.0);
       this.group.position.set(x, y, z);

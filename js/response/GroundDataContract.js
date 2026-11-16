@@ -12,7 +12,7 @@
 import {
   DATA_PROVENANCE_SOURCE,
   VERIFICATION_STATUS
-} from './HanyangBuildingData.js';
+} from './ResponseDomainTypes.js';
 
 /**
  * Statutory and Technical Legal Standards for Evacuation & Accessibility (P3.1 Foundation)

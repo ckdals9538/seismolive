@@ -662,30 +662,30 @@ export function getSampleAt(packetOrTrace, timeSec, options = {}) {
 
   // 2. SeismicStationPacket
   const packet = packetOrTrace;
-  const window = getCommonObservationWindow(packet);
+  const obsWindow = getCommonObservationWindow(packet);
 
-  if (!window.hasCommonWindow) {
+  if (!obsWindow.hasCommonWindow) {
     return {
       status: "REJECTED_NO_COMMON_WINDOW",
-      error: window.rejectionReason || "No common time window among components",
+      error: obsWindow.rejectionReason || "No common time window among components",
       samples: null
     };
   }
 
-  if (!window.allows3DVector) {
+  if (!obsWindow.allows3DVector) {
     return {
       status: "REJECTED_GRID_ALIGNMENT",
-      error: window.rejectionReason,
-      alignment: window.sampleGridAlignment,
+      error: obsWindow.rejectionReason,
+      alignment: obsWindow.sampleGridAlignment,
       samples: null
     };
   }
 
-  if (timeSec < -1e-7 || timeSec > window.durationSec + 1e-7) {
+  if (timeSec < -1e-7 || timeSec > obsWindow.durationSec + 1e-7) {
     return {
       status: "OUT_OF_BOUNDS",
       timeSec,
-      durationSec: window.durationSec,
+      durationSec: obsWindow.durationSec,
       samples: null
     };
   }
@@ -693,11 +693,11 @@ export function getSampleAt(packetOrTrace, timeSec, options = {}) {
   const dt = packet.traceZ.dt || (1.0 / packet.traceZ.sampleRateHz);
 
   const sampleComponent = (tr, compKey) => {
-    const startIdx = window.sampleIndices[compKey].start;
+    const startIdx = obsWindow.sampleIndices[compKey].start;
     const samplePos = startIdx + (timeSec / dt);
     const k0 = Math.floor(samplePos);
     const frac = samplePos - k0;
-    const maxIdx = window.sampleIndices[compKey].end;
+    const maxIdx = obsWindow.sampleIndices[compKey].end;
 
     if (frac < 1e-6 || k0 >= maxIdx) {
       return {
@@ -832,13 +832,13 @@ export function getParticleMotionAt(packet, timeSec, options = {}) {
 
   const unitStatus = getPhysicalUnitStatus(packet);
   const meta = getStationMetadata(packet);
-  const window = getCommonObservationWindow(packet);
+  const obsWindow = getCommonObservationWindow(packet);
 
-  if (!window.allows3DVector) {
+  if (!obsWindow.allows3DVector) {
     return {
       status: "REJECTED_GRID_ALIGNMENT",
-      rejectionReason: window.rejectionReason,
-      alignment: window.sampleGridAlignment,
+      rejectionReason: obsWindow.rejectionReason,
+      alignment: obsWindow.sampleGridAlignment,
       motion: null,
       provenance: baseProvenance
     };
@@ -948,7 +948,7 @@ export function getMotionQuality(packet, options = {}) {
   const tE = packet.traceE;
 
   const unitStatus = getPhysicalUnitStatus(packet);
-  const window = getCommonObservationWindow(packet);
+  const obsWindow = getCommonObservationWindow(packet);
 
   const hasClipping = Boolean(tZ.qualityFlags?.isClipped || tN.qualityFlags?.isClipped || tE.qualityFlags?.isClipped);
   const hasGaps = Boolean(tZ.qualityFlags?.hasGaps || tN.qualityFlags?.hasGaps || tE.qualityFlags?.hasGaps);
@@ -962,11 +962,11 @@ export function getMotionQuality(packet, options = {}) {
   let pgvUnit = null;
   let pgvComponents = null;
 
-  if (window.hasCommonWindow && window.sampleIndices) {
-    const idxZ = window.sampleIndices.Z;
-    const idxN = window.sampleIndices.N;
-    const idxE = window.sampleIndices.E;
-    const count = window.sampleCount;
+  if (obsWindow.hasCommonWindow && obsWindow.sampleIndices) {
+    const idxZ = obsWindow.sampleIndices.Z;
+    const idxN = obsWindow.sampleIndices.N;
+    const idxE = obsWindow.sampleIndices.E;
+    const count = obsWindow.sampleCount;
 
     // 1. PGA: ONLY computed if observable is strictly ACCELERATION
     if (unitStatus.canComputePGA && unitStatus.observableType === PHYSICAL_OBSERVABLE_TYPES.ACCELERATION) {
@@ -1010,7 +1010,7 @@ export function getMotionQuality(packet, options = {}) {
   let overallStatus = MOTION_QUALITY_STATUS.VALID;
   if (hasClipping) overallStatus = MOTION_QUALITY_STATUS.DEGRADED_CLIPPED;
   else if (hasGaps) overallStatus = MOTION_QUALITY_STATUS.DEGRADED_GAPS;
-  else if (!window.allows3DVector) overallStatus = MOTION_QUALITY_STATUS.DEGRADED_TIMING;
+  else if (!obsWindow.allows3DVector) overallStatus = MOTION_QUALITY_STATUS.DEGRADED_TIMING;
 
   const sourceType = options.sourceType ||
                      packet.sourceType ||
@@ -1034,12 +1034,12 @@ export function getMotionQuality(packet, options = {}) {
     pgvUnit,
     pgvComponents,
     analysisWindow: {
-      hasCommonWindow: window.hasCommonWindow,
-      startTimeUTC: window.startTimeUTC,
-      endTimeUTC: window.endTimeUTC,
-      durationSec: window.durationSec,
-      sampleCount: window.sampleCount,
-      sampleGridAlignment: window.sampleGridAlignment
+      hasCommonWindow: obsWindow.hasCommonWindow,
+      startTimeUTC: obsWindow.startTimeUTC,
+      endTimeUTC: obsWindow.endTimeUTC,
+      durationSec: obsWindow.durationSec,
+      sampleCount: obsWindow.sampleCount,
+      sampleGridAlignment: obsWindow.sampleGridAlignment
     },
     provenance: [
       ...(tZ.provenance || []),

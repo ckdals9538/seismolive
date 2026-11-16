@@ -153,16 +153,17 @@ assert(css.includes(".hist-param-pill"), "css/surface.css must contain .hist-par
 assert(css.includes(".hist-iso-table"), "css/surface.css must contain .hist-iso-table");
 console.log("  [PASS] css/surface.css contains all Phase D5 style rules");
 
-// --- 5. Main.js Shader Uniforms Verification ---
-console.log("\n--- 5. Main.js Shader Uniforms Verification ---");
+// --- 5. Main.js & Shader Module Uniforms Verification ---
+console.log("\n--- 5. Main.js & Shader Module Uniforms Verification ---");
 const mainJs = Deno.readTextFileSync("js/main.js");
+const shaderJs = Deno.readTextFileSync("js/3d/shaders/SeismicTerrainShaders.js");
 assert(mainJs.includes("u_errorEllipseAxes"), "main.js must declare u_errorEllipseAxes");
 assert(mainJs.includes("u_errorEllipseAngle"), "main.js must declare u_errorEllipseAngle");
 assert(mainJs.includes("u_isoseismalRadii"), "main.js must declare u_isoseismalRadii");
 assert(mainJs.includes("u_hasErrorEllipse"), "main.js must declare u_hasErrorEllipse");
-assert(mainJs.includes("stipple95"), "main.js must compute stipple95 in terrain shader");
-assert(mainJs.includes("stipple95G"), "main.js must compute stipple95G in Tier 0 globe shader");
-console.log("  [PASS] main.js properly declares and renders error ellipse and isoseismals in both terrain & globe shaders");
+assert(mainJs.includes("REGIONAL_TERRAIN_FRAGMENT_SHADER") && shaderJs.includes("stipple95"), "SeismicTerrainShaders.js must compute stipple95 in terrain shader used by main.js");
+assert(mainJs.includes("TIER0_GLOBE_FRAGMENT_SHADER") && shaderJs.includes("stipple95G"), "SeismicTerrainShaders.js must compute stipple95G in Tier 0 globe shader used by main.js");
+console.log("  [PASS] main.js & SeismicTerrainShaders.js properly declare and render error ellipse and isoseismals in both terrain & globe shaders");
 
 console.log("\n====================================================================");
 console.log("Phase D5 Error Ellipse Unit Test: ALL ASSERTIONS PASSED (100%)");

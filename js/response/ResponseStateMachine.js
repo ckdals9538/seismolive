@@ -11,7 +11,12 @@
 //   - Clear separation: Station Observation vs Official Alert vs User Field Report.
 // ============================================================================
 
-import { DATA_PROVENANCE_SOURCE } from './HanyangBuildingData.js';
+import {
+  DATA_PROVENANCE_SOURCE,
+  SEISMIC_MOTION_POLICY,
+  isProtectiveShakingOnset,
+  isQuiescenceSubsided
+} from './ResponseDomainTypes.js';
 
 export const RESPONSE_STATES = Object.freeze({
   S1_SHAKING: 'S1_SHAKING',
@@ -82,11 +87,11 @@ export class ResponseStateMachine {
     this.context.stationObservation.isShakingActive = isShakingActive;
     this.context.stationObservation.quiescentDurationSeconds = quiescentDurationSeconds;
 
-    // Aftershock regression: If in any post-shaking state and severe shaking resumes
-    if (isShakingActive && pga_g > 0.05 && this.currentState !== RESPONSE_STATES.S1_SHAKING) {
+    // Aftershock regression: If in any post-shaking state and severe shaking resumes (>= 0.05g protective onset)
+    if (isShakingActive && isProtectiveShakingOnset(pga_g) && this.currentState !== RESPONSE_STATES.S1_SHAKING) {
       if (this.currentState === RESPONSE_STATES.S2_POST_SHAKING_ASSESSMENT ||
           this.currentState === RESPONSE_STATES.S3_ACTION_DECISION) {
-        this.transitionTo(RESPONSE_STATES.S1_SHAKING, 'AFTERSHOCK_DETECTED: Resumed severe ground motion (PGA > 0.05g). Return to protective posture.');
+        this.transitionTo(RESPONSE_STATES.S1_SHAKING, 'AFTERSHOCK_DETECTED: Resumed severe ground motion (PGA >= 0.05g). Return to protective posture.');
       }
     }
   }
@@ -140,14 +145,15 @@ export class ResponseStateMachine {
 
     switch (s) {
       case RESPONSE_STATES.S1_SHAKING: {
-        // Condition: Shaking ceased AND quiescent duration >= 10.0s (or station confirmation)
-        if (!ctx.stationObservation.isShakingActive && ctx.stationObservation.quiescentDurationSeconds >= 10.0) {
+        // Condition: Severe shaking inactive AND ground motion subsided below quiescence bound (< 0.02g) for >= 10.0s
+        const effectivePga = ctx.stationObservation.pga_g ?? 0.0;
+        if (!ctx.stationObservation.isShakingActive && isQuiescenceSubsided(effectivePga, ctx.stationObservation.quiescentDurationSeconds)) {
           return this.transitionTo(
             RESPONSE_STATES.S2_POST_SHAKING_ASSESSMENT,
             'SHAKING_SUBSIDED: Station instruments indicate PGA < 0.02g and stable quiescence for >= 10s.'
           );
         }
-        return { success: false, reason: 'SHAKING_IN_PROGRESS: Ground motion remains active. Maintain Drop, Cover, Hold On.' };
+        return { success: false, reason: 'SHAKING_IN_PROGRESS: Ground motion remains active or above 0.02g quiescence threshold. Maintain Drop, Cover, Hold On.' };
       }
 
       case RESPONSE_STATES.S2_POST_SHAKING_ASSESSMENT: {

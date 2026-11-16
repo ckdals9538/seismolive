@@ -18,8 +18,10 @@ import {
 } from './ResponseStateMachine.js';
 import {
   DATA_PROVENANCE_SOURCE,
-  VERIFICATION_STATUS
-} from './HanyangBuildingData.js';
+  VERIFICATION_STATUS,
+  isProtectiveShakingOnset,
+  isInstrumentMotionDetected
+} from './ResponseDomainTypes.js';
 
 export const SIMULATION_BADGE = Object.freeze({
   OBSERVED: 'REAL_STATION_OBSERVATION',
@@ -64,15 +66,21 @@ export class PersonalResponseInteraction {
     if (packet.stationId) {
       this.stationTelemetry.stationId = packet.stationId;
     }
-    const isShaking = (packet.pga ?? this.stationTelemetry.pga_g) > 0.02;
-    this.stationTelemetry.isInstrumentActive = isShaking;
+    if (packet.provenance) {
+      this.stationTelemetry.provenance = packet.provenance;
+    }
+    const effectivePga = packet.pga ?? this.stationTelemetry.pga_g;
+    // Lower bound (>= 0.02g): Instrument motion active threshold
+    this.stationTelemetry.isInstrumentActive = isInstrumentMotionDetected(effectivePga);
+    // Upper bound (>= 0.05g): Protective action onset threshold (aligned with SituationAssessmentEngine / ResponseStateMachine)
+    const isProtectiveShaking = isProtectiveShakingOnset(effectivePga);
     this.stationTelemetry.lastWaveformTimestamp = packet.timestamp || new Date().toISOString();
 
     // Forward to state machine
     this.sm.updateStationObservation(
       this.stationTelemetry.pga_g,
-      isShaking,
-      packet.quiescentSeconds ?? (isShaking ? 0.0 : 12.0)
+      isProtectiveShaking,
+      packet.quiescentSeconds ?? (isProtectiveShaking ? 0.0 : 12.0)
     );
 
     this.notifyChange();

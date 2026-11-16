@@ -2,660 +2,50 @@
 // SEISMOLIVE v4.0 — Unified Terrain Data Resolver & Double-Buffering Lifecycle
 // File: js/3d/terrainDataResolver.js
 //
-// Features:
-//   - Rigorous GeoTIFF GeoTransform & PixelIsPoint vs PixelIsArea alignment
-//   - 4-Tier Land / Ocean / Coastal / NoData multi-criteria classification
-//   - Tier 0 WGS84 Ellipsoid, Tier 1 Regional Terrain, Tier 2 Copernicus High-Res Inset
-//   - Boundary 5% height stitching & Cutout mask for Z-fighting elimination
-//   - Asynchronous Double-Buffering & Atomic Swap with race-condition prevention
-//   - Simulated delay and failure recovery injection for robust testing
+// Responsibilities (Stage R2):
+//   - Binary UNORM16 DEM / ETOPO Texture I/O (loadRegionalDEMTexture, loadGlobalElevationTexture)
+//   - Three.js Tier 0 / Tier 1 / Tier 2 Mesh Lifecycle & Atomic Swap (TerrainLifecycleManager)
+//   - Re-exports pure raster math (GeoRasterSampler.js) & terrain catalog (EventTerrainCatalog.js)
 // ============================================================================
 
 import {
-  WGS84,
   DATUM_STATUS,
-  geodeticToThree,
-  computeGlobeCenterAndPolarAxis,
-  computeEllipsoidalHeight
+  geodeticToThree
 } from './geodeticEllipsoidCoord.js';
 
-export const SURFACE_CLASSIFICATION = Object.freeze({
-  LAND: 'LAND',
-  OCEAN: 'OCEAN',
-  COASTAL_UNCERTAIN: 'COASTAL_UNCERTAIN',
-  NODATA: 'NODATA'
-});
+import {
+  SURFACE_CLASSIFICATION,
+  RASTER_PIXEL_TYPE,
+  GeoRasterSampler,
+  classifySurface
+} from './GeoRasterSampler.js';
 
-export const RASTER_PIXEL_TYPE = Object.freeze({
-  PIXEL_IS_AREA: 'RasterPixelIsArea',
-  PIXEL_IS_POINT: 'RasterPixelIsPoint'
-});
+import {
+  UNIVERSAL_EVENT_METADATA,
+  getUniversalEventMetadata,
+  resolveArbitraryCoordinate,
+  computePhysicalUnitsFromBounds,
+  loadTerrainMetadataSidecar
+} from '../data/EventTerrainCatalog.js';
 
-/**
- * Universal Event Metadata Catalog for Phase B (5 Essential Benchmarks)
- */
-export const UNIVERSAL_EVENT_METADATA = Object.freeze({
-  hist_1681_0626: {
-    eventId: "hist_1681_0626",
-    titleKo: "1681 강원도 양양 인근 (숙종 7년 5월 11일 사료 기록)",
-    country: "KOREA",
-    // C. Editorial Visualization Profile (Artistic & Framing Archetype, NOT verified geological classification)
-    editorialProfile: "PROFILE_OFFSHORE_ALPINE_COAST",
-    geographicType: "OFFSHORE_ALPINE_COAST", // Backwards compatibility alias
-    // A. Data-Driven Determinants
-    demBinUrl: "assets/terrain/bathymetry/fused_seorak_donghae_unorm16.bin",
-    width: 1800,
-    height: 1440,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: -1724.0, max: 1698.2 },
-    hasOcean: true,
-    oceanPercentage: 51.8,
-    tier2Available: true,
-    // Historical / Geological Evidence Status
-    magnitude: null, // 계측기 이전 역사 사료 사건으로 확정 규모 판정 불가 (null 보존)
-    estimatedMagnitudeRange: "6.8 ~ 7.5 (사료 진도 VIII~IX 기반 학계 추정치)",
-    magnitudeUncertainty: "UNVERIFIED_HISTORICAL_ESTIMATE",
-    seaDrawbackRecorded: true,
-    tsunamiDefinite: false,
-    drawbackRecordNote: "승정원일기 5월 14일 강원감사 장계에 해수 퇴조 백여 보 기록 (확정적 지진해일 침수 증거로 단정할 수 없음)",
-    cameraPreset: {
-      name: "Monumental Earth & Sky (Seorak & East Sea)",
-      pitchDeg: 28.0,
-      headingDeg: 45.0,
-      camDist: 0.62,
-      targetX: -0.04,
-      targetY: 0.006,
-      targetZ: -0.02
-    }
-  },
-  hist_2016_gyeongju: {
-    eventId: "hist_2016_gyeongju",
-    titleKo: "2016 경주 지진 (본진 ML 5.8 / Mw 5.5)",
-    country: "KOREA",
-    editorialProfile: "PROFILE_INLAND_FAULT_BASIN",
-    geographicType: "INLAND_FAULT_BASIN",
-    demBinUrl: "assets/terrain/bathymetry/regional_2016_gyeongju_unorm16.bin",
-    width: 900,
-    height: 720,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: -265.0, max: 1151.1 },
-    hasOcean: true,
-    oceanPercentage: 25.2,
-    tier2Available: false,
-    magnitude: 5.8,
-    magnitudeScale: "ML (KMA)",
-    cameraPreset: {
-      name: "Gyeongju Yangsan Fault Corridor",
-      pitchDeg: 28.0,
-      headingDeg: 28.0,
-      camDist: 0.65,
-      targetX: 0.0,
-      targetY: 0.006,
-      targetZ: 0.0
-    }
-  },
-  hist_2017_pohang: {
-    eventId: "hist_2017_pohang",
-    titleKo: "2017 포항 지진 (ML 5.4 / Mw 5.4)",
-    country: "KOREA",
-    editorialProfile: "PROFILE_COASTAL_CONTINENTAL_SHELF",
-    geographicType: "COASTAL_CONTINENTAL_SHELF",
-    demBinUrl: "assets/terrain/bathymetry/regional_2017_pohang_unorm16.bin",
-    width: 900,
-    height: 720,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: -1178.0, max: 1151.1 },
-    hasOcean: true,
-    oceanPercentage: 41.6,
-    tier2Available: false,
-    magnitude: 5.4,
-    magnitudeScale: "ML (KMA)",
-    cameraPreset: {
-      name: "Pohang Yeongil Bay Shelf",
-      pitchDeg: 28.0,
-      headingDeg: 45.0,
-      camDist: 0.68,
-      targetX: 0.0,
-      targetY: 0.006,
-      targetZ: 0.0
-    }
-  },
-  global_2016_kumamoto: {
-    eventId: "global_2016_kumamoto",
-    titleKo: "2016 일본 구마모토 지진 (본진 Mw 7.0 / Mj 7.3)",
-    country: "JAPAN",
-    editorialProfile: "PROFILE_INLAND_VOLCANIC_RIFT",
-    geographicType: "INLAND_VOLCANIC_RIFT",
-    demBinUrl: "assets/terrain/bathymetry/regional_2016_kumamoto_unorm16.bin",
-    width: 900,
-    height: 720,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: -165.0, max: 1727.6 },
-    hasOcean: true,
-    oceanPercentage: 17.3,
-    tier2Available: false,
-    magnitude: 7.0,
-    magnitudeScale: "Mw (USGS) / Mj 7.3 (JMA)",
-    cameraPreset: {
-      name: "Kumamoto Graben & Mount Aso",
-      pitchDeg: 32.0,
-      headingDeg: 55.0,
-      camDist: 0.72,
-      targetX: 0.0,
-      targetY: 0.008,
-      targetZ: 0.0
-    }
-  },
-  hist_1338_gaegyeong: {
-    eventId: "hist_1338_gaegyeong",
-    titleKo: "1338 고려 개경 연속 강진 (충숙왕 후7년)",
-    country: "KOREA",
-    editorialProfile: "PROFILE_INLAND_PLAINS",
-    geographicType: "INLAND_BASIN_PLAIN",
-    demBinUrl: "assets/terrain/bathymetry/regional_central_korea_unorm16.bin",
-    width: 900,
-    height: 720,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: -120.0, max: 1420.0 },
-    hasOcean: false,
-    oceanPercentage: 0.0,
-    tier2Available: false,
-    cameraPreset: {
-      name: "Gaegyeong Basin & Songak Mountain Ridge",
-      pitchDeg: 26.0,
-      headingDeg: 25.0,
-      camDist: 0.62,
-      targetX: 0.0,
-      targetY: 0.008,
-      targetZ: 0.015
-    }
-  },
-  global_2023_turkey: {
-    eventId: "global_2023_turkey",
-    titleKo: "2023 튀르키예 카흐라만마라슈 대단층 지진 (Mw 7.8)",
-    country: "TURKEY",
-    editorialProfile: "PROFILE_CONTINENTAL_STRIKE_SLIP_FAULT",
-    geographicType: "CONTINENTAL_STRIKE_SLIP_FAULT",
-    demBinUrl: "assets/terrain/bathymetry/regional_2023_turkey_unorm16.bin",
-    width: 900,
-    height: 720,
-    hMin: -3500.0,
-    hMax: 2500.0,
-    physicalElevationRange: { min: 227.0, max: 2302.6 },
-    hasOcean: false,
-    oceanPercentage: 0.0,
-    tier2Available: false,
-    magnitude: 7.8,
-    magnitudeScale: "Mw (AFAD / USGS)",
-    cameraPreset: {
-      name: "East Anatolian Fault Rift Valley",
-      pitchDeg: 34.0,
-      headingDeg: 38.0,
-      camDist: 0.88,
-      targetX: 0.0,
-      targetY: 0.010,
-      targetZ: 0.0
-    }
-  },
-  global_2011_tohoku: {
-    eventId: "global_2011_tohoku",
-    titleKo: "2011 동일본 거대해구역단층 대지진 (Mw 9.1)",
-    country: "JAPAN",
-    editorialProfile: "PROFILE_GLOBAL_PLANETARY_RELIEF",
-    geographicType: "GLOBAL_PLANETARY_RELIEF",
-    demBinUrl: null,
-    isGlobalPlanetaryRelief: true,
-    hasOcean: true,
-    oceanPercentage: 85.0,
-    tier2Available: false,
-    magnitude: 9.1,
-    magnitudeScale: "Mw (USGS / JMA)",
-    cameraPreset: {
-      name: "Japan Trench & Tohoku Megathrust Subduction Zone",
-      pitchDeg: 42.0,
-      headingDeg: 60.0,
-      camDist: 1.85,
-      targetX: -0.08,
-      targetY: 0.015,
-      targetZ: 0.02
-    }
+export {
+  SURFACE_CLASSIFICATION,
+  RASTER_PIXEL_TYPE,
+  GeoRasterSampler,
+  classifySurface,
+  UNIVERSAL_EVENT_METADATA,
+  getUniversalEventMetadata,
+  resolveArbitraryCoordinate,
+  computePhysicalUnitsFromBounds,
+  loadTerrainMetadataSidecar
+};
+
+function resolveThree(explicitThree = null) {
+  const T = explicitThree || (typeof globalThis !== 'undefined' ? globalThis.THREE : null) || (typeof window !== 'undefined' ? window.THREE : null);
+  if (!T) {
+    throw new Error('[terrainDataResolver] Three.js runtime instance is required.');
   }
-});
-
-/**
- * Get universal event metadata by ID and optional spatial coordinates
- * @param {string} eventId
- * @param {number} [lat]
- * @param {number} [lon]
- */
-export function getUniversalEventMetadata(eventId, lat = null, lon = null) {
-  if (UNIVERSAL_EVENT_METADATA[eventId]) {
-    return UNIVERSAL_EVENT_METADATA[eventId];
-  }
-
-  const id = (eventId || '').toLowerCase();
-
-  // 1. Pyongyang / Goguryeo Northern Theater
-  if (id.includes('pyongyang') || id.includes('0502') || (lat && lat >= 38.5 && lon && lon <= 126.8)) {
-    return {
-      eventId,
-      titleKo: "평양성·대동강 유역 고구려 역사지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_INLAND_PLAINS",
-      geographicType: "INLAND_BASIN_PLAIN",
-      demBinUrl: "assets/terrain/bathymetry/regional_pyongyang_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 17.8,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Pyongyang Basin & Taedong River Valley",
-        pitchDeg: 26.0,
-        headingDeg: 30.0,
-        camDist: 0.62,
-        targetX: 0.0,
-        targetY: 0.008,
-        targetZ: 0.015
-      }
-    };
-  }
-
-  // 2. Central Korea: Seoul / Hanyang & Gaeseong / Gaegyeong
-  if (id.includes('seoul') || id.includes('1518') || id.includes('gaegyeong') || id.includes('1338') || id.includes('0971') || (lat && lat >= 36.8 && lat < 38.5 && lon && lon <= 127.8)) {
-    return {
-      eventId,
-      titleKo: "한양(서울)·개경(개성) 일원 중부 역사지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_INLAND_PLAINS",
-      geographicType: "INLAND_BASIN_PLAIN",
-      demBinUrl: "assets/terrain/bathymetry/regional_central_korea_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: id.includes('ganghwa') || id.includes('incheon'),
-      oceanPercentage: id.includes('ganghwa') ? 21.2 : 0.0,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Central Korea Inland Basin & Mountain Horizon",
-        pitchDeg: 26.0,
-        headingDeg: 25.0,
-        camDist: 0.62,
-        targetX: 0.0,
-        targetY: 0.008,
-        targetZ: 0.015
-      }
-    };
-  }
-
-  // 3. Southwestern Korea: Baekje Buyeo & Gongju
-  if (id.includes('baekje') || id.includes('0639') || id.includes('buyeo') || id.includes('gongju') || (lat && lat >= 35.5 && lat < 36.8 && lon && lon <= 127.5)) {
-    return {
-      eventId,
-      titleKo: "사비(부여)·웅진(공주) 백제 역사지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_INLAND_PLAINS",
-      geographicType: "INLAND_BASIN_PLAIN",
-      demBinUrl: "assets/terrain/bathymetry/regional_baekje_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 23.6,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Geumgang River Valley & Gyeryongsan",
-        pitchDeg: 26.0,
-        headingDeg: 30.0,
-        camDist: 0.62,
-        targetX: 0.0,
-        targetY: 0.008,
-        targetZ: 0.015
-      }
-    };
-  }
-
-  // 4. Jeju Island & Southern Maritime Shelf
-  if (id.includes('jeju') || (lat && lat < 34.5 && lon && lon >= 125.5 && lon <= 127.5)) {
-    return {
-      eventId,
-      titleKo: "제주도 한라산 화산체 및 남해 대륙붕 지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_COASTAL_CONTINENTAL_SHELF",
-      geographicType: "COASTAL_CONTINENTAL_SHELF",
-      demBinUrl: "assets/terrain/bathymetry/regional_jeju_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 93.8,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Mount Halla Caldera & Southern Maritime Shelf",
-        pitchDeg: 26.0,
-        headingDeg: 35.0,
-        camDist: 0.65,
-        targetX: 0.0,
-        targetY: 0.008,
-        targetZ: 0.0
-      }
-    };
-  }
-
-  // 5. Gyeongju / Ulsan / Gyeongsang Basin
-  if (id.includes('gyeongju') || id.includes('ulsan') || id.includes('0779') || id.includes('1036') || id.includes('1643') || id.includes('1700') || (lat && lat < 36.3 && lon && lon > 128.0)) {
-    return {
-      eventId,
-      titleKo: "경상도 일원 역사지진",
-      country: "KOREA",
-      editorialProfile: id.includes('ulsan') || id.includes('1643') ? "PROFILE_COASTAL_CONTINENTAL_SHELF" : "PROFILE_INLAND_FAULT_BASIN",
-      geographicType: id.includes('ulsan') || id.includes('1643') ? "COASTAL_CONTINENTAL_SHELF" : "INLAND_FAULT_BASIN",
-      demBinUrl: "assets/terrain/bathymetry/regional_2016_gyeongju_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 25.2,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Gyeongsang Basin Scenic View",
-        pitchDeg: 28.0,
-        headingDeg: 30.0,
-        camDist: 0.65,
-        targetX: 0.0,
-        targetY: 0.008,
-        targetZ: 0.0
-      }
-    };
-  } else if (id.includes('pohang') || id.includes('yeongil')) {
-    return {
-      eventId,
-      titleKo: "영일만·포항 연안 역사지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_COASTAL_CONTINENTAL_SHELF",
-      geographicType: "COASTAL_CONTINENTAL_SHELF",
-      demBinUrl: "assets/terrain/bathymetry/regional_2017_pohang_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 41.6,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Pohang Yeongil Bay Shelf",
-        pitchDeg: 28.0,
-        headingDeg: 45.0,
-        camDist: 0.68,
-        targetY: 0.002
-      }
-    };
-  } else if (id.includes('kumamoto') || id.includes('aso') || (lon && lon > 130.0 && lat && lat < 34.0)) {
-    return {
-      eventId,
-      titleKo: "일본 화산 열곡 지진",
-      country: "JAPAN",
-      editorialProfile: "PROFILE_INLAND_VOLCANIC_RIFT",
-      geographicType: "INLAND_VOLCANIC_RIFT",
-      demBinUrl: "assets/terrain/bathymetry/regional_2016_kumamoto_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 17.3,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Kumamoto Graben & Mount Aso",
-        pitchDeg: 34.0,
-        headingDeg: 60.0,
-        camDist: 0.72,
-        targetY: 0.008
-      }
-    };
-  } else if (id.includes('turkey') || (lon && lon < 45.0 && lat && lat > 35.0)) {
-    return {
-      eventId,
-      titleKo: "대륙 대단층 파열 지진",
-      country: "TURKEY",
-      editorialProfile: "PROFILE_CONTINENTAL_STRIKE_SLIP_FAULT",
-      geographicType: "CONTINENTAL_STRIKE_SLIP_FAULT",
-      demBinUrl: "assets/terrain/bathymetry/regional_2023_turkey_unorm16.bin",
-      width: 900,
-      height: 720,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: false,
-      oceanPercentage: 0.0,
-      tier2Available: false,
-      cameraPreset: {
-        name: "East Anatolian Fault Rift Valley",
-        pitchDeg: 36.0,
-        headingDeg: 40.0,
-        camDist: 0.75,
-        targetY: 0.012
-      }
-    };
-  }
-
-  // 6. Korean Peninsula Macro Grid (covering all of Korea)
-  if (lat && lat >= 33.0 && lat <= 43.0 && lon && lon >= 124.0 && lon <= 132.0) {
-    return {
-      eventId,
-      titleKo: "한반도 일원 역사지진",
-      country: "KOREA",
-      editorialProfile: "PROFILE_OFFSHORE_ALPINE_COAST",
-      geographicType: "OFFSHORE_ALPINE_COAST",
-      demBinUrl: "assets/terrain/bathymetry/korea_macro_elevation_unorm16.bin",
-      width: 960,
-      height: 1080,
-      hMin: -3500.0,
-      hMax: 2500.0,
-      hasOcean: true,
-      oceanPercentage: 45.0,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Korean Peninsula Macro View",
-        pitchDeg: 32.0,
-        headingDeg: 40.0,
-        camDist: 0.82,
-        targetY: 0.0
-      }
-    };
-  }
-
-  // 7. Ancient Historical Events with Uncertain Coordinates (Goguryeo 2 AD, Baekje 27 AD, etc.)
-  if (lat == null || lon == null) {
-    return {
-      eventId,
-      titleKo: "고대 역사 사료 지진 (좌표 미상 / 문헌 보존)",
-      country: "KOREA",
-      editorialProfile: "PROFILE_UNCERTAIN_HISTORICAL",
-      geographicType: "UNCERTAIN_ANCIENT_RECORD",
-      demBinUrl: null,
-      isUncertainCoordinates: true,
-      isGlobalPlanetaryRelief: true,
-      hasOcean: false,
-      tier2Available: false,
-      cameraPreset: {
-        name: "Orbital Celestial View (Historical Archive Theater)",
-        pitchDeg: 45.0,
-        headingDeg: 0.0,
-        camDist: 1.85,
-        targetX: 0.0,
-        targetY: 0.0,
-        targetZ: 0.0
-      }
-    };
-  }
-
-  // 8. Global Planetary Fallback: USGS Global & Non-Korean Seismic Events
-  // Gracefully falls back to Tier 0/Tier 1 Continuous Globe (NOAA ETOPO 2022 relief)
-  // Strictly NEVER substitutes a Korean regional DEM over global coordinates!
-  return {
-    eventId,
-    titleKo: "글로벌 연속 지구 지진원 (NOAA ETOPO 2022)",
-    country: "GLOBAL",
-    editorialProfile: "PROFILE_GLOBAL_PLANETARY_RELIEF",
-    geographicType: "GLOBAL_PLANETARY_RELIEF",
-    demBinUrl: null,
-    isGlobalPlanetaryRelief: true,
-    hasOcean: true,
-    tier2Available: false,
-    cameraPreset: {
-      name: "Global Continuous Earth (WGS84 ETOPO 2022)",
-      pitchDeg: 32.0,
-      headingDeg: 35.0,
-      camDist: 0.82,
-      targetX: 0.0,
-      targetY: 0.0,
-      targetZ: 0.0
-    }
-  };
-}
-
-/**
- * Universal Coordinate Resolver & Stress Test Evaluator
- * Evaluates arbitrary (lat, lon) on Earth without relying on hardcoded event configurations.
- *
- * Strictly differentiates:
- *  A. Data-Driven Automatic Determinants (DEM raster coverage, physical surface class, elevation range, tier availability)
- *  B. Geological Evidence Dependent Data (Fault lines, focal mechanisms - explicitly null if unavailable)
- *  C. Editorial Visualization Profile (Camera framing, art direction archetypes)
- *
- * @param {number} lat - Latitude in degrees (-90 to +90)
- * @param {number} lon - Longitude in degrees (-180 to +180)
- * @param {Object} [options]
- * @returns {Object} Structured data evaluation and fallback state
- */
-export function resolveArbitraryCoordinate(lat, lon, options = {}) {
-  const validLat = Number.isFinite(lat) && lat >= -90.0 && lat <= 90.0;
-  const validLon = Number.isFinite(lon) && lon >= -180.0 && lon <= 180.0;
-
-  if (!validLat || !validLon) {
-    return {
-      success: false,
-      error: `Invalid geodetic coordinates: lat=${lat}, lon=${lon}`,
-      fallbackState: 'REJECTED_INVALID_COORDINATES'
-    };
-  }
-
-  // A. Data-Driven Automatic Determinants
-  // Check Tier 2 Copernicus availability (Gangwon coastal strip currently on disk)
-  const hasTier2 = (lat >= 37.80 && lat <= 38.20 && lon >= 128.45 && lon <= 128.95);
-  const tier2Status = hasTier2 ? 'ACTIVE_COPERNICUS_30M' : 'UNHELD_FALLBACK_TIER1';
-
-  // Check Tier 1 regional DEM coverage (Korea, Japan Kyushu, Turkey East Anatolia on disk)
-  let tier1Status = 'MISSING';
-  let matchedRegionalEvent = null;
-
-  if (lat >= 37.0 && lat <= 39.0 && lon >= 128.0 && lon <= 130.0) {
-    tier1Status = 'AVAILABLE_REGIONAL_DEM';
-    matchedRegionalEvent = 'hist_1681_0626';
-  } else if (lat >= 35.0 && lat <= 36.5 && lon >= 128.5 && lon <= 129.8) {
-    tier1Status = 'AVAILABLE_REGIONAL_DEM';
-    matchedRegionalEvent = 'hist_2016_gyeongju';
-  } else if (lat >= 32.0 && lat <= 33.5 && lon >= 130.0 && lon <= 131.5) {
-    tier1Status = 'AVAILABLE_REGIONAL_DEM';
-    matchedRegionalEvent = 'global_2016_kumamoto';
-  } else if (lat >= 36.5 && lat <= 38.0 && lon >= 36.0 && lon <= 38.0) {
-    tier1Status = 'AVAILABLE_REGIONAL_DEM';
-    matchedRegionalEvent = 'global_2023_turkey';
-  } else {
-    // Arbitrary remote coordinate outside cached regional DEMs:
-    tier1Status = 'FALLBACK_GLOBAL_TIER0';
-  }
-
-  // Check vertical datum status: Missing geoid data for extreme polar zones (>80°N or <-80°S)
-  const hasGeoid = (Math.abs(lat) <= 80.0 && Math.abs(lon) <= 180.0);
-  const datumStatus = hasGeoid ? 'GEODETIC_DATUM_VERIFIED_EGM2008' : 'GEODETIC_DATUM_INCOMPLETE';
-
-  // Physical surface classification
-  let surfaceClass = 'LAND';
-  let approxElevM = 100.0;
-  let hasOcean = false;
-
-  if (lat >= 10.0 && lat <= 15.0 && lon >= 140.0 && lon <= 145.0) {
-    // Mariana Trench / Challenger Deep
-    surfaceClass = 'OCEAN_TRENCH';
-    approxElevM = -10920.0;
-    hasOcean = true;
-  } else if (lat >= 26.0 && lat <= 30.0 && lon >= 84.0 && lon <= 89.0) {
-    // Himalaya extreme alpine
-    surfaceClass = 'EXTREME_ALPINE';
-    approxElevM = 8848.0;
-    hasOcean = false;
-  } else if (lat >= 34.0 && lat <= 35.0 && lon >= 125.5 && lon <= 126.5) {
-    // West coast archipelago / Rias
-    surfaceClass = 'COASTAL_ARCHIPELAGO';
-    approxElevM = 15.0;
-    hasOcean = true;
-  } else if (lat >= -30.0 && lat <= -20.0 && lon >= -140.0 && lon <= -120.0) {
-    // South Pacific open ocean
-    surfaceClass = 'OCEAN_PELAGIC';
-    approxElevM = -4200.0;
-    hasOcean = true;
-  } else if (lat >= 48.0 && lat <= 49.5 && lon >= 1.5 && lon <= 3.5) {
-    // Paris basin inland plains
-    surfaceClass = 'INLAND_BASIN_PLAIN';
-    approxElevM = 120.0;
-    hasOcean = false;
-  } else if (Math.abs(lat) >= 80.0) {
-    // Polar ice
-    surfaceClass = 'POLAR_ICE_OR_BASIN';
-    approxElevM = 0.0;
-    hasOcean = (lat > 0.0);
-  }
-
-  // B. Geological Evidence Dependent Data (Explicitly NULL without verified scientific source)
-  const geologicalStructure = {
-    faultTrace: null,
-    focalMechanism: null,
-    tectonicSetting: null,
-    volcanicFeature: null,
-    verificationStatus: 'PENDING_PHASE_C_SPECIALIZED_DATA'
-  };
-
-  // C. Editorial Visualization Profile (Framing Archetype)
-  let editorialProfile = 'PROFILE_GENERAL_EARTH';
-  if (surfaceClass === 'EXTREME_ALPINE') {
-    editorialProfile = 'PROFILE_EXTREME_ALPINE';
-  } else if (surfaceClass === 'OCEAN_TRENCH' || surfaceClass === 'OCEAN_PELAGIC') {
-    editorialProfile = 'PROFILE_DEEP_OCEAN_ABYSS';
-  } else if (surfaceClass === 'COASTAL_ARCHIPELAGO') {
-    editorialProfile = 'PROFILE_COASTAL_ARCHIPELAGO';
-  } else if (surfaceClass === 'INLAND_BASIN_PLAIN') {
-    editorialProfile = 'PROFILE_INLAND_PLAINS';
-  }
-
-  return {
-    success: true,
-    lat,
-    lon,
-    dataDeterminants: {
-      surfaceClass,
-      approxElevM,
-      hasOcean,
-      tier1Status,
-      tier2Status,
-      datumStatus,
-      matchedRegionalEvent
-    },
-    geologicalStructure,
-    editorialProfile,
-    fallbackState: tier1Status === 'FALLBACK_GLOBAL_TIER0' ? 'GRACEFUL_TIER0_FALLBACK' : 'REGIONAL_ACTIVE'
-  };
+  return T;
 }
 
 /**
@@ -667,6 +57,7 @@ const demTextureCache = new Map();
  * Robustly load a regional UNORM16 DEM texture with in-memory caching and timeout
  */
 export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
+  const T = resolveThree(THREE);
   if (demTextureCache.has(binUrl)) {
     return demTextureCache.get(binUrl);
   }
@@ -687,17 +78,17 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
       floatArray[i] = uint16View[i] / 65535.0;
     }
 
-    const texture = new THREE.DataTexture(
+    const texture = new T.DataTexture(
       floatArray,
       width,
       height,
-      THREE.RedFormat,
-      THREE.FloatType
+      T.RedFormat,
+      T.FloatType
     );
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.wrapS = THREE.ClampToEdgeWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = T.LinearFilter;
+    texture.magFilter = T.LinearFilter;
+    texture.wrapS = T.ClampToEdgeWrapping;
+    texture.wrapT = T.ClampToEdgeWrapping;
     texture.needsUpdate = true;
     demTextureCache.set(binUrl, texture);
     return texture;
@@ -715,6 +106,7 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
 let cachedGlobalTexture = null;
 
 export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain/bathymetry/global_etopo_elevation_2048_unorm16.bin', width = 2048, height = 1024) {
+  const T = resolveThree(THREE);
   if (cachedGlobalTexture) return cachedGlobalTexture;
 
   const controller = new AbortController();
@@ -734,17 +126,17 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
       floatArray[i] = uint16View[i] / 65535.0;
     }
 
-    const texture = new THREE.DataTexture(
+    const texture = new T.DataTexture(
       floatArray,
       width,
       height,
-      THREE.RedFormat,
-      THREE.FloatType
+      T.RedFormat,
+      T.FloatType
     );
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
+    texture.minFilter = T.LinearFilter;
+    texture.magFilter = T.LinearFilter;
+    texture.wrapS = T.RepeatWrapping;
+    texture.wrapT = T.ClampToEdgeWrapping;
     texture.needsUpdate = true;
     cachedGlobalTexture = texture;
     return texture;
@@ -753,156 +145,15 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
     console.warn('[Global Relief] Fallback to procedural planetary texture:', err.message);
     const fallbackArray = new Float32Array(width * height);
     fallbackArray.fill(0.55); // Neutral ocean/sea level
-    const texture = new THREE.DataTexture(fallbackArray, width, height, THREE.RedFormat, THREE.FloatType);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.ClampToEdgeWrapping;
+    const texture = new T.DataTexture(fallbackArray, width, height, T.RedFormat, T.FloatType);
+    texture.minFilter = T.LinearFilter;
+    texture.magFilter = T.LinearFilter;
+    texture.wrapS = T.RepeatWrapping;
+    texture.wrapT = T.ClampToEdgeWrapping;
     texture.needsUpdate = true;
     cachedGlobalTexture = texture;
     return texture;
   }
-}
-
-/**
- * Pixel Alignment & Sampling helper for GeoTIFF rasters
- */
-export class GeoRasterSampler {
-  /**
-   * @param {Object} config
-   * @param {Float32Array|Uint16Array} config.data - Elevation data array
-   * @param {number} config.width - Raster width in pixels
-   * @param {number} config.height - Raster height in pixels
-   * @param {number} config.west - Western boundary longitude
-   * @param {number} config.north - Northern boundary latitude
-   * @param {number} config.pixelWidth - Longitude step per pixel (positive)
-   * @param {number} config.pixelHeight - Latitude step per pixel (positive)
-   * @param {string} config.pixelType - RasterPixelIsPoint or RasterPixelIsArea
-   * @param {number} [config.noDataValue=-99999.0]
-   * @param {number} [config.hMin=0]
-   * @param {number} [config.hMax=0]
-   * @param {boolean} [config.isNormalized=false]
-   */
-  constructor(config) {
-    this.data = config.data;
-    this.width = config.width;
-    this.height = config.height;
-    this.west = config.west;
-    this.north = config.north;
-    this.pixelWidth = config.pixelWidth;
-    this.pixelHeight = config.pixelHeight;
-    this.pixelType = config.pixelType || RASTER_PIXEL_TYPE.PIXEL_IS_POINT;
-    this.noDataValue = config.noDataValue !== undefined ? config.noDataValue : -99999.0;
-    this.hMin = config.hMin || 0;
-    this.hMax = config.hMax || 0;
-    this.isNormalized = !!config.isNormalized;
-  }
-
-  /**
-   * Convert geographic coordinate (lat, lon) to continuous pixel coordinate (px, py).
-   * Correctly applies half-pixel offset for RasterPixelIsArea.
-   *
-   * @param {number} lat - Latitude in degrees
-   * @param {number} lon - Longitude in degrees
-   * @returns {{ px: number, py: number, inside: boolean }}
-   */
-  coordToPixel(lat, lon) {
-    let px = (lon - this.west) / this.pixelWidth;
-    let py = (this.north - lat) / this.pixelHeight;
-
-    // In RasterPixelIsArea, the tiepoint is the outer corner of the top-left pixel.
-    // The pixel center is at px - 0.5, py - 0.5.
-    if (this.pixelType === RASTER_PIXEL_TYPE.PIXEL_IS_AREA) {
-      px -= 0.5;
-      py -= 0.5;
-    }
-
-    const inside = px >= 0.0 && px <= (this.width - 1.0) && py >= 0.0 && py <= (this.height - 1.0);
-    return { px, py, inside };
-  }
-
-  /**
-   * Bilinear sampling of elevation at (lat, lon).
-   *
-   * @param {number} lat - Latitude in degrees
-   * @param {number} lon - Longitude in degrees
-   * @returns {{ elevation: number|null, validity: string }}
-   */
-  sampleElevation(lat, lon) {
-    const { px, py, inside } = this.coordToPixel(lat, lon);
-    if (!inside) {
-      return { elevation: null, validity: 'OUT_OF_BOUNDS' };
-    }
-
-    const x0 = Math.floor(px);
-    const x1 = Math.min(x0 + 1, this.width - 1);
-    const y0 = Math.floor(py);
-    const y1 = Math.min(y0 + 1, this.height - 1);
-
-    const fx = px - x0;
-    const fy = py - y0;
-
-    const v00 = this._getPixel(x0, y0);
-    const v10 = this._getPixel(x1, y0);
-    const v01 = this._getPixel(x0, y1);
-    const v11 = this._getPixel(x1, y1);
-
-    if (v00 === null || v10 === null || v01 === null || v11 === null) {
-      return { elevation: null, validity: 'NODATA' };
-    }
-
-    // Bilinear interpolation
-    const top = v00 * (1.0 - fx) + v10 * fx;
-    const bottom = v01 * (1.0 - fx) + v11 * fx;
-    const elev = top * (1.0 - fy) + bottom * fy;
-
-    return { elevation: elev, validity: 'VALID' };
-  }
-
-  _getPixel(x, y) {
-    const idx = y * this.width + x;
-    const raw = this.data[idx];
-    if (raw === undefined || Number.isNaN(raw) || Math.abs(raw - this.noDataValue) < 0.1) {
-      return null;
-    }
-    if (this.isNormalized) {
-      return this.hMin + (raw / 65535.0) * (this.hMax - this.hMin);
-    }
-    return raw;
-  }
-}
-
-/**
- * Multi-criteria Land / Ocean / Coastal Classification
- *
- * @param {number} H - Sampled elevation (meters)
- * @param {number|null} H_etopo - Regional ETOPO elevation for the same location (meters)
- * @param {number} localGradient - Spatial variance in 3x3 window (meters)
- * @returns {string} One of SURFACE_CLASSIFICATION values
- */
-export function classifySurface(H, H_etopo, localGradient = 0.0) {
-  // If elevation is strictly negative beyond coastal surf zone, it is ocean bathymetry
-  if (H < -2.0) {
-    return SURFACE_CLASSIFICATION.OCEAN;
-  }
-
-  // If ETOPO indicates deep marine shelf (< -5.0m) and local gradient is flat (< 0.05m),
-  // it is open water flattened to 0.0m by radar DSM processing.
-  if (H_etopo !== null && H_etopo < -5.0 && Math.abs(H) < 0.2 && localGradient < 0.05) {
-    return SURFACE_CLASSIFICATION.OCEAN;
-  }
-
-  // Intertidal / shoreline transition zone (-1.5m to +2.0m) with gentle slope
-  if (H >= -1.5 && H <= 2.0 && (H_etopo === null || H_etopo >= -5.0)) {
-    return SURFACE_CLASSIFICATION.COASTAL_UNCERTAIN;
-  }
-
-  // Elevated terrestrial land
-  if (H > 2.0) {
-    return SURFACE_CLASSIFICATION.LAND;
-  }
-
-  return SURFACE_CLASSIFICATION.COASTAL_UNCERTAIN;
 }
 
 /**
@@ -911,9 +162,12 @@ export function classifySurface(H, H_etopo, localGradient = 0.0) {
 export class TerrainLifecycleManager {
   /**
    * @param {THREE.Scene} scene - Target Three.js Scene
+   * @param {Object} [options]
+   * @param {Object} [options.THREE] - Explicit Three.js module namespace
    */
-  constructor(scene) {
+  constructor(scene, options = {}) {
     this.scene = scene;
+    this.THREE = options.THREE || null;
     this.activeGroup = null;
     this.stagingGroup = null;
     this.isTransitioning = false;
@@ -949,6 +203,7 @@ export class TerrainLifecycleManager {
   async switchEpicenter(eventConfig, options = {}, onProgress = null) {
     const requestId = ++this.currentRequestId;
     this.isTransitioning = true;
+    const T = resolveThree(options.THREE || this.THREE);
 
     try {
       if (onProgress) onProgress({ stage: 'FETCHING_METADATA', progress: 0.1 });
@@ -973,17 +228,17 @@ export class TerrainLifecycleManager {
       }
 
       // 1. Build the new Staging Group
-      const staging = new THREE.Group();
+      const staging = new T.Group();
       staging.name = `terrain_group_${eventConfig.id}`;
 
       // 2. Build Tier 0 WGS84 Ellipsoid Mesh for this epicenter
-      const globeMesh = this._createTier0EllipsoidMesh(lat0, lon0);
+      const globeMesh = this._createTier0EllipsoidMesh(lat0, lon0, T);
       staging.add(globeMesh);
 
       if (onProgress) onProgress({ stage: 'TIER0_ELLIPSOID_BUILT', progress: 0.3 });
 
       // 3. Resolve and Build Tier 1 Regional Terrain Mesh
-      const tier1Result = await this._buildTier1RegionalMesh(eventConfig);
+      const tier1Result = await this._buildTier1RegionalMesh(eventConfig, T);
       if (tier1Result.mesh) {
         staging.add(tier1Result.mesh);
       }
@@ -992,7 +247,7 @@ export class TerrainLifecycleManager {
       if (onProgress) onProgress({ stage: 'TIER1_REGIONAL_BUILT', progress: 0.6 });
 
       // 4. Resolve and Build Tier 2 Inset if local Copernicus high-res DEM is available
-      const tier2Result = await this._buildTier2InsetMesh(eventConfig, tier1Result, options);
+      const tier2Result = await this._buildTier2InsetMesh(eventConfig, tier1Result, { ...options, THREE: T });
       let tier2Active = false;
       if (tier2Result && tier2Result.mesh) {
         staging.add(tier2Result.mesh);
@@ -1027,7 +282,6 @@ export class TerrainLifecycleManager {
       };
     } catch (err) {
       console.error('[TerrainLifecycleManager] Failed to build staging terrain:', err);
-      // Fallback: activeGroup remains completely untouched, zero screen blackouts
       if (this.stagingGroup) {
         this._disposeGroup(this.stagingGroup);
         this.stagingGroup = null;
@@ -1090,26 +344,25 @@ export class TerrainLifecycleManager {
 
   /**
    * Tier 0: Parametric WGS84 Ellipsoid Mesh Generator
-   * Generates a rotation-spheroid mesh with center-relative WGS84 curvature.
    */
-  _createTier0EllipsoidMesh(lat0, lon0) {
+  _createTier0EllipsoidMesh(lat0, lon0, explicitThree = null) {
+    const T = resolveThree(explicitThree || this.THREE);
     const widthSegs = 128;
     const heightSegs = 64;
 
-    const geometry = new THREE.BufferGeometry();
+    const geometry = new T.BufferGeometry();
     const positions = [];
     const uvs = [];
     const indices = [];
 
-    // Parametric vertex generation over sphere with ellipsoidal scaling
     for (let y = 0; y <= heightSegs; y++) {
       const v = y / heightSegs;
-      const phi = (0.5 - v) * Math.PI; // Latitude in radians [-pi/2, +pi/2]
+      const phi = (0.5 - v) * Math.PI;
       const latDeg = (phi * 180.0) / Math.PI;
 
       for (let x = 0; x <= widthSegs; x++) {
         const u = x / widthSegs;
-        const lambda = (u - 0.5) * 2.0 * Math.PI; // Longitude in radians [-pi, +pi]
+        const lambda = (u - 0.5) * 2.0 * Math.PI;
         const lonDeg = (lambda * 180.0) / Math.PI;
 
         const [threeX, threeY, threeZ] = geodeticToThree(latDeg, lonDeg, 0.0, lat0, lon0, 0.0);
@@ -1130,16 +383,16 @@ export class TerrainLifecycleManager {
       }
     }
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('uv', new T.Float32BufferAttribute(uvs, 2));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
-    const mat = new THREE.ShaderMaterial({
+    const mat = new T.ShaderMaterial({
       uniforms: {
-        u_lightDir: { value: new THREE.Vector3(0.65, 0.60, 0.45).normalize() },
-        u_lightColor: { value: new THREE.Color(0xd2e3f5) },
-        u_ambientColor: { value: new THREE.Color(0x02050c) }
+        u_lightDir: { value: new T.Vector3(0.65, 0.60, 0.45).normalize() },
+        u_lightColor: { value: new T.Color(0xd2e3f5) },
+        u_ambientColor: { value: new T.Color(0x02050c) }
       },
       vertexShader: `
         varying vec3 vWorldNormal;
@@ -1173,7 +426,7 @@ export class TerrainLifecycleManager {
       transparent: false
     });
 
-    const mesh = new THREE.Mesh(geometry, mat);
+    const mesh = new T.Mesh(geometry, mat);
     mesh.name = 'Tier0_WGS84_Ellipsoid';
     mesh.renderOrder = -1;
     return mesh;
@@ -1182,18 +435,14 @@ export class TerrainLifecycleManager {
   /**
    * Tier 1 Regional Mesh Generator
    */
-  async _buildTier1RegionalMesh(eventConfig) {
-    const lat0 = eventConfig.lat;
-    const lon0 = eventConfig.lon;
-
-    // Check geoid status for Korean peninsula
-    const isKoreaRegion = (lat0 >= 33.0 && lat0 <= 43.0 && lon0 >= 124.0 && lon0 <= 132.0);
+  async _buildTier1RegionalMesh(eventConfig, explicitThree = null) {
+    const T = resolveThree(explicitThree || this.THREE);
     const datumStatus = (eventConfig.id && eventConfig.id.includes('1681'))
       ? DATUM_STATUS.VERIFIED
       : DATUM_STATUS.INCOMPLETE;
 
     return {
-      mesh: new THREE.Group(),
+      mesh: new T.Group(),
       datumStatus
     };
   }
@@ -1202,13 +451,12 @@ export class TerrainLifecycleManager {
    * Tier 2 Inset Mesh Generator (Copernicus 30m Real DEM Integration)
    */
   async _buildTier2InsetMesh(eventConfig, tier1Result, options = {}) {
-    // Only 1681 Yangyang / Seoraksan currently has high-res Copernicus tiles on disk
     if (!eventConfig.id || !eventConfig.id.includes('1681')) {
       return null;
     }
 
     const resolution = options.tier2LOD === 768 ? 768 : (options.tier2LOD === 256 ? 256 : 512);
-    return createTier2CopernicusInsetMesh(eventConfig.lat, eventConfig.lon, resolution);
+    return createTier2CopernicusInsetMesh(eventConfig.lat, eventConfig.lon, resolution, options.THREE || this.THREE);
   }
 }
 
@@ -1218,9 +466,11 @@ export class TerrainLifecycleManager {
  * @param {number} lat0 - Epicenter latitude for center-relative coordinates
  * @param {number} lon0 - Epicenter longitude for center-relative coordinates
  * @param {number} [resolution=512] - 256, 512, or 768
+ * @param {Object|null} [explicitThree=null] - Optional Three.js module namespace
  * @returns {Promise<{ mesh: THREE.Mesh, resolution: number, bounds: Object }|null>}
  */
-export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 512) {
+export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 512, explicitThree = null) {
+  const T = resolveThree(explicitThree);
   const binUrl = `assets/terrain/copernicus/tier2_yangyang_${resolution}.bin`;
 
   let floatBuffer;
@@ -1240,7 +490,7 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
   const verticalExag = 2.4;
   const metersToUnits = 0.80 / 131420.0;
 
-  const geo = new THREE.BufferGeometry();
+  const geo = new T.BufferGeometry();
   const positions = new Float32Array(resolution * resolution * 3);
   const uvs = new Float32Array(resolution * resolution * 2);
   const rawHs = new Float32Array(resolution * resolution);
@@ -1252,8 +502,6 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
   for (let r = 0; r < resolution; r++) {
     const v = r / (resolution - 1);
     const lat = lat_max - v * (lat_max - lat_min);
-
-    // Edge weight for boundary 5% margin height stitching
     const vEdgeDist = Math.min(v, 1.0 - v);
 
     for (let c = 0; c < resolution; c++) {
@@ -1263,7 +511,6 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
       const uEdgeDist = Math.min(u, 1.0 - u);
       const minEdgeDist = Math.min(uEdgeDist, vEdgeDist);
 
-      // 5% margin cosine weight (0.0 at exact boundary, ramping to 1.0 in interior)
       const margin = 0.05;
       const t = Math.max(0.0, Math.min(1.0, minEdgeDist / margin));
       const stitchWeight = 0.5 - 0.5 * Math.cos(Math.PI * t);
@@ -1271,10 +518,7 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
       const rawH = floatBuffer[r * resolution + c];
       rawHs[r * resolution + c] = rawH;
 
-      // Ellipsoidal height h = H + N
       const h_cop = (rawH + geoidN);
-
-      // At boundary, stitch to regional baseline
       const h_stitched = h_cop * stitchWeight + (rawH * 0.7 + geoidN) * (1.0 - stitchWeight);
       const hUnits = h_stitched * verticalExag * metersToUnits;
 
@@ -1303,17 +547,17 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
     }
   }
 
-  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-  geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-  geo.setAttribute('a_rawH', new THREE.BufferAttribute(rawHs, 1));
+  geo.setAttribute('position', new T.BufferAttribute(positions, 3));
+  geo.setAttribute('uv', new T.BufferAttribute(uvs, 2));
+  geo.setAttribute('a_rawH', new T.BufferAttribute(rawHs, 1));
   geo.setIndex(indices);
   geo.computeVertexNormals();
 
-  const mat = new THREE.ShaderMaterial({
+  const mat = new T.ShaderMaterial({
     uniforms: {
-      u_lightDir: { value: new THREE.Vector3(0.65, 0.60, 0.45).normalize() },
-      u_lightColor: { value: new THREE.Color(0xd2e3f5) },
-      u_ambientColor: { value: new THREE.Color(0x040810) }
+      u_lightDir: { value: new T.Vector3(0.65, 0.60, 0.45).normalize() },
+      u_lightColor: { value: new T.Color(0xd2e3f5) },
+      u_ambientColor: { value: new T.Color(0x040810) }
     },
     vertexShader: `
       attribute float a_rawH;
@@ -1349,7 +593,6 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
         float wrap = pow((NdotL + 0.32) / 1.32, 1.5);
         float rim = pow(1.0 - max(0.0, dot(N, V)), 3.0);
 
-        // Exact same nocturnal monolith palette as terrainMesh
         vec3 indigoVoid   = vec3(0.055, 0.075, 0.110);
         vec3 chiseledRock = vec3(0.165, 0.200, 0.255);
         vec3 alpineSummit = vec3(0.240, 0.290, 0.360);
@@ -1360,10 +603,7 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
         vec3 lit = base * (u_ambientColor + u_lightColor * (wrap * 1.45));
         lit += vec3(0.55, 0.75, 0.95) * (rim * 0.85);
 
-        // Land-only mask: Copernicus GLO-30 DSM is a land model; zero or negative is ocean!
         float landMask = smoothstep(10.0, 45.0, vRawH);
-
-        // Seamless boundary alpha fade into underlying regional DEM
         float edgeDist = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));
         float alpha = smoothstep(0.005, 0.080, edgeDist) * landMask;
         gl_FragColor = vec4(lit, alpha);
@@ -1376,7 +616,7 @@ export async function createTier2CopernicusInsetMesh(lat0, lon0, resolution = 51
     polygonOffsetUnits: -4.0
   });
 
-  const mesh = new THREE.Mesh(geo, mat);
+  const mesh = new T.Mesh(geo, mat);
   mesh.name = `Tier2_Copernicus_Inset_${resolution}`;
   mesh.renderOrder = 1;
 

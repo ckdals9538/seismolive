@@ -29,10 +29,13 @@ import {
 } from './PedestrianRoutingEngine.js';
 
 import {
-  HANYANG_MAIN_STADIUM_SHELTER,
-  DATA_PROVENANCE_SOURCE,
-  VERIFICATION_STATUS
+  DEFAULT_HANYANG_FACILITY_PACKAGE
 } from './HanyangBuildingData.js';
+import {
+  DATA_PROVENANCE_SOURCE,
+  VERIFICATION_STATUS,
+  isProtectiveShakingOnset
+} from './ResponseDomainTypes.js';
 
 export class ResponseUIAdapter {
   /**
@@ -40,16 +43,20 @@ export class ResponseUIAdapter {
    * @param {SituationAssessmentEngine} [options.engine]
    * @param {PedestrianRoutingEngine} [options.router]
    * @param {Object} [options.hanyangAdapter] - Instance of HanyangResponseAdapter (optional)
+   * @param {Object} [options.facilityPackage] - Injectable FacilityPackage (defaults to Hanyang Bldg 212)
    * @param {Function} [options.onGuidanceUpdate] - Callback receiving UserFacingGuidance
    */
   constructor(options = {}) {
+    this.facility = options.facilityPackage || options.hanyangAdapter?.facility || DEFAULT_HANYANG_FACILITY_PACKAGE;
     this.engine = options.engine || new SituationAssessmentEngine();
-    this.router = options.router || new PedestrianRoutingEngine();
+    this.router = options.router || new PedestrianRoutingEngine({ facilityPackage: this.facility });
     this.hanyangAdapter = options.hanyangAdapter || null;
     this.onGuidanceUpdate = options.onGuidanceUpdate || null;
 
     // Preferred route display mode when navigation is enabled
     this.preferredRouteMode = 'ALL'; // 'ALL' | 'SHORTEST' | 'STEP_FREE'
+
+    const meta = this.facility.buildingMetadata || {};
 
     // Canonical Assessment Input Context
     this.context = {
@@ -63,9 +70,9 @@ export class ResponseUIAdapter {
       },
       user: {
         locationType: 'INDOOR',
-        buildingId: 'BLDG_212_ENG1',
-        floor: 3,
-        room: 'ROOM_301',
+        buildingId: meta.id || 'BLDG_212_ENG1',
+        floor: this.facility.defaultFloor ?? 3,
+        room: this.facility.defaultRoomId || 'ROOM_301',
         locationCertainty: LOCATION_CERTAINTY.MANUAL_EXACT,
         mobilityLimitation: MOBILITY_PROFILE.NONE
       },
@@ -214,7 +221,7 @@ export class ResponseUIAdapter {
   updateStationMotion(pga, timestamp = Date.now(), provenance = DATA_PROVENANCE_SOURCE.OBSERVED_STATION) {
     this.context.timestamp = timestamp;
     this.context.disaster.pga_g = pga;
-    this.context.disaster.isShakingActive = pga >= 0.05;
+    this.context.disaster.isShakingActive = isProtectiveShakingOnset(pga);
 
     this.context.sources.station = {
       timestamp,
@@ -279,17 +286,23 @@ export class ResponseUIAdapter {
     const isWheelchair = user.mobilityLimitation === MOBILITY_PROFILE.WHEELCHAIR;
 
     if (assessment.canMove && assessment.canNavigate) {
-      // Determine Start Node
-      let startNode = 'NODE_ROOM_301';
+      // Determine Start Node from injected FacilityPackage
+      let startNode = this.facility.defaultRoomNodeId || 'NODE_ROOM_301';
       if (user.locationType === 'OUTDOOR') {
-        startNode = 'OSM_NODE_6415394841';
+        startNode = this.facility.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
       } else if (user.floor === 1) {
-        startNode = 'NODE_EXIT_1F_SE';
-      } else {
-        startNode = 'NODE_ROOM_301';
+        startNode = this.facility.defaultExitNodeId || 'NODE_EXIT_1F_SE';
+      } else if (user.room) {
+        for (const fg of Object.values(this.facility.indoorGraphs || {})) {
+          const match = (fg.rooms || []).find(r => r.roomId === user.room || r.nodeId === user.room);
+          if (match) {
+            startNode = match.nodeId;
+            break;
+          }
+        }
       }
 
-      const targetNode = HANYANG_MAIN_STADIUM_SHELTER.shelterId;
+      const targetNode = this.facility.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM';
       const mobilityProfile = isWheelchair
         ? USER_MOBILITY_PROFILE.WHEELCHAIR_USER
         : USER_MOBILITY_PROFILE.STANDARD_EVACUEE;
@@ -380,7 +393,8 @@ export class ResponseUIAdapter {
       phaseHeadline = '옥외 보행 — 캠퍼스 대피소 이동';
       badgeKorean = '캠퍼스 보행 네트워크 이동 중';
     } else if (act.tacticalState === 'S6_SHELTER_ARRIVAL') {
-      phaseHeadline = '대피소 안착 — 한양대 대운동장 중앙 집결';
+      const shelterName = this.facility?.shelter?.officialName || '한양대 대운동장';
+      phaseHeadline = `대피소 안착 — ${shelterName} 중앙 집결`;
       badgeKorean = '공식 지진옥외대피장소 집결';
     } else if (act.tacticalState === 'SHELTER_IN_PLACE') {
       phaseHeadline = '탈출로 차단 — 실내 격리 방호 및 구조 요청 (건물 안전 보증 아님)';
@@ -447,11 +461,11 @@ export class ResponseUIAdapter {
       if (routeResult.isStepFree || (routeResult.replanned && routeResult.replanReason?.includes('우회로'))) {
         routeDisplayMode = 'STEP_FREE';
         routeCaveat = isWheelchair
-          ? '휠체어 무단차 우회로(769.1m) 산출. 현장 휠체어 접근성(단차/경사) 미검증 상태(PROVISIONAL).'
-          : '최단 계단로 폐쇄/위험으로 무단차 우회로(769.1m)로 동적 변경되었습니다.';
+          ? `휠체어 무단차 우회로(${routeResult.totalDistanceMeters}m) 산출. 현장 휠체어 접근성(단차/경사) 미검증 상태(PROVISIONAL).`
+          : `최단 계단로 폐쇄/위험으로 무단차 우회로(${routeResult.totalDistanceMeters}m)로 동적 변경되었습니다.`;
       } else {
         routeDisplayMode = this.preferredRouteMode;
-        routeCaveat = '최단 경로(651.9m, 계단 4구간)가 산출되었습니다. 사전 후보 경로이며 현장 균열을 주의하십시오.';
+        routeCaveat = `최단 경로(${routeResult.totalDistanceMeters}m, 계단 ${routeResult.stairFlightCount}구간)가 산출되었습니다. 사전 후보 경로이며 현장 균열을 주의하십시오.`;
       }
 
       replanStatus = {

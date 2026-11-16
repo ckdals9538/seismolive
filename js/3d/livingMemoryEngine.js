@@ -1,853 +1,39 @@
 // ============================================================================
 // SEISMOLIVE v4.0 — Pillar 3: Living Memory & Archival Korean Typography Engine
 // Module: js/3d/livingMemoryEngine.js
-// Archival Semantic Parser · 4 Kinetic Archetypes · 6-Stage Atmospheric Lifecycle
-// Strict Adherence to GEMINI.md: Pure Archival Words · Zero Game VFX · Still Frame Art
+//
+// Responsibilities (Stage R2):
+//   - Canvas2D Editorial Serif Typography Rasterizer (renderEditorialTypography)
+//   - 4 Kinetic Archetype Entity Builders (RESONANCE, FRACTURE, RECEDE, EXPOSE)
+//   - Terrain-Aware Spatial Spawner (TerrainAwareSpawner)
+//   - 6-Stage Atmospheric Lifecycle Updater (updateEntitiesLifecycle, LivingMemoryEngine)
+//   - Re-exports pure semantic parser symbols from ../data/ArchivalSemanticParser.js
 // ============================================================================
 
-/**
- * Valid Evidence Classifications for Archival Words
- */
-export const EVIDENCE_CLASSES = {
-  DIRECT_QUOTATION: 'DIRECT_QUOTATION',
-  SOURCE_TRANSLATION: 'SOURCE_TRANSLATION',
-  EDITORIAL_DISTILLATION: 'EDITORIAL_DISTILLATION',
-  ARTISTIC_METAPHOR: 'ARTISTIC_METAPHOR'
+import {
+  EVIDENCE_CLASSES,
+  LIFECYCLE_STAGES,
+  ARCHIVAL_HANJA_LEXICON_DB,
+  HANJA_TO_HANGUL_MAP,
+  extractVerbatimChronicleClauses,
+  distillArchivalExpression,
+  sanitizeArchivalToken,
+  ArchivalSemanticParser
+} from '../data/ArchivalSemanticParser.js';
+
+export {
+  EVIDENCE_CLASSES,
+  LIFECYCLE_STAGES,
+  ARCHIVAL_HANJA_LEXICON_DB,
+  HANJA_TO_HANGUL_MAP,
+  extractVerbatimChronicleClauses,
+  distillArchivalExpression,
+  sanitizeArchivalToken,
+  ArchivalSemanticParser
 };
 
-/**
- * 6-Stage Atmospheric Kinetic Lifecycle
- */
-export const LIFECYCLE_STAGES = [
-  'LATENT',
-  'EMERGENCE',
-  'FORMATION',
-  'RESONANCE',
-  'DISSOLUTION',
-  'RESIDUE',
-  'DEAD'
-];
-
-/**
- * Comprehensive Chronicle Hanja-to-Korean Archival Expression Database
- * Grounded in 삼국사기, 고려사, 조선왕조실록, 승정원일기, 일성록, 증보문헌비고
- */
-export const ARCHIVAL_HANJA_LEXICON_DB = {
-  // 1681 Yangyang & Marine / Tsunami Chronicles
-  "海水退潮百餘步": { displayKo: "바닷물이 백여 보 물러나다", token: "퇴조", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
-  "海水如潮退而溢": { displayKo: "해저가 드러나다", token: "드러나다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "海水退而溢": { displayKo: "바닷물이 물러갔다 넘치다", token: "해일", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
-  "雪嶽山巖崩": { displayKo: "설악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "巨巖崩壞": { displayKo: "설악 거암이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "巖石崩頹": { displayKo: "설악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "竹西樓巖石動搖": { displayKo: "죽서루 절벽이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "海岸崩坼": { displayKo: "해안 언덕이 갈라지다", token: "갈라지다", archetype: "FRACTURE", stageZone: "ZONE_A_OCEAN" },
-  "餘震連日不絶": { displayKo: "여진이 연일 그치지 않다", token: "여진", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "山岳震動": { displayKo: "산악이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_C_MOUNTAIN" },
-
-  // Samguk Sagi (AD 2 – 779)
-  "國內地震": { displayKo: "국내의 땅이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "地動": { displayKo: "궁궐과 도성이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "聲如雷": { displayKo: "소리가 우레와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "漢山地震": { displayKo: "한산의 대지가 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "泉涌": { displayKo: "땅이 갈라져 샘이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "京都地震": { displayKo: "서라벌 도성이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "民屋倒وم": { displayKo: "민가가 쓰러져 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "民屋倒墮": { displayKo: "민가가 쓰러져 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "地陷": { displayKo: "땅이 꺼져 내려앉다", token: "가라앉다", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND" },
-  "地裂廣五尺": { displayKo: "땅이 다섯 자나 갈라지다", token: "갈라지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "地裂泉涌": { displayKo: "땅이 찢어져 샘물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "彌勒寺塔震": { displayKo: "미륵사 석탑이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "京都大震": { displayKo: "도성이 크게 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "民屋壞": { displayKo: "민가가 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "死者百餘人": { displayKo: "백여 명이 목숨을 잃다", token: "스러지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-
-  // Goryeosa (971 – 1385)
-  "京城地震": { displayKo: "개경 도성이 진동하다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "東京管內地震": { displayKo: "동경과 경상 땅이 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "城屋頹毁": { displayKo: "성곽과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "屋瓦皆飛": { displayKo: "기와가 물결처럼 날다", token: "날다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "人不能立": { displayKo: "사람이 서지 못하고 넘어지다", token: "넘어지다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "金海府大震": { displayKo: "김해 땅이 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "墻屋頹圮": { displayKo: "담장과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "墻垣頹圮": { displayKo: "담장이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "松嶽崩": { displayKo: "송악산 바위가 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-
-  // Joseon Wangjo Sillok & Seungjeongwon Ilgi & Ilseongnok (1405 – 1898)
-  "屋宇動搖": { displayKo: "가옥이 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "墻屋頹落": { displayKo: "담장과 가옥이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "聲如怒雷": { displayKo: "소리가 성난 우레 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "墻屋城堞頹落": { displayKo: "담장과 성첩이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "屋宇頹毁": { displayKo: "가옥이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "地坼水涌": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "地坼水湧": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "地裂湧水": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_B_INLAND" },
-  "地坼湧水": { displayKo: "땅이 갈라져 물이 솟다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "白沙湧出": { displayKo: "흰 모래가 솟아 나오다", token: "솟구치다", archetype: "EXPOSE", stageZone: "ZONE_A_OCEAN" },
-  "城堞頹落": { displayKo: "성첩이 무너져 내리다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "城堞頹毁": { displayKo: "읍성 성첩이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "城堞多頹": { displayKo: "성첩이 많이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "聲如大砲": { displayKo: "소리가 대포와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "聲如大雷": { displayKo: "소리가 큰 우레와 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "聲如遠雷": { displayKo: "소리가 먼 우레 같다", token: "울다", archetype: "RESONANCE", stageZone: "ZONE_A_OCEAN" },
-  "巖石崩落": { displayKo: "암석이 무너져 떨어지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "瓦礫自落": { displayKo: "기와가 저절로 떨어지다", token: "떨어지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "山崩塞川": { displayKo: "산이 무너져 내를 막다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_C_MOUNTAIN" },
-  "水溢": { displayKo: "강물이 범람하여 넘치다", token: "넘치다", archetype: "RECEDE", stageZone: "ZONE_A_OCEAN" },
-  "石垣多頹": { displayKo: "돌담이 많이 무너지다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "窓戶搖動": { displayKo: "창호가 크게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "民家頹壓": { displayKo: "민가가 무너져 덮치다", token: "무너지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "死者數十人": { displayKo: "수십 명이 깔려 숨지다", token: "스러지다", archetype: "FRACTURE", stageZone: "ZONE_B_INLAND" },
-  "屋宇微動": { displayKo: "가옥이 미세하게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "八道地震": { displayKo: "팔도에 지진이 일어나다", token: "진동하다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" },
-  "京城尤甚": { displayKo: "도성이 더욱 심하게 흔들리다", token: "흔들리다", archetype: "RESONANCE", stageZone: "ZONE_B_INLAND" }
-};
-
-export const HANJA_TO_HANGUL_MAP = {
-  "墻屋頹圮": "담장과 가옥이 무너지다",
-  "頹圮": "무너져 내리다",
-  "倒壞": "쓰러져 무너지다",
-  "崩壞": "거암이 무너지다",
-  "山崩": "산이 무너지다",
-  "地裂": "땅이 갈라지다",
-  "地動": "대지가 진동하다",
-  "地震": "땅이 흔들리다",
-  "退潮": "바닷물이 물러나다",
-  "海溢": "바닷물이 넘치다",
-  "湧出": "물이 솟구치다",
-  "鳴響": "지하가 울리다",
-  "聲如雷": "소리가 우레와 같다",
-  "如雷": "우레 같은 소리",
-  "轟然": "우르릉 울리다",
-  "振動": "산악이 진동하다",
-  "搖動": "크게 흔들리다",
-  "大震": "대지가 크게 울리다",
-  "陷沒": "땅이 내려앉다",
-  "沈沒": "물속에 잠기다"
-};
-
-/**
- * Verbatim Chronicle Clause Extractor
- * Directly splits a historical chronicle or instrumental record (`originalTranslationKo`, `translationKo`, `originalScript`)
- * into its constituent clauses as-is (`그대로`), removing only framing prefixes and parenthetical notes.
- */
-export function extractVerbatimChronicleClauses(rawText, allowNative = false) {
-  if (!rawText || typeof rawText !== "string") return [];
-  let text = rawText
-    .replace(/\s*\([^\)]*\)/g, "") // remove parenthetical notes like (서기 2년), (금성)
-    .replace(/^(?:강원도 도신이 아뢰기를|강원감사의 장계에|경상감사의 장계에 이르기를|비변사에서 아뢰기를)\s*,?\s*/g, "")
-    .replace(/^["'「『]|["'」』]$/g, "")
-    .trim();
-
-  if (!allowNative) {
-    text = text.replace(/[\u4e00-\u9fff]/g, "").replace(/\s+/g, " ").trim();
-  }
-
-  // Remove leading date stamps if followed by spaces (e.g., "2016년 4월 16일 ", "2023년 2월 6일 ")
-  text = text.replace(/^\d{4}년\s*\d{1,2}월\s*\d{1,2}일\s*/g, "").trim();
-
-  // Split by sentence/clause boundaries first
-  const primaryParts = text
-    .split(/(?:\.\s+|\.$|,\s+|;\s+|—\s+)/)
-    .map(s => s.replace(/[.。]+$/g, "").trim())
-    .filter(s => s.length >= 2);
-
-  const clauses = [];
-  for (const part of primaryParts) {
-    if (part.length <= 28) {
-      clauses.push(part);
-    } else {
-      // Split longer compound clauses at natural Korean connective endings while keeping the ending intact
-      const subParts = part
-        .split(/(?<=(?:고|며|니|더니|하여|에서|으로|따라))\s+/)
-        .map(s => s.trim())
-        .filter(s => s.length >= 2);
-      if (subParts.length > 1) {
-        clauses.push(...subParts);
-      } else {
-        clauses.push(part);
-      }
-    }
-  }
-  return clauses;
-}
-
-/**
- * Extracts and returns the verbatim chronicle expression from a lexicon entry or raw token.
- * Never lumps or paraphrases into abstract 4-word labels (`퇴조`, `드러나다`, `울다`, `무너지다`).
- */
-export function distillArchivalExpression(entryOrToken, category = "resonance", fallback = "") {
-  if (!entryOrToken) return fallback || "땅이 진동하였으며";
-
-  if (typeof entryOrToken === "object") {
-    if (entryOrToken.displayKo && typeof entryOrToken.displayKo === "string") {
-      const cleanDisp = entryOrToken.displayKo
-        .replace(/\s*\([^\)]*\)/g, "")
-        .replace(/[\u4e00-\u9fff]/g, "")
-        .replace(/[.。]+$/g, "")
-        .trim();
-      if (cleanDisp.length >= 2) return cleanDisp;
-    }
-    if (entryOrToken.translation && typeof entryOrToken.translation === "string") {
-      const extracted = extractVerbatimChronicleClauses(entryOrToken.translation, false);
-      if (extracted.length > 0) return extracted[0];
-    }
-    if (entryOrToken.token && ARCHIVAL_HANJA_LEXICON_DB[entryOrToken.token]) {
-      return ARCHIVAL_HANJA_LEXICON_DB[entryOrToken.token].displayKo;
-    }
-    return sanitizeArchivalToken(entryOrToken.token, entryOrToken.category || category, fallback);
-  }
-
-  return sanitizeArchivalToken(String(entryOrToken), category, fallback);
-}
-
-export function sanitizeArchivalToken(rawToken, category = "resonance", fallback = "") {
-  if (!rawToken || typeof rawToken !== 'string') return fallback || "땅이 진동하였으며";
-  const trimmed = rawToken.trim();
-
-  if (ARCHIVAL_HANJA_LEXICON_DB[trimmed]) {
-    return ARCHIVAL_HANJA_LEXICON_DB[trimmed].displayKo;
-  }
-
-  let token = trimmed
-    .replace(/\s*\([^\)]*\)/g, '')
-    .replace(/[\u4e00-\u9fff]/g, '')
-    .replace(/[.。]+$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  if (token.length >= 2) {
-    return token;
-  }
-
-  for (const [hanja, spec] of Object.entries(ARCHIVAL_HANJA_LEXICON_DB)) {
-    if (trimmed.includes(hanja)) return spec.displayKo;
-  }
-  if (HANJA_TO_HANGUL_MAP[trimmed]) return HANJA_TO_HANGUL_MAP[trimmed];
-  for (const [hanja, hangul] of Object.entries(HANJA_TO_HANGUL_MAP)) {
-    if (trimmed.includes(hanja)) return hangul;
-  }
-
-  return fallback || "땅이 진동하였으며";
-}
-
-/**
- * Archival Semantic Parser
- * Parses Historical Chronicles & Instrumental Reports into Structured Semantic Units
- */
-export class ArchivalSemanticParser {
-  constructor(historicalEvents = [], sourceRecords = [], eventSourceLinks = [], instrumentalEvents = []) {
-    this.historicalEvents = historicalEvents;
-    this.sourceRecords = sourceRecords;
-    this.eventSourceLinks = eventSourceLinks;
-    this.instrumentalEvents = instrumentalEvents;
-    this.recordMap = new Map(this.sourceRecords.map(r => [r.recordId, r]));
-    // MANDATORY ARTISTIC DIRECTIVE: Pure Korean Archival Mode is the permanent exhibition aesthetic
-    this.displayMode = 'korean';
-  }
-
-  addInstrumentalEvents(events = []) {
-    if (Array.isArray(events)) {
-      for (const ev of events) {
-        const id = ev.id || ev.eventId;
-        if (id && !this.instrumentalEvents.some(e => (e.id === id || e.eventId === id))) {
-          this.instrumentalEvents.push(ev);
-        }
-      }
-    }
-  }
-
-  setDisplayMode(mode) {
-    this.displayMode = mode === 'native' ? 'native' : 'korean';
-  }
-
-  parseEvent(eventId) {
-    if (eventId === 'hist_1681_yangyang' || eventId === '1681' || eventId === '1681_yangyang') eventId = 'hist_1681_0626';
-    if (eventId === 'inst_2016_gyeongju') eventId = 'hist_2016_gyeongju';
-    if (eventId === 'inst_2017_pohang') eventId = 'hist_2017_pohang';
-
-    let histEv = this.historicalEvents.find(e => (e.eventId === eventId || e.id === eventId));
-    let instEv = null;
-
-    if (!histEv) {
-      instEv = this.instrumentalEvents.find(e => (e.eventId === eventId || e.id === eventId));
-    }
-
-    if (!histEv && !instEv) {
-      histEv = this.historicalEvents.find(e => (e.id && e.id.includes(eventId)) || (e.eventId && e.eventId.includes(eventId)));
-      if (!histEv) {
-        instEv = this.instrumentalEvents.find(e => (e.id && e.id.includes(eventId)) || (e.eventId && e.eventId.includes(eventId)));
-      }
-    }
-
-    if (!histEv && !instEv) {
-      throw new Error(`[ArchivalSemanticParser] Event '${eventId}' not found in database.`);
-    }
-
-    if (histEv) {
-      return this._parseHistoricalEvent(histEv);
-    } else {
-      return this._parseInstrumentalEvent(instEv);
-    }
-  }
-
-  _parseHistoricalEvent(ev) {
-    const links = this.eventSourceLinks.filter(l => l.eventId === ev.eventId);
-    const records = links.map(l => this.recordMap.get(l.recordId)).filter(Boolean);
-
-    const phenomenaSet = new Set();
-    records.forEach(r => {
-      if (Array.isArray(r.phenomenaTags)) {
-        r.phenomenaTags.forEach(tag => phenomenaSet.add(tag));
-      }
-    });
-
-    let lat = null;
-    let lon = null;
-    const isUnresolved = ev.interpretations?.[0]?.epicenter?.isUnresolved === true || 
-                         (ev.lat && ev.lat.v === null && ev.lat.ver === 'unknown') ||
-                         (ev.spatial?.inferredCoordinates?.lat == null && ev.interpretations?.[0]?.epicenter?.lat == null && ev.placeMappings?.[0]?.representativeCoords?.lat == null && ev.lat?.v == null);
-
-    if (!isUnresolved) {
-      if (typeof ev.lat === 'number') lat = ev.lat;
-      else if (ev.lat && typeof ev.lat.v === 'number') lat = ev.lat.v;
-      else if (ev.spatial?.inferredCoordinates?.lat != null) lat = Number(ev.spatial.inferredCoordinates.lat);
-      else if (ev.interpretations?.[0]?.epicenter?.lat != null) lat = Number(ev.interpretations[0].epicenter.lat);
-      else if (ev.placeMappings?.[0]?.representativeCoords?.lat != null) lat = Number(ev.placeMappings[0].representativeCoords.lat);
-
-      if (typeof ev.lon === 'number') lon = ev.lon;
-      else if (ev.lon && typeof ev.lon.v === 'number') lon = ev.lon.v;
-      else if (ev.spatial?.inferredCoordinates?.lon != null) lon = Number(ev.spatial.inferredCoordinates.lon);
-      else if (ev.interpretations?.[0]?.epicenter?.lon != null) lon = Number(ev.interpretations[0].epicenter.lon);
-      else if (ev.placeMappings?.[0]?.representativeCoords?.lon != null) lon = Number(ev.placeMappings[0].representativeCoords.lon);
-    }
-    const mag = ev.scientificEstimates?.[0]?.estimatedMag ?? ev.interpretations?.[0]?.estimatedMagnitude?.best ?? (ev.mag?.v ?? (ev.macroseismic?.maxIntensityMMI?.numericEquivalent ? (ev.macroseismic.maxIntensityMMI.numericEquivalent * 0.6 + 1.5) : 6.5));
-    const depth = ev.spatial?.focalDepth?.valKm ?? ev.interpretations?.[0]?.focalDepth?.valKm ?? 12.0;
-
-    let semanticUnits = this._extractHistoricalSemanticUnits(ev, records);
-    let compositionProfileStatus = (ev.eventId === "hist_1681_0626")
-      ? "PROFILE_APPLIED_1681_YANGYANG"
-      : `PROFILE_APPLIED_HISTORICAL_${ev.eventId.toUpperCase()}`;
-
-    const dominantFreq = (ev.eventId === "hist_1681_0626") ? 1.0 : Math.max(0.2, Math.min(2.5, 1.8 * Math.pow(10.0, -0.22 * (mag - 5.0))));
-    const q = (ev.eventId === "hist_1681_0626") ? 250.0 : (ev.macroseismic?.tsunamiObserved ? 260.0 : 220.0);
-    const dispScale = (ev.eventId === "hist_1681_0626") ? 1.2 : Math.max(0.6, Math.min(2.2, 0.4 + (mag - 5.0) * 0.4));
-    const verifiedSourceCount = semanticUnits.filter(u => u.source?.evidenceStatus === "VERIFIED_SOURCE" || u.evidenceClass === "DIRECT_QUOTATION" || u.evidenceClass === "SOURCE_TRANSLATION").length;
-    const editorialInterpretationCount = semanticUnits.filter(u => u.source?.evidenceStatus === "EDITORIAL_INTERPRETATION" || u.evidenceClass === "EDITORIAL_DISTILLATION").length;
-
-    const rawDateText = ev.dateText || ev.dateConversion?.gregorianDateISO || (ev.dateConversion?.gregorianYear ? `${ev.dateConversion.gregorianYear}년` : (ev.date?.gregorianYear ? `${ev.date.gregorianYear}년` : "연대 미상"));
-    const cleanDateText = (rawDateText || '').replace(/\s*\([^\)]*[\u4e00-\u9fff][^\)]*\)/g, '').replace(/[\u4e00-\u9fff]/g, '').trim();
-
-    return {
-      ...ev,
-      eventId: ev.eventId,
-      recordType: "historical",
-      dynasty: ev.dynasty || "JOSEON",
-      century: ev.century || 17,
-      sourceName: ev.sourceName || (records[0]?.volumeOrSection ? `${records[0].volumeOrSection}` : "조선왕조실록 · 승정원일기"),
-      title: ev.place || ev.titleKo || ev.titles?.ko || ev.canonicalName || "역사 사료 지진",
-      titleKo: (ev.titleKo || ev.titles?.ko || ev.place || ev.canonicalName || (ev.dateConversion?.gregorianYear ? `${ev.dateConversion.gregorianYear}년 사료 지진` : "역사 사료 지진")).replace(/[\u4e00-\u9fff]/g, '').trim(),
-      archivalText: ev.primaryText?.originalScript || ev.text || ev.originalText || "",
-      dateText: cleanDateText,
-      dateStr: ev.dateStr || ev.dateConversion?.gregorianDateISO || "1681-06-26",
-      era: "ERA_1_HISTORICAL",
-      sourceRecordCount: records.length,
-      extractedSemanticUnitCount: semanticUnits.length,
-      verifiedSourceCount,
-      editorialInterpretationCount,
-      phenomenaTags: Array.from(phenomenaSet),
-      selectedKineticArchetypes: Array.from(new Set(semanticUnits.map(u => u.kinetic?.archetype || 'RESONANCE'))),
-      lat: lat,
-      lon: lon,
-      isUncertainCoordinates: (lat == null || lon == null),
-      spatialCoords: { lat, lon, depthKm: depth },
-      sceneEpicenter: (typeof THREE !== 'undefined' && THREE.Vector2) ? new THREE.Vector2(0.0, 0.03365) : { x: 0, y: 0.03365 },
-      focalDepthKm: depth,
-      dominantFreqHz: dominantFreq,
-      attenuationQ: q,
-      displacementScale: dispScale,
-      faultStrikeRad: 1.309,
-      compositionProfileStatus,
-      semanticUnits
-    };
-  }
-
-  _extractHistoricalSemanticUnits(ev, records) {
-    const units = [];
-    const seenDisplays = new Set();
-    const candidateEntries = [];
-
-    // 1. First collect all verbatim chronicle entries from all linked SourceRecords' archivalLexicon
-    for (const rec of records) {
-      if (Array.isArray(rec.archivalLexicon)) {
-        for (const lex of rec.archivalLexicon) {
-          candidateEntries.push({
-            ...lex,
-            recordId: rec.recordId,
-            volumeOrSection: rec.volumeOrSection,
-            originalHanja: rec.originalHanja,
-            originalTranslationKo: rec.originalTranslationKo
-          });
-        }
-      }
-    }
-    // 2. Fallback: if a record had no archivalLexicon, directly extract clauses from its originalTranslationKo
-    for (const rec of records) {
-      if ((!Array.isArray(rec.archivalLexicon) || rec.archivalLexicon.length === 0) && rec.originalTranslationKo) {
-        const directClauses = extractVerbatimChronicleClauses(rec.originalTranslationKo, false);
-        for (const cl of directClauses) {
-          candidateEntries.push({
-            token: cl,
-            displayKo: cl,
-            category: /바닷물|조수|해일|물이|샘물/.test(cl) ? "water" : /소리|우레|울고|울리/.test(cl) ? "sound" : /무너|붕괴|갈라|파손|죽은/.test(cl) ? "structure" : "shaking",
-            recordId: rec.recordId,
-            volumeOrSection: rec.volumeOrSection,
-            originalHanja: rec.originalHanja,
-            originalTranslationKo: rec.originalTranslationKo,
-            translation: cl
-          });
-        }
-      }
-    }
-    if (Array.isArray(ev.archivalLexicon)) {
-      for (const lex of ev.archivalLexicon) {
-        candidateEntries.push({
-          ...lex,
-          recordId: lex.sourceRecordId || records[0]?.recordId || `rec_${ev.eventId}`,
-          volumeOrSection: lex.sourceVolume || ev.primaryText?.documentSource || records[0]?.volumeOrSection || "역사 사료 기록",
-          originalHanja: ev.primaryText?.originalScript || records[0]?.originalHanja || lex.token,
-          originalTranslationKo: ev.text || records[0]?.originalTranslationKo || lex.translation
-        });
-      }
-    }
-
-    const hasOcean = ev.terrainContext?.hasOcean !== false &&
-                     ev.terrainConfig?.hasOcean !== false &&
-                     ev.hasOcean !== false &&
-                     !ev.eventId?.includes("1338");
-
-    const ANCHOR_RING = [
-      { worldX: -0.055, worldZ: 0.032 },
-      { worldX: 0.052, worldZ: -0.018 },
-      { worldX: -0.024, worldZ: -0.034 },
-      { worldX: 0.068, worldZ: 0.028 },
-      { worldX: -0.072, worldZ: -0.012 },
-      { worldX: 0.018, worldZ: 0.044 },
-      { worldX: -0.042, worldZ: 0.015 },
-      { worldX: 0.038, worldZ: -0.038 },
-      { worldX: -0.062, worldZ: -0.028 },
-      { worldX: 0.028, worldZ: 0.022 }
-    ];
-
-    const maxUnits = (ev.eventId === "hist_1681_0626") ? 10 : 6;
-
-    for (const entry of candidateEntries) {
-      if (units.length >= maxUnits) break;
-      const displayKo = distillArchivalExpression(entry, entry.category || "resonance");
-      if (!displayKo || seenDisplays.has(displayKo)) continue;
-      if (!hasOcean && (entry.stageZone === "ZONE_A_OCEAN" || entry.category === "water") && /바닷물|해수|조수|해일/.test(displayKo)) {
-        continue;
-      }
-      seenDisplays.add(displayKo);
-
-      const idx = units.length;
-      const dbSpec = ARCHIVAL_HANJA_LEXICON_DB[entry.token] || null;
-
-      let archetype = entry.archetype || dbSpec?.archetype || "RESONANCE";
-      if (!entry.archetype && !dbSpec) {
-        if (entry.category === "water" || /물러|해일|넘치|범람|넘어왔|밀려왔/.test(displayKo)) archetype = "RECEDE";
-        else if (/솟구치|솟다|솟아|드러나|꺼져|내려앉|모래/.test(displayKo)) archetype = "EXPOSE";
-        else if (entry.category === "structure" || entry.category === "geology" || /무너|붕괴|갈라|찢어|떨어|날아|파손|죽은|압사/.test(displayKo)) archetype = "FRACTURE";
-        else archetype = "RESONANCE";
-      }
-
-      let stageZone = entry.stageZone || dbSpec?.stageZone || "ZONE_B_INLAND";
-      if (!hasOcean && stageZone === "ZONE_A_OCEAN") {
-        stageZone = "ZONE_B_INLAND";
-      } else if (hasOcean && /바닷물|조수|해일|언덕을 넘어/.test(displayKo)) {
-        stageZone = "ZONE_A_OCEAN";
-      } else if (/산이|설악|바위가|거암|절벽|성첩|산사태/.test(displayKo)) {
-        stageZone = "ZONE_C_MOUNTAIN";
-      }
-
-      // Output the extracted chronicle clause AS-IS in both token and displayText (no lumping!)
-      const verbatimPhrase = displayKo;
-      const nativePhrase = entry.nativeText || entry.token || verbatimPhrase;
-      const activeText = (this.displayMode === 'native' && entry.nativeText) ? nativePhrase : verbatimPhrase;
-
-      const isHanjaSource = /[\u4e00-\u9fff]/.test(entry.originalHanja || entry.token || "");
-      const evidenceClass = isHanjaSource ? "SOURCE_TRANSLATION" : "DIRECT_QUOTATION";
-      const materialAdapter = archetype === "RECEDE"
-        ? "WATER_SURFACE_SWELL"
-        : archetype === "FRACTURE"
-          ? "FRACTURED_DEBRIS_FALL"
-          : archetype === "EXPOSE"
-            ? "UPRIGHT_BATHYMETRIC_BILLBOARD"
-            : "BEDROCK_VIBRATION";
-
-      const preferredType = stageZone === "ZONE_A_OCEAN"
-        ? "coastal_shelf"
-        : stageZone === "ZONE_C_MOUNTAIN"
-          ? "mountain_ridge"
-          : "inland_basin";
-
-      const spatialMotif = stageZone === "ZONE_A_OCEAN"
-        ? "ZONE_OCEAN_SHELF"
-        : stageZone === "ZONE_C_MOUNTAIN"
-          ? "ZONE_ALPINE_RIDGE"
-          : "ZONE_INLAND_BASIN";
-
-      const stepSec = maxUnits > 6 ? 3.1 : 4.2;
-      const t_act = Number((2.4 + idx * stepSec).toFixed(1));
-      const anchor = ANCHOR_RING[idx % ANCHOR_RING.length];
-
-      units.push({
-        id: `unit_${ev.eventId}_${idx + 1}`,
-        eventId: ev.eventId,
-        token: activeText,
-        tokenKo: verbatimPhrase,
-        tokenNative: nativePhrase,
-        phraseKo: verbatimPhrase,
-        phraseNative: nativePhrase,
-        sourceId: entry.recordId || `rec_${ev.eventId}_${idx + 1}`,
-        originalPassage: entry.originalHanja || entry.token || verbatimPhrase,
-        translation: entry.originalTranslationKo || entry.translation || verbatimPhrase,
-        evidenceClass,
-        editorialRationale: `${entry.volumeOrSection || "역사 사료"} 사료 문장('${verbatimPhrase}') 원문 그대로 추출`,
-        confidence: "HIGH_PRIMARY_CHRONICLE",
-        spatialMotif,
-        source: {
-          originalHanja: entry.originalHanja || entry.token || verbatimPhrase,
-          originalText: entry.token || verbatimPhrase,
-          originalTranslationKo: entry.originalTranslationKo || entry.translation || verbatimPhrase,
-          evidenceStatus: evidenceClass === "DIRECT_QUOTATION" ? "VERIFIED_SOURCE" : "SOURCE_TRANSLATION",
-          evidenceClass,
-          sourceReference: entry.volumeOrSection || ev.primaryText?.documentSource || "역사 사료 기록",
-          confidence: "HIGH_PRIMARY_CHRONICLE"
-        },
-        semantic: {
-          semanticLabel: entry.category || "사료기록",
-          displayText: activeText,
-          phenomenaTags: Array.isArray(records[0]?.phenomenaTags) ? records[0].phenomenaTags : ["GROUND_SHAKING"]
-        },
-        spatial: {
-          stageZone,
-          preferredType,
-          elevationOffset: 0.040 + (idx % 3) * 0.005,
-          anchorHint: anchor
-        },
-        kinetic: {
-          archetype,
-          materialAdapter
-        },
-        timing: {
-          t_activation: t_act,
-          formationDuration: 0.9,
-          minLegibilityDuration: 1.5,
-          resonanceDuration: 1.5,
-          dissolutionDuration: 1.2,
-          residueDuration: 0.8
-        },
-        visual: {
-          archetype,
-          fontFamily: '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-          fontSize: 78,
-          canvasW: 2048,
-          canvasH: 384,
-          spriteW: 0.235,
-          spriteH: 0.062,
-          colorSecondary: archetype === "RECEDE" ? "#c8e8fc" : archetype === "FRACTURE" ? "#e2eefa" : "#cde4fe",
-          haloColor: "rgba(160, 215, 255, 0.40)"
-        }
-      });
-    }
-
-    return units;
-  }
-
-  _parseInstrumentalEvent(ev) {
-    const lat = ev.lat?.v ?? ev.lat ?? ev.spatial?.inferredCoordinates?.lat ?? ev.spatial?.latitude ?? 35.76;
-    const lon = ev.lon?.v ?? ev.lon ?? ev.spatial?.inferredCoordinates?.lon ?? ev.spatial?.longitude ?? 129.19;
-    const mag = ev.mag?.v ?? ev.mag ?? ev.scientificParams?.magnitude?.value ?? ev.scientificEstimates?.[0]?.estimatedMag ?? 5.8;
-    const depth = ev.depth?.v ?? ev.depth ?? ev.spatial?.focalDepth?.valKm ?? ev.spatial?.depthKm ?? 10.0;
-
-    const semanticUnits = this._extractInstrumentalSemanticUnits(ev);
-    const profileStatus = `PROFILE_APPLIED_${ev.eventId.toUpperCase()}`;
-
-    let dominantFreq = 1.2;
-    let q = 220.0;
-    let dispScale = 1.0;
-    let strikeRad = 0.0;
-    const sceneEpi = (typeof THREE !== 'undefined' && THREE.Vector2) ? new THREE.Vector2(0.0, 0.0) : { x: 0, y: 0 };
-
-    if (ev.eventId === 'hist_2016_gyeongju') {
-      dominantFreq = 1.2;
-      q = 220.0;
-      dispScale = 0.95;
-      strikeRad = 0.453; // N26°E Yangsan Fault strike
-    } else if (ev.eventId === 'hist_2017_pohang') {
-      dominantFreq = 1.47;
-      q = 140.0;
-      dispScale = 0.85;
-      strikeRad = 0.785; // N45°E Gokgang Fault branch
-    } else if (ev.eventId === 'global_2016_kumamoto') {
-      dominantFreq = 0.65;
-      q = 180.0;
-      dispScale = 1.4;
-      strikeRad = 1.047; // Futagawa-Hinagu fault strike
-    } else if (ev.eventId === 'global_2023_turkey') {
-      dominantFreq = 0.44;
-      q = 320.0;
-      dispScale = 2.2;
-      strikeRad = 0.524; // East Anatolian Fault strike
-    } else if (ev.eventId === 'global_2011_tohoku') {
-      dominantFreq = 0.22;
-      q = 360.0;
-      dispScale = 2.5;
-      strikeRad = 3.54; // Strike 203° (Japan Trench megathrust)
-    } else {
-      dominantFreq = Math.max(0.2, Math.min(2.5, 1.8 * Math.pow(10.0, -0.22 * (mag - 5.0))));
-      q = 200.0;
-      dispScale = Math.max(0.6, Math.min(2.0, 0.4 + (mag - 5.0) * 0.4));
-      strikeRad = 0.5;
-    }
-
-    const phenomenaSet = new Set();
-    semanticUnits.forEach(u => {
-      (u.semantic?.phenomenaTags || []).forEach(tag => phenomenaSet.add(tag));
-    });
-
-    const verifiedSourceCount = semanticUnits.filter(u => u.evidenceClass === 'DIRECT_QUOTATION' || u.source?.evidenceStatus === 'VERIFIED_SOURCE' || u.confidence === 'VERIFIED_INSTRUMENTAL').length;
-    const editorialInterpretationCount = semanticUnits.filter(u => u.evidenceClass === 'EDITORIAL_DISTILLATION' || u.source?.evidenceStatus === 'EDITORIAL_INTERPRETATION').length;
-
-    return {
-      ...ev,
-      id: ev.id || ev.eventId,
-      eventId: ev.eventId || ev.id,
-      century: ev.century || (ev.temporal?.gregorianDate ? Math.floor(parseInt(ev.temporal.gregorianDate.substring(0, 4), 10) / 100) + 1 : 21),
-      catalogType: ev.catalogType || "INSTRUMENTAL_GLOBAL",
-      recordType: ev.recordType || "instrumental-global",
-      country: ev.country || "GLOBAL",
-      title: ev.place || ev.canonicalName || ev.titles?.ko || "계측 지진",
-      titleKo: ev.place || ev.canonicalName || ev.titles?.ko || "계측 지진",
-      archivalText: ev.primaryText?.originalScript || ev.text || ev.originalText || "",
-      dateStr: ev.dateStr || ev.dateText || ev.temporal?.gregorianDate || "2016-09-12",
-      dateText: ev.dateText || ev.dateStr || ev.temporal?.gregorianDate || "2016-09-12",
-      era: "ERA_2_INSTRUMENTAL",
-      sourceRecordCount: semanticUnits.length,
-      extractedSemanticUnitCount: semanticUnits.length,
-      verifiedSourceCount,
-      editorialInterpretationCount,
-      phenomenaTags: Array.from(phenomenaSet),
-      selectedKineticArchetypes: Array.from(new Set(semanticUnits.map(u => u.kinetic?.archetype || 'RESONANCE'))),
-      lat: lat,
-      lon: lon,
-      isUncertainCoordinates: (lat == null || lon == null),
-      spatialCoords: { lat, lon, depthKm: depth },
-      sceneEpicenter: sceneEpi,
-      focalDepthKm: depth,
-      depth: (typeof ev.depth === 'object' && ev.depth !== null) ? ev.depth : { valKm: depth, v: depth, unit: 'km', isKnown: true },
-      mag: (typeof ev.mag === 'object' && ev.mag !== null) ? ev.mag : { v: mag, val: mag, type: ev.magType || 'Mw' },
-      magType: ev.magType || 'Mw',
-      dominantFreqHz: dominantFreq,
-      attenuationQ: q,
-      displacementScale: dispScale,
-      faultStrikeRad: strikeRad,
-      scientificEstimates: Array.isArray(ev.scientificEstimates) ? ev.scientificEstimates : [{ source: "USGS / ISC", estimatedMag: mag, magType: ev.magType || 'Mw' }],
-      magnitude: mag,
-      compositionProfileStatus: profileStatus,
-      semanticUnits: semanticUnits,
-      isInstrumental: true
-    };
-  }
-
-  _buildStyledInstrumentalUnits(eventId, specs) {
-    return specs.map(sp => ({
-      id: sp.id,
-      eventId: eventId,
-      token: sp.token,
-      nativeToken: sp.nativeToken,
-      koreanToken: sp.koreanToken,
-      originalLanguage: sp.originalLanguage || 'ko',
-      sourceId: sp.sourceId,
-      originalPassage: sp.originalPassage,
-      translation: sp.translation,
-      evidenceClass: sp.evidenceClass,
-      editorialRationale: sp.editorialRationale,
-      confidence: 'VERIFIED_INSTRUMENTAL',
-      spatialMotif: sp.spatialMotif,
-      source: {
-        originalHanja: sp.originalPassage,
-        originalText: sp.originalPassage,
-        originalTranslationKo: sp.translation,
-        evidenceStatus: sp.evidenceClass,
-        evidenceClass: sp.evidenceClass,
-        sourceReference: sp.sourceReference,
-        confidence: 'VERIFIED_INSTRUMENTAL'
-      },
-      semantic: {
-        semanticLabel: sp.semanticLabel,
-        displayText: sp.displayText,
-        phenomenaTags: sp.phenomenaTags
-      },
-      spatial: {
-        stageZone: sp.stageZone,
-        preferredType: sp.preferredType,
-        anchorHint: sp.anchorHint,
-        elevationOffset: 0.042
-      },
-      kinetic: {
-        archetype: sp.archetype,
-        materialAdapter: sp.materialAdapter
-      },
-      timing: {
-        t_activation: sp.t_activation,
-        formationDuration: 0.9,
-        minLegibilityDuration: 1.6,
-        resonanceDuration: 1.6,
-        dissolutionDuration: 1.3,
-        residueDuration: 0.9
-      },
-      visual: {
-        archetype: sp.archetype,
-        allowNativeScript: Boolean(sp.allowNativeScript),
-        fontFamily: sp.allowNativeScript
-          ? (sp.originalLanguage === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
-          : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-        fontSize: 82,
-        canvasW: 2048,
-        canvasH: 384,
-        spriteW: 0.215,
-        spriteH: 0.064,
-        colorSecondary: sp.archetype === 'EXPOSE' ? '#bee2fc' : sp.archetype === 'FRACTURE' ? '#e4f0fc' : '#cde4fe',
-        haloColor: 'rgba(160, 215, 255, 0.40)'
-      }
-    }));
-  }
-
-  _extractInstrumentalSemanticUnits(ev) {
-    const units = [];
-    const seenDisplays = new Set();
-    const isKo = this.displayMode === 'korean';
-    const docSource = ev.primaryText?.documentSource || ev.sourceName || "기상청 지진관측기록";
-    const origLang = (ev.primaryText?.scriptLanguage || "").startsWith("ja")
-      ? "ja"
-      : (ev.primaryText?.scriptLanguage || "").startsWith("tr")
-        ? "tr"
-        : "ko";
-
-    const candidateEntries = [];
-    if (Array.isArray(ev.archivalLexicon) && ev.archivalLexicon.length > 0) {
-      candidateEntries.push(...ev.archivalLexicon);
-    } else {
-      const rawChronicle = ev.primaryText?.translationKo || ev.primaryText?.originalScript || ev.text || "";
-      if (rawChronicle) {
-        const directClauses = extractVerbatimChronicleClauses(rawChronicle, false);
-        for (const cl of directClauses) {
-          candidateEntries.push({
-            token: cl,
-            displayKo: cl,
-            category: /해역|바다|해일|액상화/.test(cl) ? "water" : /무너|붕괴|균열|파손|낙석|단층/.test(cl) ? "structure" : "phenomenon",
-            translation: cl
-          });
-        }
-      }
-    }
-
-    const ANCHOR_RING = [
-      { worldX: -0.048, worldZ: 0.026 },
-      { worldX: 0.050, worldZ: -0.018 },
-      { worldX: -0.025, worldZ: -0.028 },
-      { worldX: 0.058, worldZ: 0.030 },
-      { worldX: -0.038, worldZ: 0.040 }
-    ];
-
-    for (const entry of candidateEntries) {
-      if (units.length >= 4) break;
-      const phraseKo = distillArchivalExpression(entry, entry.category || "resonance");
-      if (!phraseKo || seenDisplays.has(phraseKo)) continue;
-      seenDisplays.add(phraseKo);
-
-      const phraseNative = entry.nativeText || entry.token || phraseKo;
-      const activeText = (!isKo && entry.nativeText) ? phraseNative : phraseKo;
-
-      const idx = units.length;
-      const archetype = entry.archetype ||
-        (entry.category === "water" ? "RECEDE" :
-         (entry.category === "structure" || entry.category === "geology") ? "FRACTURE" : "RESONANCE");
-      const stageZone = entry.stageZone || (entry.category === "water" ? "ZONE_A_OCEAN" : "ZONE_B_INLAND");
-      const allowNativeScript = Boolean(!isKo && entry.nativeText);
-
-      units.push({
-        id: `unit_${ev.eventId}_${idx + 1}`,
-        eventId: ev.eventId,
-        token: activeText,
-        tokenKo: phraseKo,
-        tokenNative: phraseNative,
-        phraseKo: phraseKo,
-        phraseNative: phraseNative,
-        nativeToken: phraseNative,
-        koreanToken: phraseKo,
-        originalLanguage: origLang,
-        sourceId: `rec_${ev.eventId}_${idx + 1}`,
-        originalPassage: ev.primaryText?.originalScript || entry.nativeText || entry.token || phraseKo,
-        translation: entry.translation || ev.primaryText?.translationKo || ev.text || phraseKo,
-        evidenceClass: "DIRECT_QUOTATION",
-        editorialRationale: `${docSource} 원문 기록('${activeText}') 그대로 추출`,
-        confidence: "VERIFIED_INSTRUMENTAL",
-        spatialMotif: stageZone === "ZONE_A_OCEAN" ? "ZONE_OCEAN_SHELF" : stageZone === "ZONE_C_MOUNTAIN" ? "ZONE_ALPINE_RIDGE" : "ZONE_INLAND_BASIN",
-        source: {
-          originalHanja: ev.primaryText?.originalScript || entry.token || phraseKo,
-          originalText: entry.nativeText || entry.token || phraseKo,
-          originalTranslationKo: entry.translation || phraseKo,
-          evidenceStatus: "VERIFIED_SOURCE",
-          evidenceClass: "DIRECT_QUOTATION",
-          sourceReference: docSource,
-          confidence: "VERIFIED_INSTRUMENTAL"
-        },
-        semantic: {
-          semanticLabel: entry.category || "관측기록",
-          displayText: activeText,
-          phenomenaTags: [archetype === "FRACTURE" ? "SURFACE_RUPTURE" : "GROUND_SHAKING"]
-        },
-        spatial: {
-          stageZone,
-          preferredType: stageZone === "ZONE_A_OCEAN" ? "coastal_shelf" : stageZone === "ZONE_C_MOUNTAIN" ? "mountain_ridge" : "inland_basin",
-          anchorHint: ANCHOR_RING[idx % ANCHOR_RING.length],
-          elevationOffset: 0.042 + idx * 0.004
-        },
-        kinetic: {
-          archetype,
-          materialAdapter: archetype === "FRACTURE" ? "FRACTURED_DEBRIS_FALL" : archetype === "RECEDE" ? "WATER_SURFACE_SWELL" : archetype === "EXPOSE" ? "UPRIGHT_BATHYMETRIC_BILLBOARD" : "BEDROCK_VIBRATION"
-        },
-        timing: {
-          // Sequential non-overlapping activation: exactly one milestone active at any moment
-          t_activation: Number((2.0 + idx * 6.5).toFixed(1)),
-          formationDuration: 0.8,
-          minLegibilityDuration: 1.5,
-          resonanceDuration: 1.4,
-          dissolutionDuration: 1.2,
-          residueDuration: 0.6
-        },
-        visual: {
-          archetype,
-          allowNativeScript,
-          fontFamily: allowNativeScript
-            ? (origLang === 'ja' ? '"Noto Serif JP", "Yu Mincho", serif' : '"Times New Roman", "Georgia", serif')
-            : '"Noto Serif KR", "Nanum Myeongjo", Batang, serif',
-          fontSize: 78,
-          canvasW: 2048,
-          canvasH: 384,
-          spriteW: 0.235,
-          spriteH: 0.062,
-          colorSecondary: archetype === "EXPOSE" ? "#bee2fc" : archetype === "FRACTURE" ? "#e2eefa" : "#cde4fe",
-          haloColor: "rgba(160, 215, 255, 0.40)"
-        }
-      });
-    }
-
-    return units;
-  }
+function lerpScalar(a, b, t) {
+  return a + (b - a) * t;
 }
 
 /**
@@ -871,13 +57,11 @@ export function renderEditorialTypography(ctx, canvas, text, formationProg, visu
   const colorSecondary = visualOpts.colorSecondary || '#c8e8fc';
   const haloColor = visualOpts.haloColor || 'rgba(140, 205, 255, 0.40)';
 
-  // Adaptive sizing for single-character chunks vs. multi-word chronicle expressions
   let fontSize = baseFontSize;
   let letterSpacing = '0.18em';
   const charCount = cleanText.length;
 
   if (canvas.width <= 320 && charCount <= 2) {
-    // Single glyph chunk canvas (256x256) in FRACTURE entity
     fontSize = Math.min(baseFontSize, Math.round(canvas.width * 0.40));
     letterSpacing = '0.02em';
   } else if (charCount <= 4) {
@@ -901,7 +85,6 @@ export function renderEditorialTypography(ctx, canvas, text, formationProg, visu
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // Ensure text width never overflows the canvas width
   if (typeof ctx.measureText === 'function' && canvas.width > 320) {
     const measuredW = ctx.measureText(cleanText).width || 0;
     const maxAllowedW = canvas.width * 0.86;
@@ -1029,7 +212,10 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg, strokeJitterPx = 0.0) {
-    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, strokeJitterPx, enableDarkCushion);
+    const cushionEnabled = typeof globalThis !== 'undefined' && typeof globalThis.__ENABLE_DARK_CUSHION__ === 'boolean'
+      ? globalThis.__ENABLE_DARK_CUSHION__
+      : enableDarkCushion;
+    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, strokeJitterPx, cushionEnabled);
     texture.needsUpdate = true;
     if (group.userData) {
       group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
@@ -1085,7 +271,6 @@ export function createResonanceEntity(arg1, arg2, arg3, arg4) {
 
 /**
  * Kinetic Archetype 2: FRACTURE (Rock Shatter & Slope Tumbling)
- * Preserves word spaces and 1:1 square chunk aspect ratio for multi-word chronicle expressions
  */
 export function createFractureEntity(arg1, arg2, arg3, arg4) {
   let THREE_INST, unitDef, cand, enableDarkCushion;
@@ -1113,7 +298,6 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
 
   const rawText = String(unitDef.semantic.displayText || unitDef.token || '거암이 붕괴되고').trim();
   const hasSpaces = rawText.includes(' ');
-  // When multi-word chronicle clause has spaces, split by word chunks (어절 단위) so each word stays intact and legible before fracturing
   const tokenChunks = hasSpaces ? rawText.split(/\s+/).filter(Boolean) : rawText.split('');
   const chunkWeights = tokenChunks.map(tk => Math.max(1.0, tk.length * 0.85));
   const gapWeight = hasSpaces ? 0.45 : 0.0;
@@ -1149,7 +333,10 @@ export function createFractureEntity(arg1, arg2, arg3, arg4) {
     tex.magFilter = THREE_INST.LinearFilter;
 
     function renderChunk(prog) {
-      renderEditorialTypography(ctx, c, gl, prog, unitDef.visual, 0.0, enableDarkCushion);
+      const cushionEnabled = typeof globalThis !== 'undefined' && typeof globalThis.__ENABLE_DARK_CUSHION__ === 'boolean'
+        ? globalThis.__ENABLE_DARK_CUSHION__
+        : enableDarkCushion;
+      renderEditorialTypography(ctx, c, gl, prog, unitDef.visual, 0.0, cushionEnabled);
       tex.needsUpdate = true;
     }
 
@@ -1258,7 +445,10 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg) {
-    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, enableDarkCushion);
+    const cushionEnabled = typeof globalThis !== 'undefined' && typeof globalThis.__ENABLE_DARK_CUSHION__ === 'boolean'
+      ? globalThis.__ENABLE_DARK_CUSHION__
+      : enableDarkCushion;
+    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, cushionEnabled);
     texture.needsUpdate = true;
     if (group.userData) {
       group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
@@ -1281,7 +471,6 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
   group.add(sprite);
 
   const finalRecedeY = (cand.groundY || 0.0) + Math.max(0.010, unitDef.spatial?.elevationOffset || 0.020);
-  const finalY = finalRecedeY;
   group.position.set(cand.worldX, finalRecedeY, cand.worldZ);
 
   group.userData = {
@@ -1306,7 +495,7 @@ export function createRecedeEntity(arg1, arg2, arg3, arg4) {
     displayText: unitDef.semantic?.displayText || unitDef.token || '',
     semanticLabel: unitDef.semantic?.semanticLabel || '',
     sourceCitation: unitDef.editorialRationale || unitDef.source?.sourceReference || '',
-    worldPos: { x: cand.worldX, y: finalY, z: cand.worldZ },
+    worldPos: { x: cand.worldX, y: finalRecedeY, z: cand.worldZ },
     terrainCoord: { normU: (cand.worldX / 0.72) + 0.5, normV: 0.5 - (cand.worldZ / 0.576), groundY: cand.groundY, elevation: cand.elevation }
   };
 
@@ -1350,7 +539,10 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
   texture.magFilter = THREE_INST.LinearFilter;
 
   function renderCanvas(formationProg) {
-    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, enableDarkCushion);
+    const cushionEnabled = typeof globalThis !== 'undefined' && typeof globalThis.__ENABLE_DARK_CUSHION__ === 'boolean'
+      ? globalThis.__ENABLE_DARK_CUSHION__
+      : enableDarkCushion;
+    renderEditorialTypography(ctx, canvas, unitDef.semantic.displayText, formationProg, unitDef.visual, 0.0, cushionEnabled);
     texture.needsUpdate = true;
     if (group.userData) {
       group.userData.finalFontSize = canvas.finalFontSize || unitDef.visual?.fontSize || 78;
@@ -1405,14 +597,33 @@ export function createExposeEntity(arg1, arg2, arg3, arg4) {
 }
 
 /**
- * Terrain-Aware Spatial Spawner
+ * Unified Terrain-Aware Spatial Spawner
+ * Supports both standalone function lookups `(unitDef, parsedEvent, lookupFn)`
+ * and regional/global exhibition context options `{ isRegionalActive, getTerrainMetricsAt, physicalSizeUnits }`.
  */
 export class TerrainAwareSpawner {
   constructor(candidateCache = []) {
     this.candidateCache = candidateCache;
   }
 
-  resolveCandidate(unitDef, parsedEvent, terrainMetricsLookup = null) {
+  resolveCandidate(unitDef, parsedEvent, optionsOrLookup = null) {
+    const isLookupFn = typeof optionsOrLookup === 'function';
+    const opts = isLookupFn ? {} : (optionsOrLookup || {});
+    const terrainMetricsLookup = isLookupFn ? optionsOrLookup : (opts.getTerrainMetricsAt || null);
+    const isRegionalActive = opts.isRegionalActive !== undefined ? Boolean(opts.isRegionalActive) : true;
+    const physW = opts.physicalSizeUnits?.x || 1.3142;
+    const physH = opts.physicalSizeUnits?.y || 0.6634;
+
+    const unitIndex = parsedEvent?.semanticUnits ? parsedEvent.semanticUnits.indexOf(unitDef) : 0;
+    const totalUnits = parsedEvent?.semanticUnits?.length || 1;
+    const spreadOffset = (unitIndex >= 0 && totalUnits > 1)
+      ? (unitIndex - (totalUnits - 1) * 0.5) * 0.055
+      : 0.0;
+
+    const demCoverageStatus = isRegionalActive
+      ? 'IN_COVERAGE'
+      : 'GLOBAL_ETOPO_PLANETARY_COVERAGE';
+
     let chosenWorldX = 0;
     let chosenWorldZ = 0;
     let groundY = 0;
@@ -1424,7 +635,7 @@ export class TerrainAwareSpawner {
     let normZ = 1;
     let suitability = 'OPTIMAL_AFFINITY_MATCH';
 
-    if (unitDef.spatial?.anchorHint) {
+    if (unitDef.spatial?.anchorHint && isRegionalActive) {
       chosenWorldX = unitDef.spatial.anchorHint.worldX;
       chosenWorldZ = unitDef.spatial.anchorHint.worldZ;
       if (typeof terrainMetricsLookup === 'function') {
@@ -1438,7 +649,7 @@ export class TerrainAwareSpawner {
         normZ = m.normZ;
       }
       suitability = 'PROFILE_ANCHOR_VERIFIED';
-    } else {
+    } else if (isRegionalActive && this.candidateCache.length > 0) {
       const preferredCategory = unitDef.spatial?.preferredType?.toUpperCase() || 'GENERAL_TERRAIN';
       const targetZone = unitDef.spatial?.stageZone || 'ZONE_B_INLAND';
 
@@ -1450,10 +661,17 @@ export class TerrainAwareSpawner {
       const pool = (matches.length > 0) ? matches : this.candidateCache.filter(c => c.zone === targetZone);
       const focalPool = pool.filter(c => Math.abs(c.worldX) <= 0.12 && Math.abs(c.worldZ) <= 0.08);
       const candidateList = (targetZone === 'ZONE_C_MOUNTAIN' || focalPool.length === 0) ? pool : focalPool;
-      const chosen = candidateList[Math.floor(candidateList.length / 2)] || { worldX: 0, worldZ: 0, groundY: 0, elevation: 0, slope: 0 };
+      const poolIdx = Math.min(
+        Math.max(0, candidateList.length - 1),
+        Math.max(0, Math.floor(candidateList.length * (0.35 + (unitIndex >= 0 ? unitIndex * 0.22 : 0))))
+      );
+      const chosen = candidateList[poolIdx] || candidateList[Math.floor(candidateList.length / 2)] || { worldX: 0, worldZ: 0, groundY: 0, elevation: 0, slope: 0 };
 
-      chosenWorldX = chosen.worldX;
-      chosenWorldZ = chosen.worldZ;
+      const maxExtentX = physW * 0.42;
+      const maxExtentZ = physH * 0.42;
+      chosenWorldX = Math.max(-maxExtentX, Math.min(maxExtentX, chosen.worldX));
+      chosenWorldZ = Math.max(-maxExtentZ, Math.min(maxExtentZ, chosen.worldZ));
+
       if (typeof terrainMetricsLookup === 'function') {
         const m = terrainMetricsLookup(chosenWorldX, chosenWorldZ);
         groundY = m.groundY;
@@ -1473,12 +691,19 @@ export class TerrainAwareSpawner {
         normZ = chosen.normZ || 1;
       }
       suitability = 'GENERIC_AFFINITY_MATCH';
+    } else if (!isRegionalActive) {
+      chosenWorldX = spreadOffset;
+      chosenWorldZ = (unitIndex % 2 === 0 ? 0.018 : -0.018);
+      groundY = 0.005;
+      elevation = 120.0;
+      slope = 5.0;
+      suitability = 'PLANETARY_EPICENTRAL_ANCHOR';
     }
 
     return {
       worldX: chosenWorldX,
       worldZ: chosenWorldZ,
-      groundY: groundY,
+      groundY: Math.max(0.0, groundY),
       elevation: elevation,
       slope: slope,
       gradX: gradX,
@@ -1486,26 +711,288 @@ export class TerrainAwareSpawner {
       normX: normX,
       normZ: normZ,
       t_activation: unitDef.timing.t_activation,
+      demCoverageStatus: demCoverageStatus,
+      suitability: suitability,
       suitabilityStatus: suitability
     };
   }
 }
 
 /**
+ * Shared 6-Stage Kinetic Lifecycle Updater for Archival Entities
+ * Manages FOV-adaptive legibility scaling, wave arrival emergence, acoustic resonance,
+ * slope dissolution, residue decay, and dead culling.
+ */
+export function updateEntitiesLifecycle(entities, {
+  simTime = 0.0,
+  camera = null,
+  enableStratum3 = 1.0,
+  dominantFreqHz = 1.0
+} = {}) {
+  if (!Array.isArray(entities) || entities.length === 0) return;
+
+  const targetGlyphFraction = 0.030;
+
+  entities.forEach(grp => {
+    const u = grp.userData;
+    if (!u || !u.unitDef) return;
+    const unitDef = u.unitDef;
+    const cand = u.cand || {};
+    const t_act = u.t_activation;
+    const lc = unitDef.timing;
+    const totalDuration = lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration + lc.residueDuration;
+
+    if (camera) {
+      const distToCam = camera.position.distanceTo(grp.position);
+      const fovRad = (camera.fov || 45) * Math.PI / 180.0;
+      const fovScale = 2.0 * Math.tan(fovRad * 0.5) * distToCam;
+      const fogFactor = Math.max(0.0, Math.min(1.0, (3.2 - distToCam) / 1.8));
+      u.fogFactor = fogFactor;
+
+      if (u.sprite) {
+        const canvasH = u.canvasH || unitDef.visual?.canvasH || 384;
+        const canvasW = u.canvasW || unitDef.visual?.canvasW || 2048;
+        const finalFontSize = u.finalFontSize || unitDef.visual?.fontSize || 78;
+        const fontRatio = Math.max(0.08, finalFontSize / canvasH);
+        const targetWorldH = fovScale * (targetGlyphFraction / fontRatio);
+        const aspect = canvasW / canvasH;
+        const targetWorldW = targetWorldH * aspect;
+
+        u.targetWorldH = targetWorldH;
+        u.targetWorldW = targetWorldW;
+        u.sprite.scale.set(targetWorldW, targetWorldH, 1.0);
+
+        if (u.haloSprite) {
+          u.haloSprite.scale.set(targetWorldW * 1.35, targetWorldH * 2.2, 1.0);
+        }
+      } else if (u.chunks && u.chunks.length > 0) {
+        const chunkCanvasH = u.chunkCanvasSize || 256;
+        const chunkFontSize = u.chunkFontSize || 78;
+        const chunkFontRatio = Math.max(0.15, chunkFontSize / chunkCanvasH);
+        const chunkTargetH = fovScale * (targetGlyphFraction / chunkFontRatio);
+        const chunkTargetW = chunkTargetH;
+        const baseScaleRef = 0.062;
+        const scaleRatio = chunkTargetH / baseScaleRef;
+
+        u.scaleRatio = scaleRatio;
+        u.targetWorldH = chunkTargetH;
+        u.targetWorldW = chunkTargetW * u.chunks.length;
+
+        u.chunks.forEach(chk => {
+          chk.sprite.scale.set(chunkTargetW, chunkTargetH, 1.0);
+          if (u.lifecycleState !== 'DISSOLUTION' && u.lifecycleState !== 'RESIDUE') {
+            chk.sprite.position.set(chk.baseOffsetX * scaleRatio, 0.0, 0.0);
+          }
+        });
+
+        if (u.haloSprite) {
+          const totalW = chunkTargetW * (u.chunks.length * 0.95 + 1.2);
+          u.haloSprite.scale.set(totalW, chunkTargetH * 2.2, 1.0);
+        }
+      }
+    }
+
+    if (enableStratum3 < 0.5) {
+      grp.visible = false;
+      u.currentOpacity = 0.0;
+      u.lifecycleState = 'LATENT';
+      return;
+    }
+
+    const dtAct = simTime - t_act;
+
+    if (dtAct < 0.0) {
+      grp.visible = false;
+      u.currentOpacity = 0.0;
+      u.lifecycleState = 'LATENT';
+    } else if (dtAct < lc.formationDuration) {
+      grp.visible = true;
+      u.lifecycleState = 'EMERGENCE';
+      const prog = Math.min(1.0, dtAct / lc.formationDuration);
+      const easeOut = 1.0 - Math.pow(1.0 - prog, 2.5);
+      u.currentOpacity = easeOut * 0.95;
+      if (u.renderCanvas) u.renderCanvas(prog, 0.0);
+      if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        const sRatio = u.scaleRatio || 1.0;
+        u.chunks.forEach(chk => {
+          chk.mat.opacity = easeOut * 0.95;
+          chk.sprite.position.set(chk.baseOffsetX * sRatio, 0.0, 0.0);
+          chk.sprite.material.rotation = 0.0;
+        });
+      }
+      if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+      if (u.haloMat) u.haloMat.opacity = Math.sin(prog * Math.PI) * 0.18;
+    } else if (dtAct < lc.formationDuration + lc.minLegibilityDuration) {
+      grp.visible = true;
+      u.lifecycleState = 'FORMATION';
+      u.currentOpacity = 0.98;
+      if (u.renderCanvas) u.renderCanvas(1.0, 0.0);
+      if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        const sRatio = u.scaleRatio || 1.0;
+        u.chunks.forEach(chk => {
+          chk.mat.opacity = 0.98;
+          chk.sprite.position.set(chk.baseOffsetX * sRatio, 0.0, 0.0);
+          chk.sprite.material.rotation = 0.0;
+        });
+      }
+      if (u.spriteMat) u.spriteMat.opacity = 0.98;
+      if (u.haloMat) u.haloMat.opacity = 0.12;
+    } else if (dtAct < lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration) {
+      grp.visible = true;
+      u.lifecycleState = 'RESONANCE';
+      const resT = dtAct - (lc.formationDuration + lc.minLegibilityDuration);
+      u.currentOpacity = 0.95;
+
+      const baseX = u.worldPos ? u.worldPos.x : cand.worldX;
+      const baseY = u.worldPos ? u.worldPos.y : (Math.max(cand.groundY || 0.0, 0.020) + 0.120);
+      const baseZ = u.worldPos ? u.worldPos.z : cand.worldZ;
+
+      if (unitDef.kinetic.archetype === 'RESONANCE') {
+        const tremorFreq = 20.0 * Math.min(1.5, dominantFreqHz);
+        const strokeJitter = Math.sin(resT * tremorFreq) * 2.8;
+        if (u.renderCanvas) u.renderCanvas(1.0, strokeJitter);
+        grp.position.x = baseX + Math.sin(resT * tremorFreq) * 0.0005;
+        grp.position.y = baseY;
+        grp.position.z = baseZ;
+        if (u.spriteMat) u.spriteMat.opacity = 0.95;
+        if (u.haloMat) u.haloMat.opacity = 0.15;
+      } else if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        grp.position.x = baseX;
+        grp.position.y = baseY;
+        grp.position.z = baseZ;
+        const sRatio = u.scaleRatio || 1.0;
+        u.chunks.forEach((chk, idx) => {
+          const microJitter = ((idx % 2 === 0) ? 1 : -1) * Math.sin(resT * 26.0) * 0.0004 * sRatio;
+          chk.sprite.position.set(chk.baseOffsetX * sRatio + microJitter, 0.0, 0.0);
+          chk.mat.opacity = 0.98;
+        });
+        if (u.haloMat) u.haloMat.opacity = 0.12;
+      } else if (unitDef.kinetic.archetype === 'RECEDE') {
+        grp.position.x = baseX;
+        grp.position.y = baseY + Math.sin(simTime * 3.6) * 0.003;
+        grp.position.z = baseZ;
+        if (u.spriteMat) u.spriteMat.opacity = 0.94;
+        if (u.haloMat) u.haloMat.opacity = 0.12;
+      } else if (unitDef.kinetic.archetype === 'EXPOSE') {
+        grp.position.x = baseX;
+        grp.position.y = baseY;
+        grp.position.z = baseZ;
+        u.currentOpacity = 0.98;
+        if (u.spriteMat) u.spriteMat.opacity = 0.98;
+        if (u.haloMat) u.haloMat.opacity = 0.16;
+      }
+    } else if (dtAct < lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration) {
+      grp.visible = true;
+      u.lifecycleState = 'DISSOLUTION';
+      const dissT = dtAct - (lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration);
+      const dissProg = Math.min(1.0, dissT / lc.dissolutionDuration);
+
+      const baseX = u.worldPos ? u.worldPos.x : cand.worldX;
+      const baseY = u.worldPos ? u.worldPos.y : (Math.max(cand.groundY || 0.0, 0.020) + 0.120);
+      const baseZ = u.worldPos ? u.worldPos.z : cand.worldZ;
+
+      if (unitDef.kinetic.archetype === 'RESONANCE') {
+        u.currentOpacity = lerpScalar(0.95, 0.18, dissProg);
+        if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+        if (u.haloMat) u.haloMat.opacity = (1.0 - dissProg) * 0.10;
+        grp.position.x = baseX;
+        grp.position.y = baseY;
+        grp.position.z = baseZ;
+      } else if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        const fallProg = dissProg * dissProg;
+        u.currentOpacity = lerpScalar(0.98, 0.20, dissProg);
+        grp.position.x = baseX;
+        grp.position.y = baseY;
+        grp.position.z = baseZ;
+        const sRatio = u.scaleRatio || 1.0;
+        u.chunks.forEach(chk => {
+          chk.sprite.position.x = chk.baseOffsetX * sRatio + (chk.spreadX + chk.gradDirX * 0.015) * dissProg * 3.6 * sRatio;
+          chk.sprite.position.y = chk.fallVelY * fallProg * 2.8 * sRatio;
+          chk.sprite.position.z = (chk.spreadZ + chk.gradDirZ * 0.015) * dissProg * 3.6 * sRatio;
+          chk.sprite.material.rotation = chk.rotSpeed * dissProg * 1.2;
+          chk.mat.opacity = u.currentOpacity;
+        });
+        if (u.haloMat) u.haloMat.opacity = (1.0 - dissProg) * 0.08;
+      } else if (unitDef.kinetic.archetype === 'RECEDE') {
+        u.currentOpacity = lerpScalar(0.94, 0.18, dissProg);
+        const baseW = u.targetWorldW || unitDef.visual.spriteW;
+        if (u.sprite) u.sprite.scale.x = baseW * (1.0 + dissProg * 0.70);
+        grp.position.x = baseX + dissProg * 0.018;
+        grp.position.z = baseZ - dissProg * 0.008;
+        grp.position.y = baseY - dissProg * 0.008;
+        if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+        if (u.haloMat) u.haloMat.opacity = (1.0 - dissProg) * 0.08;
+      } else if (unitDef.kinetic.archetype === 'EXPOSE') {
+        u.currentOpacity = lerpScalar(0.98, 0.45, dissProg);
+        if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+        if (u.haloMat) u.haloMat.opacity = (1.0 - dissProg) * 0.12;
+      }
+    } else if (dtAct < totalDuration) {
+      grp.visible = true;
+      u.lifecycleState = 'RESIDUE';
+      const resT = dtAct - (lc.formationDuration + lc.minLegibilityDuration + lc.resonanceDuration + lc.dissolutionDuration);
+      const resProg = Math.min(1.0, resT / lc.residueDuration);
+
+      if (unitDef.kinetic.archetype === 'EXPOSE') {
+        u.currentOpacity = lerpScalar(0.45, 0.0, resProg);
+        if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+        if (u.haloMat) u.haloMat.opacity = (1.0 - resProg) * 0.06;
+      } else if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        u.currentOpacity = lerpScalar(0.20, 0.0, resProg);
+        u.chunks.forEach(chk => { chk.mat.opacity = u.currentOpacity; });
+        if (u.haloMat) u.haloMat.opacity = 0.0;
+      } else {
+        u.currentOpacity = lerpScalar(0.18, 0.0, resProg);
+        if (u.spriteMat) u.spriteMat.opacity = u.currentOpacity;
+        if (u.haloMat) u.haloMat.opacity = 0.0;
+      }
+    } else {
+      grp.visible = false;
+      u.currentOpacity = 0.0;
+      u.lifecycleState = 'DEAD';
+      if (u.spriteMat) u.spriteMat.opacity = 0.0;
+      if (u.haloMat) u.haloMat.opacity = 0.0;
+      if (unitDef.kinetic.archetype === 'FRACTURE' && u.chunks) {
+        u.chunks.forEach(chk => { chk.mat.opacity = 0.0; });
+      }
+    }
+
+    const fogMul = (u.fogFactor !== undefined) ? u.fogFactor : 1.0;
+    if (u.spriteMat) u.spriteMat.opacity *= fogMul;
+    if (u.haloMat) u.haloMat.opacity *= fogMul;
+    if (u.chunks) {
+      u.chunks.forEach(chk => { if (chk.mat) chk.mat.opacity *= fogMul; });
+    }
+  });
+}
+
+/**
  * Modern Living Memory & Archival Korean Typography Engine
- * Coordinates parsing, terrain-aware spawning, kinetic rendering, and lifecycle state
+ * Coordinates parsing, terrain-aware spawning, kinetic rendering, and lifecycle state.
  */
 export class LivingMemoryEngine {
-  constructor({ scene = null, THREE = null, livingSoundfield = null } = {}) {
+  constructor({ scene = null, THREE = null, livingSoundfield = null, candidateCache = [] } = {}) {
     this.scene = scene;
     this.THREE = THREE;
     this.livingSoundfield = livingSoundfield;
     this.entities = [];
     this.currentParsedEvent = null;
     this.parser = new ArchivalSemanticParser();
-    this.spawner = new TerrainAwareSpawner();
+    this.spawner = new TerrainAwareSpawner(candidateCache);
     this.enableDarkCushion = true;
-    this.displayMode = 'korean'; // 'korean' default per Mandate 4; supports 'native'
+    this.displayMode = 'korean';
+  }
+
+  /**
+   * Advance all active archival typography entities for `simTime`.
+   */
+  update(simTime, { camera = null, enableStratum3 = 1.0, dominantFreqHz = 1.0 } = {}) {
+    updateEntitiesLifecycle(this.entities, {
+      simTime,
+      camera,
+      enableStratum3,
+      dominantFreqHz: this.currentParsedEvent?.dominantFreqHz || dominantFreqHz
+    });
   }
 
   setMultilingualDisplayMode(mode) {
