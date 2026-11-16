@@ -697,21 +697,23 @@
        ------------------------------------------------------------------ */
     body.theme-day {
       --ink: #0f172a;
-      --ink-soft: #334155;
-      --muted: #64748b;
+      --ink-soft: #1e293b;
+      --muted: #334155;
       --accent: #0284c7;
       --amber: #b45309;
       --cinnabar: #e11d48;
       --glass: rgba(252, 253, 250, 0.88);
       --glass-strong: rgba(252, 253, 250, 0.94);
-      --border: rgba(15, 23, 42, 0.13);
-      --hairline: rgba(15, 23, 42, 0.08);
+      --border: rgba(15, 23, 42, 0.14);
+      --hairline: rgba(15, 23, 42, 0.09);
       --hover-bg: rgba(15, 23, 42, 0.05);
       background-color: #e6ede7;
     }
+    body.theme-day .header-eyebrow,
     body.theme-day .header-route-headline,
-    body.theme-day .header-quake-impact {
-      text-shadow: 0 1px 10px rgba(230, 237, 231, 0.95);
+    body.theme-day .header-quake-impact,
+    body.theme-day .origin-picker-label {
+      text-shadow: 0 0 12px rgba(244, 247, 244, 0.96), 0 1px 4px rgba(244, 247, 244, 0.98);
     }
     body.theme-day .origin-pill {
       background: rgba(252, 253, 250, 0.82);
@@ -798,7 +800,7 @@
       <span class="origin-picker-label">내 위치:</span>
       <button type="button" class="origin-pill active" id="btn-fac-212">212동 제1공학관</button>
       <button type="button" class="origin-pill" id="btn-fac-hit">701동 HIT</button>
-      <button type="button" class="origin-pill" id="btn-fac-paiknam">104동 백남학술관</button>
+      <button type="button" class="origin-pill" id="btn-fac-paiknam">백남학술정보관</button>
     </div>
   </header>
 
@@ -1061,9 +1063,18 @@
       milestoneMeshes.push(m);
     }
 
-    // Building + Pedestrian Adapters
-    const hanyangAdapter = new HanyangResponseAdapter(scene, { scale: 1.0, visualScaleFactor: 4.5 });
-    const router = new PedestrianRoutingEngine();
+    // Building + Pedestrian Adapters (real OSM walkable graph + 3D OBB obstacle clearance)
+    const router = new PedestrianRoutingEngine({
+      useRealMapRouting: true,
+      buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32
+    });
+    const hanyangAdapter = new HanyangResponseAdapter(scene, {
+      scale: 1.0,
+      visualScaleFactor: 4.5,
+      useRealMapRouting: true,
+      buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32,
+      router
+    });
     const uiAdapter = new ResponseUIAdapter({ router, hanyangAdapter });
 
     const camTransition = new GlobalLocalCameraTransition({
@@ -1432,13 +1443,18 @@
       activeFacilityId = pkg.buildingMetadata?.id || facilityId;
       uiAdapter.setFacilityPackage(pkg);
       camTransition.setFacilityViewpoints(withExtendedFar({
-        ...pkg.cameraViewpoints,
         REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH,
-        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
+        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW,
+        ...pkg.cameraViewpoints
       }));
 
-      // Sync Origin Label Anchor on 3D map
-      const namedMatch = (HANYANG_LOCAL_4KM_PACKAGE.namedBuildings || []).find(b => b.id === activeFacilityId || b.name.includes(pkg.buildingMetadata?.unitNumber || '999'));
+      // Sync Origin Label Anchor on 3D map & mask solid OBB over active wireframe building
+      const namedMatch = (HANYANG_LOCAL_4KM_PACKAGE.namedBuildings || []).find(b =>
+        b.id === activeFacilityId ||
+        (activeFacilityId === 'BLDG_701_HIT' && b.id === 'CTX_HIT') ||
+        (activeFacilityId === 'BLDG_104_PAIKNAM' && b.id === 'CTX_PAIKNAM') ||
+        b.name.includes(pkg.buildingMetadata?.unitNumber || '999')
+      );
       const connDoor = pkg.connector?.doorPos || [52, 0, -74];
       localSpatialLayer.setActiveOriginFacility({
         id: activeFacilityId,
@@ -1468,9 +1484,9 @@
       if (hazardPolyActive) {
         uiAdapter.addAvoidPolygon({
           id: 'HAZARD_POLY_STAIR_CORRIDOR',
-          name: '동측 외벽·계단 낙하물 주의 구역 (PROVISIONAL)',
+          name: '노천극장·외벽 낙하물 주의 구역 (PROVISIONAL)',
           mode: 'BLOCK',
-          polygonXZ: [[82, -40], [165, -40], [165, 62], [82, 62]],
+          polygonXZ: [[-12, 15], [48, 15], [48, 105], [-12, 105]],
           exemptEdgeIds: ['NODE_EXIT_1F_SE->OSM_NODE_6415394841']
         });
         localSpatialLayer.setHazardAvoidPolygons(uiAdapter.getAvoidPolygons());

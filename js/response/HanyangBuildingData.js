@@ -17,6 +17,8 @@ import {
   isInstrumentMotionDetected,
   isQuiescenceSubsided
 } from './ResponseDomainTypes.js';
+import { solveCampusWalkGraph } from './CampusWalkRouter.js';
+import { sampleTerrainHeight } from './HanyangLocalSpatialData.js';
 
 export {
   DATA_PROVENANCE_SOURCE,
@@ -574,9 +576,131 @@ export const DEFAULT_HANYANG_FACILITY_PACKAGE = Object.freeze({
   })
 });
 
+export const HIT_OSM_FOOTPRINT_METERS = Object.freeze([
+  Object.freeze([132.76, -250.39]),
+  Object.freeze([124.94, -246.85]),
+  Object.freeze([137.64, -216.73]),
+  Object.freeze([141.90, -206.61]), // SW Campus Entry Portal (OSM Node 4113822608)
+  Object.freeze([145.18, -198.81]),
+  Object.freeze([166.97, -147.10]),
+  Object.freeze([185.81, -154.40]),
+  Object.freeze([199.07, -159.52]),
+  Object.freeze([204.57, -161.66]),
+  Object.freeze([163.09, -260.07]),
+  Object.freeze([154.81, -256.30]),
+  Object.freeze([151.48, -264.32]),
+  Object.freeze([140.54, -259.80]),
+  Object.freeze([130.86, -255.82]),
+  Object.freeze([132.76, -250.39])
+]);
+
+export const PAIKNAM_OSM_FOOTPRINT_METERS = Object.freeze([
+  Object.freeze([19.55, -190.61]),
+  Object.freeze([33.91, -173.62]),
+  Object.freeze([30.84, -171.03]),
+  Object.freeze([41.31, -158.66]),
+  Object.freeze([50.57, -147.98]), // South Plaza Entry Portal (OSM Node 1979295476)
+  Object.freeze([52.92, -150.01]),
+  Object.freeze([70.35, -129.95]),
+  Object.freeze([93.58, -149.97]),
+  Object.freeze([83.46, -161.61]),
+  Object.freeze([86.75, -164.45]),
+  Object.freeze([55.05, -200.91]),
+  Object.freeze([51.73, -198.06]),
+  Object.freeze([48.12, -202.21]),
+  Object.freeze([42.02, -209.43]),
+  Object.freeze([19.55, -190.61])
+]);
+
+function buildOsmSolvedOutdoorGraphForFacility({
+  buildingId,
+  name,
+  centerX,
+  centerZ,
+  footwayX,
+  footwayY,
+  footwayZ
+}) {
+  const outdoorEgressId = `${buildingId}_OUTDOOR_EGRESS`;
+  const stadiumIngressId = HANYANG_OUTDOOR_GRAPH.targetNodeId;
+  const stadiumPos = [226.75, -13.50, 218.17];
+
+  const shortestSol = solveCampusWalkGraph({
+    startXZ: [footwayX, footwayZ],
+    goalXZ: [222.89, 196.71],
+    excludeStairs: false,
+    originCentroidXZ: [centerX, centerZ],
+    originExclusionRadius: 52.0
+  });
+  const stepFreeSol = solveCampusWalkGraph({
+    startXZ: [footwayX, footwayZ],
+    goalXZ: [222.89, 196.71],
+    excludeStairs: true,
+    originCentroidXZ: [centerX, centerZ],
+    originExclusionRadius: 52.0
+  });
+
+  const nodesMap = new Map();
+  nodesMap.set(outdoorEgressId, {
+    id: outdoorEgressId,
+    name: `${name} 외부 보행 접속점`,
+    localPos: Object.freeze([footwayX, footwayY, footwayZ])
+  });
+  nodesMap.set(stadiumIngressId, {
+    id: stadiumIngressId,
+    name: 'Stadium Ingress Perimeter',
+    localPos: Object.freeze(stadiumPos)
+  });
+
+  const edges = [];
+  const ingestBranch = (sol, tag) => {
+    if (!sol || !sol.found || sol.edges.length === 0) return;
+    sol.edges.forEach((e, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === sol.edges.length - 1;
+      const srcId = isFirst ? outdoorEgressId : `${buildingId}_${tag}_${idx}`;
+      const dstId = isLast ? stadiumIngressId : `${buildingId}_${tag}_${idx + 1}`;
+      if (!nodesMap.has(srcId) && e.waypoints?.[0]) {
+        nodesMap.set(srcId, { id: srcId, name: `${tag} Node ${idx}`, localPos: Object.freeze([...e.waypoints[0]]) });
+      }
+      if (!nodesMap.has(dstId) && e.waypoints?.[e.waypoints.length - 1]) {
+        nodesMap.set(dstId, { id: dstId, name: `${tag} Node ${idx + 1}`, localPos: Object.freeze([...e.waypoints[e.waypoints.length - 1]]) });
+      }
+      edges.push({
+        edgeId: `${srcId}->${dstId}`,
+        source: srcId,
+        target: dstId,
+        distance: e.distance,
+        hasStairs: !!e.hasStairs,
+        isWheelchairPassable: !e.hasStairs,
+        highway: e.highway || 'footway',
+        hazardRisk: e.hazardRisk || (e.hasStairs ? 'HIGH' : 'LOW'),
+        branch: tag === 'S' ? 'SHORTEST' : 'STEP_FREE',
+        waypoints: Object.freeze((e.waypoints || []).map(wp => Object.freeze([...wp])))
+      });
+    });
+  };
+
+  ingestBranch(shortestSol, 'S');
+  ingestBranch(stepFreeSol, 'F');
+
+  return {
+    outdoorGraph: Object.freeze({
+      egressNodeId: outdoorEgressId,
+      targetNodeId: stadiumIngressId,
+      nodes: Object.freeze([...nodesMap.values()]),
+      edges: Object.freeze(edges)
+    }),
+    shortestMeters: shortestSol?.found ? shortestSol.totalDistanceMeters : 0,
+    stepFreeMeters: stepFreeSol?.found ? stepFreeSol.totalDistanceMeters : 0,
+    stairsMeters: shortestSol?.found ? shortestSol.totalStairsDistanceMeters : 0,
+    stairFlights: shortestSol?.found ? shortestSol.stairFlightCount : 0
+  };
+}
+
 /**
  * Shared factory to construct strictly provenance-tagged campus FacilityPackages
- * without duplicating routing/adapter boilerplate (Tier 2.4).
+ * grounded on real OSM footprints, terrain elevation, and OBB-clear routing.
  */
 function createCampusFacilityPackage({
   packageId,
@@ -587,14 +711,17 @@ function createCampusFacilityPackage({
   centerZ,
   halfW,
   halfD,
+  footprintMeters = null,
+  groundElevationY = null,
+  doorPos = null,
+  footwayPos = null,
   totalLevels = 5,
   defaultFloor = 3,
   floorHeightMeters = 3.6,
-  roomName = `${defaultFloor}01호 세미나실 (잠정)`,
-  shortestLenMeters = 520.0,
-  stepFreeLenMeters = 640.0
+  roomName = `${defaultFloor}01호 세미나실 (잠정)`
 }) {
-  const footprint = Object.freeze([
+  const groundY = groundElevationY ?? Number(sampleTerrainHeight(centerX, -centerZ).toFixed(2));
+  const footprint = footprintMeters || Object.freeze([
     Object.freeze([centerX - halfW, centerZ - halfD]),
     Object.freeze([centerX + halfW, centerZ - halfD]),
     Object.freeze([centerX + halfW, centerZ + halfD]),
@@ -602,21 +729,19 @@ function createCampusFacilityPackage({
     Object.freeze([centerX - halfW, centerZ - halfD])
   ]);
 
-  const targetY = (defaultFloor - 1) * floorHeightMeters;
-  const exitX = centerX + halfW;
-  const exitZ = centerZ + halfD * 0.5;
-  const footwayX = exitX + 4.5;
-  const footwayZ = exitZ + 2.0;
+  const targetY = groundY + (defaultFloor - 1) * floorHeightMeters;
+  const exitX = doorPos ? doorPos[0] : (centerX + halfW);
+  const exitY = doorPos ? doorPos[1] : groundY;
+  const exitZ = doorPos ? doorPos[2] : (centerZ + halfD * 0.5);
+  const fwX = footwayPos ? footwayPos[0] : (exitX + 3.0);
+  const fwY = footwayPos ? footwayPos[1] : Number(sampleTerrainHeight(exitX + 3.0, -exitZ).toFixed(2));
+  const fwZ = footwayPos ? footwayPos[2] : exitZ;
 
   const roomId = `ROOM_${defaultFloor}01`;
   const roomNodeId = `NODE_${roomId}`;
   const stairTopId = `NODE_STAIR_${defaultFloor}F_SE`;
   const stairBotId = 'NODE_STAIR_1F_SE';
   const exitNodeId = 'NODE_EXIT_1F_SE';
-  const outdoorEgressId = `${buildingId}_OUTDOOR_EGRESS`;
-  const outdoorMidStairId = `${buildingId}_MID_STAIR`;
-  const outdoorMidRampId = `${buildingId}_MID_RAMP`;
-  const stadiumIngressId = HANYANG_OUTDOOR_GRAPH.targetNodeId;
 
   const indoorGraphs = Object.freeze({
     [defaultFloor]: Object.freeze({
@@ -629,7 +754,7 @@ function createCampusFacilityPackage({
           roomId,
           name: roomName,
           type: 'SEMINAR_HALL',
-          centerLocalPos: Object.freeze([centerX - halfW * 0.35, targetY, centerZ]),
+          centerLocalPos: Object.freeze([centerX - halfW * 0.2, targetY, centerZ]),
           nodeId: roomNodeId,
           provenance: VERIFICATION_STATUS.PROVISIONAL
         }
@@ -637,7 +762,7 @@ function createCampusFacilityPackage({
       stairwells: Object.freeze([
         {
           stairwellId: `STAIRWELL_${defaultFloor}F_SE`,
-          name: '남동측 피난계단실 (PROVISIONAL)',
+          name: '주 피난계단실 (PROVISIONAL)',
           landingNodeId: stairTopId,
           localPos: Object.freeze([exitX - 3.0, targetY, exitZ]),
           provenance: VERIFICATION_STATUS.PROVISIONAL
@@ -647,22 +772,22 @@ function createCampusFacilityPackage({
     1: Object.freeze({
       floorId: 'FLOOR_1F',
       levelIndex: 1,
-      elevationOffsetMeters: 0.0,
+      elevationOffsetMeters: groundY,
       provenance: VERIFICATION_STATUS.PROVISIONAL,
       stairwells: Object.freeze([
         {
           stairwellId: 'STAIRWELL_1F_SE',
           landingNodeId: stairBotId,
-          localPos: Object.freeze([exitX - 3.0, 0.0, exitZ]),
+          localPos: Object.freeze([exitX - 3.0, groundY, exitZ]),
           provenance: VERIFICATION_STATUS.PROVISIONAL
         }
       ]),
       exits: Object.freeze([
         {
           exitId: 'EXIT_1F_SE',
-          name: '1층 남동측 주 출구 (잠정)',
+          name: '1층 주 출구 (잠정)',
           portalNodeId: exitNodeId,
-          localPos: Object.freeze([exitX, 0.0, exitZ]),
+          localPos: Object.freeze([exitX, exitY, exitZ]),
           provenance: VERIFICATION_STATUS.PROVISIONAL
         }
       ])
@@ -670,67 +795,24 @@ function createCampusFacilityPackage({
   });
 
   const indoorEdges = Object.freeze([
-    { source: roomNodeId, target: stairTopId, distance: Number((halfW * 1.1).toFixed(1)), hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_PROVISIONAL' },
+    { source: roomNodeId, target: stairTopId, distance: Number((halfW * 0.9).toFixed(1)), hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_PROVISIONAL' },
     { source: stairTopId, target: stairBotId, distance: Number(((defaultFloor - 1) * 8.4).toFixed(1)), hasStairs: true, isWheelchairPassable: false, edgeType: 'VERTICAL_STAIR_DESCENT' },
     { source: stairBotId, target: exitNodeId, distance: 4.5, hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_TO_EXIT' }
   ]);
 
-  const outdoorGraph = Object.freeze({
-    egressNodeId: outdoorEgressId,
-    targetNodeId: stadiumIngressId,
-    nodes: Object.freeze([
-      { id: outdoorEgressId, name: `${name} 외부 보행 접속점`, localPos: Object.freeze([footwayX, -0.5, footwayZ]) },
-      { id: outdoorMidStairId, name: '직선 계단 경유점', localPos: Object.freeze([(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0]) },
-      { id: outdoorMidRampId, name: '완경사 우회 경유점', localPos: Object.freeze([footwayX - 35.0, -7.5, 165.0]) },
-      { id: stadiumIngressId, name: 'Stadium Ingress Perimeter', localPos: Object.freeze([226.75, -13.50, 218.17]) }
-    ]),
-    edges: Object.freeze([
-      {
-        edgeId: `${outdoorEgressId}->${outdoorMidStairId}`,
-        source: outdoorEgressId,
-        target: outdoorMidStairId,
-        distance: Number((shortestLenMeters * 0.48).toFixed(1)),
-        hasStairs: true,
-        isWheelchairPassable: false,
-        highway: 'steps',
-        branch: 'SHORTEST',
-        waypoints: Object.freeze([[footwayX, -0.5, footwayZ], [(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0]])
-      },
-      {
-        edgeId: `${outdoorMidStairId}->${stadiumIngressId}`,
-        source: outdoorMidStairId,
-        target: stadiumIngressId,
-        distance: Number((shortestLenMeters * 0.52).toFixed(1)),
-        hasStairs: false,
-        isWheelchairPassable: true,
-        highway: 'footway',
-        branch: 'SHORTEST',
-        waypoints: Object.freeze([[(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0], [226.75, -13.50, 218.17]])
-      },
-      {
-        edgeId: `${outdoorEgressId}->${outdoorMidRampId}`,
-        source: outdoorEgressId,
-        target: outdoorMidRampId,
-        distance: Number((stepFreeLenMeters * 0.46).toFixed(1)),
-        hasStairs: false,
-        isWheelchairPassable: true,
-        highway: 'footway',
-        branch: 'STEP_FREE',
-        waypoints: Object.freeze([[footwayX, -0.5, footwayZ], [footwayX - 35.0, -7.5, 165.0]])
-      },
-      {
-        edgeId: `${outdoorMidRampId}->${stadiumIngressId}`,
-        source: outdoorMidRampId,
-        target: stadiumIngressId,
-        distance: Number((stepFreeLenMeters * 0.54).toFixed(1)),
-        hasStairs: false,
-        isWheelchairPassable: true,
-        highway: 'footway',
-        branch: 'STEP_FREE',
-        waypoints: Object.freeze([[footwayX - 35.0, -7.5, 165.0], [226.75, -13.50, 218.17]])
-      }
-    ])
+  const solvedOutdoor = buildOsmSolvedOutdoorGraphForFacility({
+    buildingId,
+    name,
+    centerX,
+    centerZ,
+    footwayX: fwX,
+    footwayY: fwY,
+    footwayZ: fwZ
   });
+  const outdoorEgressId = solvedOutdoor.outdoorGraph.egressNodeId;
+  const stadiumIngressId = solvedOutdoor.outdoorGraph.targetNodeId;
+  const shortestLenMeters = solvedOutdoor.shortestMeters;
+  const stepFreeLenMeters = solvedOutdoor.stepFreeMeters;
 
   return Object.freeze({
     packageId,
@@ -744,6 +826,7 @@ function createCampusFacilityPackage({
       anchorCoordinates: DEFAULT_HANYANG_FACILITY_PACKAGE.buildingMetadata.anchorCoordinates,
       provenance: VERIFICATION_STATUS.PARTIALLY_VERIFIED
     }),
+    groundElevationY: groundY,
     footprintMeters: footprint,
     floorHeightMeters,
     totalLevels,
@@ -759,30 +842,34 @@ function createCampusFacilityPackage({
       connectorId: `CONN_${buildingId}_1F_SE_EXIT`,
       source: exitNodeId,
       target: outdoorEgressId,
-      distance: 4.5,
+      distance: 4.0,
       hasStairs: false,
       isWheelchairPassable: false,
-      doorPos: Object.freeze([exitX, 0.0, exitZ]),
-      footwayPos: Object.freeze([footwayX, -0.5, footwayZ]),
-      stairCoreCorner: Object.freeze([exitX - 3.0, exitZ]),
+      doorPos: Object.freeze([exitX, exitY, exitZ]),
+      footwayPos: Object.freeze([fwX, fwY, fwZ]),
+      stairCoreCorner: Object.freeze([exitX - 2.0, exitZ - 2.0]),
       stairCoreSize: Object.freeze({ width: 4.0, depth: 5.0 })
     }),
-    outdoorGraph,
+    outdoorGraph: solvedOutdoor.outdoorGraph,
     shelter: DEFAULT_HANYANG_FACILITY_PACKAGE.shelter,
     routeBaselines: Object.freeze({
       PATH_SHORTEST_RAPID: Object.freeze({
-        name: `${unitNumber}동 최단 대피 경로 (잠정)`,
+        name: `${unitNumber}동 OSM 최단 대피 경로`,
         targetLengthMeters: shortestLenMeters,
-        hasStairs: true,
+        stairSegmentCount: solvedOutdoor.stairFlights,
+        stairTotalLengthMeters: solvedOutdoor.stairsMeters,
+        hasStairs: solvedOutdoor.stairFlights > 0,
         isWheelchairPassable: false,
-        provenance: VERIFICATION_STATUS.PROVISIONAL
+        provenance: VERIFICATION_STATUS.PARTIALLY_VERIFIED
       }),
       PATH_STEP_FREE_DETOUR: Object.freeze({
-        name: `${unitNumber}동 무단차 우회 경로 (잠정)`,
+        name: `${unitNumber}동 OSM 무단차 우회 경로`,
         targetLengthMeters: stepFreeLenMeters,
+        stairSegmentCount: 0,
+        stairTotalLengthMeters: 0.0,
         hasStairs: false,
         isWheelchairPassable: true,
-        provenance: VERIFICATION_STATUS.PROVISIONAL
+        provenance: VERIFICATION_STATUS.PARTIALLY_VERIFIED
       })
     }),
     routeDisplayNames: Object.freeze({
@@ -797,16 +884,22 @@ function createCampusFacilityPackage({
     cameraViewpoints: Object.freeze({
       GLOBAL_ORBIT: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.GLOBAL_ORBIT,
       REGIONAL_APPROACH: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.REGIONAL_APPROACH,
-      CAMPUS_OVERVIEW: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.CAMPUS_OVERVIEW,
+      CAMPUS_OVERVIEW: Object.freeze({
+        position: Object.freeze([(centerX + 222.89) * 0.5 + 260.0, 355.0, (centerZ + 196.71) * 0.5 - 240.0]),
+        target: Object.freeze([(centerX + 222.89) * 0.5, (groundY - 13.5) * 0.5, (centerZ + 196.71) * 0.5]),
+        near: 0.25,
+        far: 6500.0,
+        description: `캠퍼스 전체 조망: ${name}, 실시간 OSM 대피 경로 및 대운동장`
+      }),
       BUILDING_INSPECTION: Object.freeze({
-        position: Object.freeze([centerX + 85.0, 68.0, centerZ + 65.0]),
+        position: Object.freeze([centerX + 85.0, groundY + 68.0, centerZ + 65.0]),
         target: Object.freeze([centerX, targetY, centerZ]),
         near: 0.1,
         far: 1200.0,
         description: `${name} 엑소노메트릭 상세: ${defaultFloor}층 피난 평면 (PROVISIONAL)`
       }),
       PERSONAL_LOCATION: Object.freeze({
-        position: Object.freeze([exitX + 26.0, Math.max(24.0, targetY + 18.0), exitZ + 22.0]),
+        position: Object.freeze([exitX + 26.0, Math.max(groundY + 24.0, targetY + 18.0), exitZ + 22.0]),
         target: Object.freeze([exitX - 6.0, targetY, exitZ]),
         near: 0.05,
         far: 900.0,
@@ -816,36 +909,44 @@ function createCampusFacilityPackage({
   });
 }
 
+const _hitGroundY = Number(sampleTerrainHeight(155.69, 217.03).toFixed(2));
+const _hitDoorY = Number(sampleTerrainHeight(141.90, 206.61).toFixed(2));
 export const HANYANG_HIT_FACILITY_PACKAGE = createCampusFacilityPackage({
   packageId: 'FACILITY_HANYANG_HIT_701',
   buildingId: 'BLDG_701_HIT',
   name: '한양종합기술연구원 (HIT · 701동)',
   unitNumber: '701',
-  centerX: -95.0,
-  centerZ: -210.0, // north_m = +210 -> Three.js Z = -210
-  halfW: 28.0,
-  halfD: 19.0,
+  centerX: 155.69,
+  centerZ: -217.03,
+  halfW: 36.0,
+  halfD: 22.0,
+  footprintMeters: HIT_OSM_FOOTPRINT_METERS,
+  groundElevationY: _hitGroundY,
+  doorPos: Object.freeze([141.90, _hitGroundY, -206.61]),
+  footwayPos: Object.freeze([141.90, _hitDoorY + 0.25, -206.61]),
   totalLevels: 6,
   defaultFloor: 4,
-  roomName: '401호 연구실 (PROVISIONAL)',
-  shortestLenMeters: 545.0,
-  stepFreeLenMeters: 675.0
+  roomName: '401호 연구실 (PROVISIONAL)'
 });
 
+const _paikGroundY = Number(sampleTerrainHeight(54.30, 172.04).toFixed(2));
+const _paikDoorY = Number(sampleTerrainHeight(50.57, 147.98).toFixed(2));
 export const HANYANG_PAIKNAM_FACILITY_PACKAGE = createCampusFacilityPackage({
   packageId: 'FACILITY_HANYANG_PAIKNAM_104',
   buildingId: 'BLDG_104_PAIKNAM',
-  name: '백남학술정보관 (104동)',
-  unitNumber: '104',
-  centerX: -35.0,
-  centerZ: 75.0, // north_m = -75 -> Three.js Z = +75
-  halfW: 25.0,
-  halfD: 17.0,
+  name: '백남학술정보관 (501/104동)',
+  unitNumber: '501',
+  centerX: 54.30,
+  centerZ: -172.04,
+  halfW: 32.0,
+  halfD: 20.0,
+  footprintMeters: PAIKNAM_OSM_FOOTPRINT_METERS,
+  groundElevationY: _paikGroundY,
+  doorPos: Object.freeze([50.57, _paikGroundY, -147.98]),
+  footwayPos: Object.freeze([50.57, _paikDoorY + 0.25, -147.98]),
   totalLevels: 5,
   defaultFloor: 3,
-  roomName: '301호 열람실 (PROVISIONAL)',
-  shortestLenMeters: 315.0,
-  stepFreeLenMeters: 398.0
+  roomName: '301호 열람실 (PROVISIONAL)'
 });
 
 export const FACILITY_PACKAGE_REGISTRY = Object.freeze({

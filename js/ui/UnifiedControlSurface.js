@@ -111,6 +111,30 @@ export class UnifiedControlSurface {
         filterChips.forEach(chip => {
           chip.classList.toggle('active', chip.getAttribute('data-filter') === this.activeFilter);
         });
+        this.updateGlobalDevLabVisibility();
+      }
+
+      /**
+       * Expose Developer Lab / 4km Local entry strictly on the idle Main Globe Orbit view.
+       * Hide completely while exploring earthquakes (archive shelves, discover, dossier, performance).
+       */
+      updateGlobalDevLabVisibility() {
+        const wrap = document.getElementById('dev-lab-global-wrap');
+        const menu = document.getElementById('global-dev-lab-menu');
+        const flightState = this.appContext?.flightState;
+        const inOrbit = !flightState || flightState === 'STATE_ORBIT' || flightState === 'ORBIT' || flightState === 'orbit';
+        const localActive = Boolean(typeof window !== 'undefined' && window.exhibitionModeManager?.isLocalModeActive?.());
+        const showOnMainGlobeOnly =
+          this.currentState === 'EXPLORE' &&
+          this.exploreCategory === null &&
+          inOrbit &&
+          !localActive;
+        if (wrap) {
+          wrap.style.display = showOnMainGlobeOnly ? 'inline-flex' : 'none';
+        }
+        if (menu && !showOnMainGlobeOnly) {
+          menu.style.display = 'none';
+        }
       }
 
       renderShelfItems(container, items) {
@@ -200,6 +224,7 @@ export class UnifiedControlSurface {
           this.updatePerformanceHeader(this.selectedEvent);
         }
 
+        this.updateGlobalDevLabVisibility();
         console.log(`[Unified Control Surface] Contextual state transformed to: ${state}`);
       }
 

@@ -852,9 +852,11 @@ export class LocalSpatialMapLayer {
       const majorSegs = denseRoads.filter(r => r[0] === 'motorway' || r[0] === 'trunk');
       const primarySegs = denseRoads.filter(r => r[0] === 'primary');
       const minorSegs = denseRoads.filter(r => r[0] === 'secondary' || r[0] === 'tertiary');
+      const footwaySegs = denseRoads.filter(r => r[0] === 'footway');
       const railSegs = denseRoads.filter(r => r[0] === 'rail');
 
       const tiers = [
+        { segs: footwaySegs, mat: this.roadMats.minor, widthFn: () => 2.6, name: 'DenseRoads_Footways4km' },
         { segs: minorSegs, mat: this.roadMats.minor, widthFn: c => (c === 'secondary' ? 10.5 : 6.8), name: 'DenseRoads_Minor4km' },
         { segs: primarySegs, mat: this.roadMats.primary, widthFn: () => 17.5, name: 'DenseRoads_Primary4km' },
         { segs: majorSegs, mat: this.roadMats.major, widthFn: c => (c === 'motorway' ? 26.0 : 22.0), name: 'DenseRoads_Major4km' },
@@ -1275,7 +1277,8 @@ export class LocalSpatialMapLayer {
   }
 
   /**
-   * Update active building ("내 위치 · 출발지") label anchor cleanly when user switches facility.
+   * Update active building ("내 위치 · 출발지") label anchor and mask overlapping solid
+   * InstancedMesh building box so the active wireframe & floorplan display cleanly without Z-fighting.
    */
   setActiveOriginFacility({ id, name, east_m, north_m, height_m }) {
     this._activeOriginMeta = {
@@ -1285,6 +1288,40 @@ export class LocalSpatialMapLayer {
       north_m: north_m ?? 74.0,
       height_m: height_m ?? 21.5
     };
+
+    if (this.instancedBuildings && this._buildingDataRef) {
+      const data = this._buildingDataRef;
+      const grounds = this.pkg.obbGroundOffsets;
+      const total = Math.floor(data.length / OBB_BUILDING_STRIDE);
+      const maskCenterE = this._activeOriginMeta.east_m;
+      const maskCenterN = this._activeOriginMeta.north_m;
+      const isDefault212 = this._activeOriginMeta.id === 'BLDG_212_ENG1';
+      const dummy = new THREE.Object3D();
+
+      for (let i = 0; i < total; i++) {
+        const base = i * OBB_BUILDING_STRIDE;
+        const e = data[base + 0];
+        const n = data[base + 1];
+        const w = data[base + 2];
+        const d = data[base + 3];
+        const yaw = data[base + 4];
+        const h = data[base + 5];
+        const groundY = (grounds && i < grounds.length) ? grounds[i] : sampleTerrainHeight(e, n);
+        const overlapsOrigin = !isDefault212 && Math.hypot(e - maskCenterE, n - maskCenterN) < 42.0;
+
+        dummy.position.set(e, overlapsOrigin ? -500 : groundY + h * 0.5, -n);
+        dummy.rotation.set(0, yaw, 0);
+        if (overlapsOrigin) {
+          dummy.scale.set(0.001, 0.001, 0.001);
+        } else {
+          dummy.scale.set(w, h, d);
+        }
+        dummy.updateMatrix();
+        this.instancedBuildings.setMatrixAt(i, dummy.matrix);
+      }
+      this.instancedBuildings.instanceMatrix.needsUpdate = true;
+    }
+
     this._buildLabelAnchors();
     for (const el of this._labelDomMap.values()) {
       el.remove();
@@ -1413,7 +1450,10 @@ export class LocalSpatialMapLayer {
 
     // 4. Secondary Named Context Landmarks (only displayed when zoomed into campus)
     for (const b of (this.pkg.namedBuildings || [])) {
-      if (b.isTargetBuilding || b.id === orig.id || b.id === 'CTX_HYUHOSP_MAIN') continue;
+      const matchesOrigin = b.id === orig.id ||
+        (orig.id === 'BLDG_701_HIT' && b.id === 'CTX_HIT') ||
+        (orig.id === 'BLDG_104_PAIKNAM' && b.id === 'CTX_PAIKNAM');
+      if (b.isTargetBuilding || matchesOrigin || b.id === 'CTX_HYUHOSP_MAIN') continue;
       this.labelAnchors.push({
         id: b.id,
         title: b.name,

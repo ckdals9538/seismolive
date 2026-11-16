@@ -14,6 +14,15 @@ import {
 } from '../js/response/SeismicImpactContext.js';
 import { HanyangResponseAdapter } from '../js/response/HanyangResponseAdapter.js';
 import { LocalSpatialMapLayer } from '../js/response/LocalSpatialMapLayer.js';
+import {
+  PedestrianRoutingEngine,
+  solveCampusWalkGraph,
+  doesSegmentIntersectOBBXZ,
+  findVisibilityDetourXZ,
+  normalizeOBBList
+} from '../js/response/PedestrianRoutingEngine.js';
+import { getFacilityPackageById } from '../js/response/HanyangBuildingData.js';
+import { REAL_OSM_BUILDINGS_FLAT } from '../js/response/HanyangRealSpatialPayload.js';
 
 let passed = 0;
 let failed = 0;
@@ -166,6 +175,89 @@ console.log('\n--- 3. Volumetric 3D Path Tubes, Chevrons, Trees & Epicenter Vect
   );
 
   layer.dispose();
+}
+
+// ----------------------------------------------------------------------------
+// 4. REAL OSM MAP + OBB VISIBILITY GRAPH OBSTACLE-FREE ROUTING ENGINE
+// ----------------------------------------------------------------------------
+console.log('\n--- 4. OSM Map-Based Obstacle-Avoidance Routing & Visibility Graph ---');
+{
+  // 4.1 Analytical Liang-Barsky OBB collision & visibility-graph corner detour
+  const mockOBB = [{ east_m: 0, north_m: 0, width_m: 20, depth_m: 20, yaw_rad: 0, height_m: 25, boundR: 15 }];
+  assert(
+    doesSegmentIntersectOBBXZ([-30, 0], [30, 0], mockOBB[0], 0.5) === true &&
+    doesSegmentIntersectOBBXZ([-30, 20], [30, 20], mockOBB[0], 0.5) === false,
+    '4.1: Analytical Liang-Barsky OBB intersection classifies blocked vs clear corridors'
+  );
+
+  const detour = findVisibilityDetourXZ([-30, 0], [30, 0], mockOBB, 2.0);
+  const detourClear = detour.length >= 3 && detour.every((pt, idx) =>
+    idx === detour.length - 1 || !doesSegmentIntersectOBBXZ(pt, detour[idx + 1], mockOBB[0], 0.2)
+  );
+  assert(
+    detourClear,
+    '4.2: findVisibilityDetourXZ computes collision-free corner detour around obstructing building',
+    `waypoints=${detour.length}`
+  );
+
+  // 4.3 Multi-facility real OSM + OBB check across BLDG_212, HIT, and Paiknam
+  const testEngine = new PedestrianRoutingEngine({
+    useRealMapRouting: true,
+    buildingOBBs: REAL_OSM_BUILDINGS_FLAT
+  });
+  const testAdapter = new HanyangResponseAdapter({
+    useRealMapRouting: true,
+    buildingOBBs: REAL_OSM_BUILDINGS_FLAT,
+    router: testEngine
+  });
+
+  const ids = ['BLDG_212_ENG1', 'BLDG_701_HIT', 'BLDG_104_PAIKNAM'];
+  let allZeroHits = true;
+  const summaries = [];
+  for (const id of ids) {
+    const pkg = getFacilityPackageById(id);
+    testAdapter.setFacilityPackage(pkg);
+    const shortRes = testAdapter.router.findOutdoorShortestPath();
+    const freeRes = testAdapter.router.findOutdoorStepFreePath();
+    const conn = pkg.connector || {};
+    const originXZ = id === 'BLDG_212_ENG1' ? [52, -74] : [conn.doorPos[0], conn.doorPos[2]];
+    const obbs = normalizeOBBList(REAL_OSM_BUILDINGS_FLAT, originXZ, 52.0)
+      .filter(ob => Math.hypot(ob.east_m - 222.89, -ob.north_m - 196.71) > 22.0);
+
+    let hits = 0;
+    for (const poly of [testAdapter.routePolylines.SHORTEST, testAdapter.routePolylines.STEP_FREE]) {
+      for (let i = 0; i < poly.length - 1; i++) {
+        const a = [poly[i].x, poly[i].z];
+        const b = [poly[i + 1].x, poly[i + 1].z];
+        if (obbs.some(ob => doesSegmentIntersectOBBXZ(a, b, ob, -0.05))) hits++;
+      }
+    }
+    if (!shortRes.found || !freeRes.found || freeRes.hasStairs || hits > 0) {
+      allZeroHits = false;
+    }
+    summaries.push(`${id}:short=${shortRes.totalDistanceMeters}m,free=${freeRes.totalDistanceMeters}m,hits=${hits}`);
+  }
+  assert(
+    allZeroHits,
+    '4.3: All 3 campus facilities yield Shortest + Step-Free OSM routes with ZERO OBB building penetrations',
+    summaries.join(' | ')
+  );
+
+  testAdapter.setFacilityPackage(getFacilityPackageById('BLDG_212_ENG1'));
+  const baseDist = testAdapter.router.findOutdoorShortestPath().totalDistanceMeters;
+  testAdapter.router.addAvoidPolygon({
+    id: 'TEST_AVOID_AMPHITHEATER_STAIRS',
+    mode: 'BLOCK',
+    polygonXZ: [[-12, 15], [48, 15], [48, 105], [-12, 105]]
+  });
+  const avoidedDist = testAdapter.router.findOutdoorShortestPath().totalDistanceMeters;
+  assert(
+    avoidedDist > 0 && avoidedDist !== baseDist,
+    '4.4: Dynamic avoidPolygon reroutes real OSM shortest path cleanly around blocked zone',
+    `base=${baseDist}m -> rerouted=${avoidedDist}m`
+  );
+
+  testAdapter.dispose();
 }
 
 // ----------------------------------------------------------------------------

@@ -144,6 +144,7 @@
       min-width: 0;
       max-width: calc(100vw - 32px);
       height: 48px;
+      overflow: visible;
     }
     #unified-control-surface.state-discover {
       width: min(840px, calc(100vw - 32px));

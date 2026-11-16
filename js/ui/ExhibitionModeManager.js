@@ -86,7 +86,9 @@ export class ExhibitionModeManager {
 
     this.hanyangAdapter = new HanyangResponseAdapter(this.localWorldGroup, {
       scale: 1.0,
-      visualScaleFactor: 4.5
+      visualScaleFactor: 4.5,
+      useRealMapRouting: true,
+      buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32
     });
 
     this.uiAdapter = new ResponseUIAdapter({

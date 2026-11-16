@@ -24,13 +24,23 @@ import {
   USER_MOBILITY_PROFILE,
   LINK_STATE
 } from './ResponseDomainTypes.js';
+import {
+  solveCampusWalkGraph,
+  doesSegmentIntersectOBBXZ,
+  findVisibilityDetourXZ,
+  normalizeOBBList
+} from './CampusWalkRouter.js';
 
 export {
   PATH_TYPE,
   USER_MOBILITY_PROFILE,
   LINK_STATE,
   DATA_PROVENANCE_SOURCE,
-  VERIFICATION_STATUS
+  VERIFICATION_STATUS,
+  solveCampusWalkGraph,
+  doesSegmentIntersectOBBXZ,
+  findVisibilityDetourXZ,
+  normalizeOBBList
 };
 
 /**
@@ -108,7 +118,19 @@ export class PedestrianRoutingEngine {
 
     this.facility = options.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
     this.groundDataManager = options.groundDataManager || null;
+    this.useRealMapRouting = Boolean(options.useRealMapRouting);
+    this.buildingOBBs = options.buildingOBBs || null;
     this.initializeDefaultCampusGraph();
+  }
+
+  /**
+   * Toggle obstacle-aware real OpenStreetMap campus routing (OBB visibility + A*).
+   */
+  setRealMapRouting({ enabled = true, buildingOBBs = null } = {}) {
+    this.useRealMapRouting = Boolean(enabled);
+    if (buildingOBBs !== null) {
+      this.buildingOBBs = buildingOBBs;
+    }
   }
 
   /**
@@ -672,6 +694,91 @@ export class PedestrianRoutingEngine {
   }
 
   // --------------------------------------------------------------------------
+  // MAP-BASED OBSTACLE-AWARE A* + VISIBILITY GRAPH SOLVER
+  // --------------------------------------------------------------------------
+
+  /**
+   * Execute obstacle-aware pedestrian A* routing directly on the compiled real OSM
+   * campus walkable network + 3D building OBB avoidance.
+   */
+  findMapBasedOptimalRoute(options = {}) {
+    const f = this.facility || DEFAULT_HANYANG_FACILITY_PACKAGE;
+    const isWheelchair = options.mobilityProfile === USER_MOBILITY_PROFILE.WHEELCHAIR_USER;
+    const excludeStairs = Boolean(options.excludeStairs) || isWheelchair;
+    const conn = f.connector || {};
+    const fp = conn.footwayPos || this.nodes.get(f.defaultOutdoorEgressNodeId)?.localPos || [73.68, -0.15, -41.98];
+    const startXZ = options.startXZ || [fp[0], fp[2]];
+    const goalXZ = options.goalXZ || [222.89, 196.71];
+    const centerXZ = options.originCentroidXZ || [
+      f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
+      f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
+    ];
+    const activeAvoidPolygons = [...this.avoidPolygons.values(), ...(options.avoidPolygons || [])];
+
+    const sol = solveCampusWalkGraph({
+      startXZ,
+      goalXZ,
+      excludeStairs,
+      buildingOBBs: options.buildingOBBs ?? this.buildingOBBs,
+      originCentroidXZ: centerXZ,
+      originExclusionRadius: options.originExclusionRadius ?? 52.0,
+      seismicDebrisAware: options.seismicDebrisAware !== false,
+      blockedEdges: new Set([...this.blockedEdges, ...(options.blockedEdges || [])]),
+      avoidPolygons: activeAvoidPolygons
+    });
+
+    if (!sol.found) {
+      return Object.freeze({
+        found: false,
+        totalDistanceMeters: 0,
+        totalStairsDistanceMeters: 0,
+        hasStairs: false,
+        stairFlightCount: 0,
+        isStepFree: false,
+        isWheelchairPassable: false,
+        isWheelchairVerified: false,
+        pathType: 'NONE',
+        replanned: true,
+        replanReason: '실측 OSM 보행 네트워크 상 통행 가능한 무충돌 대피 경로가 단절됨',
+        failSafeGuidance: '외부 보행로가 모두 차단되었습니다. 실내 안전 공간에 대피 후 현장 안내를 대기하십시오.',
+        nodes: [],
+        edges: [],
+        hazardAlerts: ['NO_VIABLE_PATH: OSM pedestrian network severed under active constraints.'],
+        unverifiedSegments: []
+      });
+    }
+
+    const bldgId = f.buildingMetadata?.id || 'BLDG_212_ENG1';
+    const checklistSummary = this.groundDataManager ? this.groundDataManager.getChecklistSummary(bldgId) : null;
+    const isWheelchairVerified = Boolean(sol.isStepFree && checklistSummary?.isWheelchairRouteFullyVerified);
+    const hazardAlerts = [];
+    if (isWheelchair && !isWheelchairVerified) {
+      hazardAlerts.push('주의: 무단차 우회로는 지도 데이터상 계단이 없는 경로이나, 현장 경사도/단차 실측(F-03/F-05) 전이므로 안전을 보증하지 않습니다.');
+    }
+
+    return Object.freeze({
+      found: true,
+      totalDistanceMeters: sol.totalDistanceMeters,
+      totalStairsDistanceMeters: sol.totalStairsDistanceMeters,
+      hasStairs: sol.hasStairs,
+      stairFlightCount: sol.stairFlightCount,
+      isStepFree: sol.isStepFree,
+      isWheelchairPassable: sol.isStepFree,
+      isWheelchairVerified,
+      pathType: sol.isStepFree ? PATH_TYPE.STEP_FREE_DETOUR : PATH_TYPE.SHORTEST_RAPID,
+      replanned: sol.isStepFree || activeAvoidPolygons.length > 0,
+      replanReason: sol.isStepFree ? '실측 OSM 보행망 기반 계단 없는 무단차 우회 경로 산출' : null,
+      traversedSuspected: false,
+      traversedUnknown: false,
+      nodes: Object.freeze(sol.edges.map(e => e.from).concat(sol.edges.length ? [sol.edges[sol.edges.length - 1].to] : [])),
+      edges: Object.freeze(sol.edges),
+      waypoints3D: Object.freeze(sol.waypoints3D),
+      hazardAlerts: Object.freeze(hazardAlerts),
+      unverifiedSegments: Object.freeze([])
+    });
+  }
+
+  // --------------------------------------------------------------------------
   // LEGACY CONVENIENCE WRAPPERS (Maintained for Backward Compatibility)
   // --------------------------------------------------------------------------
 
@@ -679,18 +786,26 @@ export class PedestrianRoutingEngine {
     return this.findDynamicPath(startNodeId, targetNodeId, options);
   }
 
-  findOutdoorShortestPath() {
+  findOutdoorShortestPath(options = {}) {
+    if (this.useRealMapRouting) {
+      return this.findMapBasedOptimalRoute({ ...options, excludeStairs: false });
+    }
     const startId = this.facility?.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
     const targetId = this.facility?.defaultOutdoorTargetNodeId || 'OSM_NODE_8577408700';
     return this.findDynamicPath(startId, targetId, {
+      ...options,
       excludeStairs: false
     });
   }
 
-  findOutdoorStepFreePath() {
+  findOutdoorStepFreePath(options = {}) {
+    if (this.useRealMapRouting) {
+      return this.findMapBasedOptimalRoute({ ...options, excludeStairs: true });
+    }
     const startId = this.facility?.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
     const targetId = this.facility?.defaultOutdoorTargetNodeId || 'OSM_NODE_8577408700';
     return this.findDynamicPath(startId, targetId, {
+      ...options,
       excludeStairs: true
     });
   }
@@ -709,6 +824,38 @@ export class PedestrianRoutingEngine {
       throw new Error(`[PedestrianRoutingEngine] Unknown origin room: ${lookupRoomId}`);
     }
     const targetShelterId = this.facility?.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM';
-    return this.findDynamicPath(room.nodeId, targetShelterId, options);
+    if (!this.useRealMapRouting) {
+      return this.findDynamicPath(room.nodeId, targetShelterId, options);
+    }
+
+    const egressNodeId = this.facility?.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
+    const indoorLeg = this.findDynamicPath(room.nodeId, egressNodeId, options);
+    const outdoorLeg = this.findMapBasedOptimalRoute(options);
+    if (!indoorLeg.found || !outdoorLeg.found) {
+      return indoorLeg.found ? outdoorLeg : indoorLeg;
+    }
+
+    const combinedEdges = [...indoorLeg.edges, ...outdoorLeg.edges];
+    const totalDist = Number((indoorLeg.totalDistanceMeters + outdoorLeg.totalDistanceMeters).toFixed(1));
+    const totalStairs = Number((indoorLeg.totalStairsDistanceMeters + outdoorLeg.totalStairsDistanceMeters).toFixed(1));
+    return Object.freeze({
+      found: true,
+      totalDistanceMeters: totalDist,
+      totalStairsDistanceMeters: totalStairs,
+      hasStairs: totalStairs > 0,
+      stairFlightCount: indoorLeg.stairFlightCount + outdoorLeg.stairFlightCount,
+      isStepFree: outdoorLeg.isStepFree && indoorLeg.stairFlightCount === 0,
+      isWheelchairPassable: outdoorLeg.isStepFree,
+      isWheelchairVerified: outdoorLeg.isWheelchairVerified,
+      pathType: outdoorLeg.isStepFree ? PATH_TYPE.STEP_FREE_DETOUR : PATH_TYPE.SHORTEST_RAPID,
+      replanned: outdoorLeg.replanned,
+      replanReason: outdoorLeg.replanReason,
+      traversedSuspected: indoorLeg.traversedSuspected || outdoorLeg.traversedSuspected,
+      traversedUnknown: indoorLeg.traversedUnknown || outdoorLeg.traversedUnknown,
+      nodes: Object.freeze([...indoorLeg.nodes, ...outdoorLeg.nodes]),
+      edges: Object.freeze(combinedEdges),
+      hazardAlerts: Object.freeze([...indoorLeg.hazardAlerts, ...outdoorLeg.hazardAlerts]),
+      unverifiedSegments: Object.freeze([...indoorLeg.unverifiedSegments, ...outdoorLeg.unverifiedSegments])
+    });
   }
 }

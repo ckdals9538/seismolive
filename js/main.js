@@ -636,6 +636,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       } else if (state === 'ascending') {
         if (sub) sub.textContent = "고요 — 우주 궤도";
       }
+      if (controlSurface && typeof controlSurface.updateGlobalDevLabVisibility === 'function') {
+        controlSurface.updateGlobalDevLabVisibility();
+      }
     }
 
     function updateChronicleSubtitleForEvent(ev) {
@@ -2775,15 +2778,18 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     });
     window.exhibitionModeManager = exhibitionModeManager;
     window.enterInSceneLocalResponse = function(stageKey) {
-      return exhibitionModeManager.enterLocalResponseMode(stageKey);
+      const res = exhibitionModeManager.enterLocalResponseMode(stageKey);
+      controlSurface?.updateGlobalDevLabVisibility?.();
+      return res;
     };
     window.exitInSceneLocalResponse = function() {
-      return exhibitionModeManager.exitToGlobalExhibition();
+      const res = exhibitionModeManager.exitToGlobalExhibition();
+      controlSurface?.updateGlobalDevLabVisibility?.();
+      return res;
     };
 
     window.openLocalSpatialResponse = function(stage = 'campus') {
-      const eventParam = currentParsedEvent?.eventId ? `&event=${encodeURIComponent(currentParsedEvent.eventId)}` : '';
-      window.location.href = `./viewer_p2_6.html?stage=${encodeURIComponent(stage)}${eventParam}`;
+      window.location.href = `./viewer_p2_6.html?stage=${encodeURIComponent(stage)}`;
     };
 
     window.getPerformanceDiagnostics = function() {

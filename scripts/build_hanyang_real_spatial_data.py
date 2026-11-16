@@ -13,13 +13,16 @@ import struct
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ATLAS_DIR = "/Users/katsina/.gemini/antigravity/brain/6a51ec9e-de1e-4cbc-8dd0-919ae91c4f3f/scratch/seoul-3d-atlas/dist/data"
+OSM_CAMPUS_JSON = os.path.join(REPO_ROOT, "assets", "data", "osm_hanyang_campus.json")
 OUT_PAYLOAD_JS = os.path.join(REPO_ROOT, "js", "response", "HanyangRealSpatialPayload.js")
+OUT_WALK_JS = os.path.join(REPO_ROOT, "js", "response", "HanyangCampusWalkData.js")
 
 ANCHOR_LON = 127.045053
 ANCHOR_LAT = 37.555815
 HALF_EXTENT_TERRAIN_M = 2200.0
 HALF_EXTENT_BLDG_M = 2000.0
 GRID_N = 128  # 129 x 129 vertices (~34.3m spacing for smooth slopes & river banks)
+CAMPUS_CORE_BBOX = (-230.0, 460.0, -290.0, 320.0)  # [east_min, east_max, north_min, north_max]
 
 
 def sutherland_hodgman_clip(ring, xmin, xmax, ymin, ymax):
@@ -143,41 +146,98 @@ def point_in_poly(x, y, poly):
     return inside
 
 
-SHORTEST_SPINE_SAMPLES = []
-_SPINE_PTS = [(73.7, 42.0), (94.0, 24.0), (118.0, -5.0), (155.0, -57.0), (190.0, -135.0), (226.75, -218.17)]
-for _si in range(len(_SPINE_PTS) - 1):
-    _ax, _ay = _SPINE_PTS[_si]
-    _bx, _by = _SPINE_PTS[_si + 1]
-    for _k in range(9):
-        _t = _k / 8.0
-        SHORTEST_SPINE_SAMPLES.append((_ax + (_bx - _ax) * _t, _ay + (_by - _ay) * _t))
+def decompose_poly_to_obbs(pts, h_m):
+    """
+    Fit minimum-area enclosing OBB, and if concave (L/U/courtyard < 74% fill),
+    subdivide into crisp multi-wing rectangular OBBs so sidewalks/courtyards remain open.
+    """
+    ring = pts[:-1] if len(pts) > 3 and pts[0] == pts[-1] else pts
+    if len(ring) < 3:
+        return []
+    best = None
+    for i in range(len(ring)):
+        p1, p2 = ring[i], ring[(i + 1) % len(ring)]
+        ang = math.atan2(p2[1] - p1[1], p2[0] - p1[0])
+        ca, sa = math.cos(ang), math.sin(ang)
+        us = [p[0] * ca + p[1] * sa for p in ring]
+        vs = [-p[0] * sa + p[1] * ca for p in ring]
+        u0, u1, v0, v1 = min(us), max(us), min(vs), max(vs)
+        area_box = (u1 - u0) * (v1 - v0)
+        if best is None or area_box < best[0]:
+            best = (area_box, ang, ca, sa, u0, u1, v0, v1)
+    area_box, ang, ca, sa, u0, u1, v0, v1 = best
+    fill = poly_area(ring) / max(1.0, area_box)
+    if fill >= 0.74 or (u1 - u0) < 15.0 or (v1 - v0) < 15.0:
+        uc, vc = (u0 + u1) * 0.5, (v0 + v1) * 0.5
+        return [(uc * ca - vc * sa, uc * sa + vc * ca, u1 - u0, v1 - v0, ang, h_m)]
+
+    nu = max(2, min(14, round((u1 - u0) / 5.5)))
+    nv = max(2, min(14, round((v1 - v0) / 5.5)))
+    du = (u1 - u0) / nu
+    dv = (v1 - v0) / nv
+    grid = [
+        [
+            point_in_poly(
+                (u0 + (iu + 0.5) * du) * ca - (v0 + (iv + 0.5) * dv) * sa,
+                (u0 + (iu + 0.5) * du) * sa + (v0 + (iv + 0.5) * dv) * ca,
+                ring,
+            )
+            for iu in range(nu)
+        ]
+        for iv in range(nv)
+    ]
+    covered = [[False] * nu for _ in range(nv)]
+    obbs = []
+    for iv in range(nv):
+        for iu in range(nu):
+            if not grid[iv][iu] or covered[iv][iu]:
+                continue
+            eu = iu
+            while eu + 1 < nu and grid[iv][eu + 1] and not covered[iv][eu + 1]:
+                eu += 1
+            ev = iv
+            while ev + 1 < nv and all(grid[ev + 1][k] and not covered[ev + 1][k] for k in range(iu, eu + 1)):
+                ev += 1
+            for kv in range(iv, ev + 1):
+                for ku in range(iu, eu + 1):
+                    covered[kv][ku] = True
+            uc = (u0 + iu * du + u0 + (eu + 1) * du) * 0.5
+            vc = (v0 + iv * dv + v0 + (ev + 1) * dv) * 0.5
+            obbs.append((uc * ca - vc * sa, uc * sa + vc * ca, (eu - iu + 1) * du, (ev - iv + 1) * dv, ang, h_m))
+    return obbs
+
+
+def seg_hits_obb_en(p1, p2, obb, margin=0.0):
+    e, n, w, d, yaw, _ = obb
+    # Fast AABB reject before rotated checks
+    rad = math.hypot(w, d) * 0.5 + margin + 1.0
+    if max(p1[0], p2[0]) < e - rad or min(p1[0], p2[0]) > e + rad:
+        return False
+    if max(p1[1], p2[1]) < n - rad or min(p1[1], p2[1]) > n + rad:
+        return False
+    ca = math.cos(yaw)
+    sa = math.sin(yaw)
+    hw = w * 0.5 + margin
+    hd = d * 0.5 + margin
+    for k in range(11):
+        t = k / 10.0
+        px = p1[0] + (p2[0] - p1[0]) * t
+        pn = p1[1] + (p2[1] - p1[1]) * t
+        de = px - e
+        dn = pn - n
+        if abs(ca * de + sa * dn) <= hw and abs(sa * de - ca * dn) <= hd:
+            return True
+    return False
 
 
 def is_excluded_campus_footprint(east_m, north_m, w_m=0.0, d_m=0.0, yaw_rad=0.0):
     # Exclude target Building 212 (제1공학관) footprint so detailed wireframe/structural model has no z-fighting
-    if math.hypot(east_m - 52.0, north_m - 74.0) < 56.0:
+    if math.hypot(east_m - 52.0, north_m - 74.0) < 52.0:
         return True
     # Exclude Hanyang Main Stadium (OA-21060) open pitch/track oval at [226.75, -218.17]
     dx_s = (east_m - 226.75) / 68.0
     dn_s = (north_m - (-218.17)) / 92.0
     if (dx_s * dx_s + dn_s * dn_s) < 1.0:
-        return True
-    # Exact OBB clearance check along the outdoor shortest egress stair/walkway spine (7.5m side clearance)
-    ca = math.cos(yaw_rad)
-    sa = math.sin(yaw_rad)
-    half_w = w_m * 0.5 + 7.5
-    half_d = d_m * 0.5 + 7.5
-    for sx_pt, sn_pt in SHORTEST_SPINE_SAMPLES:
-        de = sx_pt - east_m
-        dn = sn_pt - north_m
-        lx = ca * de + sa * dn
-        lz = sa * de - ca * dn
-        if abs(lx) <= half_w and abs(lz) <= half_d:
-            return True
-    # Also exclude exact centers of our named HIT & Paiknam packages if they overlap slightly
-    if math.hypot(east_m - (-95.0), north_m - 210.0) < 28.0:
-        return True
-    if math.hypot(east_m - (-35.0), north_m - (-75.0)) < 26.0:
         return True
     return False
 
@@ -399,23 +459,33 @@ def main():
 
     # ------------------------------------------------------------------
     # 4. Extract Real OSM Buildings (OBB) within [-2000, +2000]
+    #    Use crisp decomposed wing OBBs inside Hanyang Campus Core
     # ------------------------------------------------------------------
     with open(os.path.join(ATLAS_DIR, "buildings.bin"), "rb") as bf:
         raw_bin = bf.read()
     total_cnt = len(raw_bin) // 24
     floats = struct.unpack(f"<{total_cnt * 6}f", raw_bin)
 
+    has_osm_campus = os.path.exists(OSM_CAMPUS_JSON)
+    mvt_campus_heights = []
     buildings = []
     seen_bldg = set()
+    c_emin, c_emax, c_nmin, c_nmax = CAMPUS_CORE_BBOX
+
     for i in range(total_cnt):
         bx, bz, bw, bd, ba, bh = floats[i * 6:(i + 1) * 6]
         east_m = (bx - ax) * scale_x
         north_m = -(bz - az) * scale_z
         if abs(east_m) > HALF_EXTENT_BLDG_M or abs(north_m) > HALF_EXTENT_BLDG_M:
             continue
+        h_m = max(3.5, min(250.0, bh))
+        in_campus = (c_emin <= east_m <= c_emax and c_nmin <= north_m <= c_nmax)
+        if has_osm_campus and in_campus:
+            mvt_campus_heights.append((east_m, north_m, h_m))
+            continue
+
         w_m = max(4.0, bw * scale_x)
         d_m = max(4.0, bd * scale_z)
-        h_m = max(3.5, min(250.0, bh))
         yaw_rad = -ba
         if is_excluded_campus_footprint(east_m, north_m, w_m, d_m, yaw_rad):
             continue
@@ -434,10 +504,74 @@ def main():
             round(h_m, 1)
         ))
 
+    osm_campus_nodes = {}
+    osm_campus_ways = []
+    if has_osm_campus:
+        with open(OSM_CAMPUS_JSON, "r", encoding="utf-8") as cf:
+            osm_campus = json.load(cf)
+        osm_campus_nodes = {e["id"]: e for e in osm_campus.get("elements", []) if e.get("type") == "node"}
+        osm_campus_ways = [e for e in osm_campus.get("elements", []) if e.get("type") == "way"]
+
+        def ll2en(lat, lon):
+            return ((lon - ANCHOR_LON) * m_lon, (lat - ANCHOR_LAT) * m_lat)
+
+        for w in osm_campus_ways:
+            tags = w.get("tags", {})
+            if "building" not in tags:
+                continue
+            if tags.get("location") == "underground" or tags.get("tunnel") == "yes":
+                continue
+            if str(tags.get("layer", "0")).startswith("-"):
+                continue
+            # Exclude Bldg 212 (rendered in architectural wireframe) & open-air amphitheater seating bowl (노천극장)
+            if w["id"] in (187181237, 605156372):
+                continue
+            pts = [ll2en(osm_campus_nodes[nid]["lat"], osm_campus_nodes[nid]["lon"]) for nid in w.get("nodes", []) if nid in osm_campus_nodes]
+            if len(pts) < 4 or poly_area(pts) < 42.0:
+                continue
+            ce = sum(p[0] for p in pts) / len(pts)
+            cn = sum(p[1] for p in pts) / len(pts)
+            if not (c_emin <= ce <= c_emax and c_nmin <= cn <= c_nmax):
+                continue
+
+            # Resolve height cleanly from OSM tags or matching MVT height lookup
+            h_m = None
+            raw_h = str(tags.get("height", "")).replace("m", "").strip()
+            try:
+                if raw_h:
+                    h_m = float(raw_h)
+            except ValueError:
+                h_m = None
+            if h_m is None:
+                try:
+                    lvls = float(tags.get("building:levels", 0))
+                    if lvls > 0:
+                        h_m = lvls * 3.6
+                except ValueError:
+                    h_m = None
+            if h_m is None:
+                # Check MVT height lookup near centroid
+                near_h = [mh for me, mn, mh in mvt_campus_heights if math.hypot(me - ce, mn - cn) < 28.0]
+                h_m = max(near_h) if near_h else 14.0
+            h_m = max(4.5, min(250.0, h_m))
+
+            for we, wn, ww, wd, wyaw, wh in decompose_poly_to_obbs(pts, h_m):
+                if is_excluded_campus_footprint(we, wn, ww, wd, wyaw):
+                    continue
+                buildings.append((
+                    round(we, 1),
+                    round(wn, 1),
+                    round(ww, 1),
+                    round(wd, 1),
+                    round(wyaw, 3),
+                    round(wh, 1)
+                ))
+
     buildings.sort(key=lambda b: b[5], reverse=True)
+    campus_obbs_for_walk = [b for b in buildings if c_emin - 80 <= b[0] <= c_emax + 80 and c_nmin - 80 <= b[1] <= c_nmax + 80]
 
     # ------------------------------------------------------------------
-    # 5. Extract & Clip Dense Road & Rail Polylines [-2180, +2180]
+    # 5. Extract & Clip Dense Road & Rail Polylines + Campus Footways
     # ------------------------------------------------------------------
     road_segments = []
     road_bound = HALF_EXTENT_TERRAIN_M - 10.0
@@ -453,6 +587,97 @@ def main():
             if len(compact_pts) >= 2:
                 # [cls, bridge, [[e, n], ...]]
                 road_segments.append([cls, int(bridge), compact_pts])
+
+    # Build verified OBB-free OSM campus pedestrian graph + ground walkway visual overlays
+    walk_nodes_out = []
+    walk_edges_out = []
+    if has_osm_campus:
+        WALK_TYPES = {"footway", "path", "steps", "pedestrian", "living_street", "service", "residential", "unclassified", "tertiary", "secondary", "cycleway"}
+        node_idx_map = {}
+        edge_dedup = set()
+        for w in osm_campus_ways:
+            tags = w.get("tags", {})
+            hw = tags.get("highway")
+            if hw not in WALK_TYPES:
+                continue
+            if tags.get("indoor") == "yes" or tags.get("tunnel") == "yes":
+                continue
+            if tags.get("access") in ("no", "private"):
+                continue
+            nds = w.get("nodes", [])
+            is_steps = 1 if hw == "steps" else 0
+            bridge_flag = 1 if tags.get("bridge") in ("yes", "viaduct") else 0
+
+            vis_pts = []
+            for i in range(len(nds) - 1):
+                u_id, v_id = nds[i], nds[i + 1]
+                if u_id not in osm_campus_nodes or v_id not in osm_campus_nodes:
+                    continue
+                p1 = ((osm_campus_nodes[u_id]["lon"] - ANCHOR_LON) * m_lon, (osm_campus_nodes[u_id]["lat"] - ANCHOR_LAT) * m_lat)
+                p2 = ((osm_campus_nodes[v_id]["lon"] - ANCHOR_LON) * m_lon, (osm_campus_nodes[v_id]["lat"] - ANCHOR_LAT) * m_lat)
+                # Clip walkable graph strictly to campus core + immediate perimeter
+                if not (c_emin - 35 <= p1[0] <= c_emax + 35 and c_nmin - 35 <= p1[1] <= c_nmax + 35):
+                    continue
+                if not (c_emin - 35 <= p2[0] <= c_emax + 35 and c_nmin - 35 <= p2[1] <= c_nmax + 35):
+                    continue
+                # Hard obstacle rejection against rendered 3D building OBBs
+                if any(seg_hits_obb_en(p1, p2, ob, -0.05) for ob in campus_obbs_for_walk):
+                    if len(vis_pts) >= 2 and hw in ("footway", "steps", "pedestrian", "living_street", "service"):
+                        road_segments.append(["footway" if hw != "service" else "tertiary", bridge_flag, vis_pts])
+                    vis_pts = []
+                    continue
+
+                if hw in ("footway", "steps", "pedestrian", "living_street", "service") and tags.get("area") != "yes":
+                    if not vis_pts:
+                        vis_pts.append([round(p1[0], 1), round(p1[1], 1)])
+                    vis_pts.append([round(p2[0], 1), round(p2[1], 1)])
+
+                for nid, pt in ((u_id, p1), (v_id, p2)):
+                    if nid not in node_idx_map:
+                        node_idx_map[nid] = len(walk_nodes_out)
+                        walk_nodes_out.append([
+                            str(nid),
+                            round(pt[0], 2),
+                            round(pt[1], 2),
+                            round(sample_grid_height(pt[0], pt[1]), 2),
+                        ])
+
+                ui = node_idx_map[u_id]
+                vi = node_idx_map[v_id]
+                ekey = (min(ui, vi), max(ui, vi), hw)
+                if ekey not in edge_dedup:
+                    edge_dedup.add(ekey)
+                    dist_m = round(math.hypot(p1[0] - p2[0], p1[1] - p2[1]), 2)
+                    # Compute lateral falling-debris proximity score from nearby tall OBBs
+                    mx, mn = (p1[0] + p2[0]) * 0.5, (p1[1] + p2[1]) * 0.5
+                    debris_risk = 0.0
+                    for ob in campus_obbs_for_walk:
+                        rad_ob = max(ob[2], ob[3]) * 0.5 + max(4.0, ob[5] * 0.22)
+                        if math.hypot(mx - ob[0], mn - ob[1]) <= rad_ob and ob[5] >= 12.0:
+                            debris_risk = max(debris_risk, round(min(1.0, (ob[5] - 8.0) / 40.0), 2))
+                    walk_edges_out.append([ui, vi, dist_m, hw, is_steps, debris_risk])
+
+            if len(vis_pts) >= 2 and hw in ("footway", "steps", "pedestrian", "living_street", "service"):
+                road_segments.append(["footway" if hw != "service" else "tertiary", bridge_flag, vis_pts])
+
+    if walk_nodes_out and walk_edges_out:
+        walk_js = "\n".join([
+            "// ============================================================================",
+            "// SEISMOLIVE v4.0 — Real OpenStreetMap Campus Walkable Pedestrian Graph",
+            "// File: js/response/HanyangCampusWalkData.js",
+            "//",
+            "// Auto-generated by scripts/build_hanyang_real_spatial_data.py",
+            "// Every edge is verified OBB-collision-free against rendered 3D campus buildings.",
+            "// Node format: [osmNodeId, east_m, north_m, terrainY_m]",
+            "// Edge format: [uIdx, vIdx, distMeters, highway, hasStairs(0|1), debrisRisk(0..1)]",
+            "// ============================================================================",
+            "",
+            f"export const HANYANG_CAMPUS_WALK_GRAPH = Object.freeze({json.dumps({'anchor': {'lat': ANCHOR_LAT, 'lon': ANCHOR_LON}, 'nodes': walk_nodes_out, 'edges': walk_edges_out}, separators=(',', ':'))});",
+            ""
+        ])
+        with open(OUT_WALK_JS, "w", encoding="utf-8") as wf:
+            wf.write(walk_js)
+        print(f"Wrote {OUT_WALK_JS} ({os.path.getsize(OUT_WALK_JS)/1024.0:.1f} KB, {len(walk_nodes_out)} nodes, {len(walk_edges_out)} OBB-clear edges)")
 
     # ------------------------------------------------------------------
     # 6. Serialize Clean ESM Payload File

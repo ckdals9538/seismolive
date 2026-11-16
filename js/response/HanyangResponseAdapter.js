@@ -61,7 +61,13 @@ export class HanyangResponseAdapter {
     this.scene = scene;
     this.facility = options.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
     this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
-    this.router = options.router || new PedestrianRoutingEngine({ facilityPackage: this.facility });
+    this.useRealMapRouting = Boolean(options.useRealMapRouting);
+    this.buildingOBBs = options.buildingOBBs || null;
+    this.router = options.router || new PedestrianRoutingEngine({
+      facilityPackage: this.facility,
+      useRealMapRouting: this.useRealMapRouting,
+      buildingOBBs: this.buildingOBBs
+    });
 
     const bldgMeta = this.facility.buildingMetadata || {};
 
@@ -177,13 +183,14 @@ export class HanyangResponseAdapter {
   buildBuildingStructure() {
     const footprint = this.facility.footprintMeters || BLDG_212_OSM_FOOTPRINT_METERS;
     const hFloor = this.config.floorHeightMeters;
+    const baseY = this.facility.groundElevationY ?? 0.0;
     const interiorTargetFloor = this.facility.defaultFloor ?? 3;
 
     for (let level = 1; level <= this.config.totalLevels; level++) {
       const floorGroup = new THREE.Group();
       floorGroup.name = `Floor_${level}F`;
-      const yBottom = (level - 1) * hFloor;
-      const yTop = level * hFloor;
+      const yBottom = baseY + (level - 1) * hFloor;
+      const yTop = baseY + level * hFloor;
 
       // Slab perimeter lines
       const slabPoints = [];
@@ -255,7 +262,7 @@ export class HanyangResponseAdapter {
     }
 
     // Add Roof Slab
-    const yRoof = this.config.totalLevels * hFloor;
+    const yRoof = baseY + this.config.totalLevels * hFloor;
     const roofPoints = [];
     for (let i = 0; i < footprint.length - 1; i++) {
       const p1 = footprint[i];
@@ -345,24 +352,25 @@ export class HanyangResponseAdapter {
     ] : [70.16, -45.51];
     const w = conn.stairCoreSize?.width ?? 4.0;
     const d = conn.stairCoreSize?.depth ?? 5.0;
-    const h = this.config.totalLevels * this.config.floorHeightMeters;
+    const baseY = this.facility.groundElevationY ?? 0.0;
+    const h = baseY + this.config.totalLevels * this.config.floorHeightMeters;
 
     const corePoints = [
       // Base rectangle
-      new THREE.Vector3(pSE[0] - w, 0, pSE[1] - d), new THREE.Vector3(pSE[0], 0, pSE[1] - d),
-      new THREE.Vector3(pSE[0], 0, pSE[1] - d), new THREE.Vector3(pSE[0], 0, pSE[1]),
-      new THREE.Vector3(pSE[0], 0, pSE[1]), new THREE.Vector3(pSE[0] - w, 0, pSE[1]),
-      new THREE.Vector3(pSE[0] - w, 0, pSE[1]), new THREE.Vector3(pSE[0] - w, 0, pSE[1] - d),
+      new THREE.Vector3(pSE[0] - w, baseY, pSE[1] - d), new THREE.Vector3(pSE[0], baseY, pSE[1] - d),
+      new THREE.Vector3(pSE[0], baseY, pSE[1] - d), new THREE.Vector3(pSE[0], baseY, pSE[1]),
+      new THREE.Vector3(pSE[0], baseY, pSE[1]), new THREE.Vector3(pSE[0] - w, baseY, pSE[1]),
+      new THREE.Vector3(pSE[0] - w, baseY, pSE[1]), new THREE.Vector3(pSE[0] - w, baseY, pSE[1] - d),
       // Top rectangle
       new THREE.Vector3(pSE[0] - w, h, pSE[1] - d), new THREE.Vector3(pSE[0], h, pSE[1] - d),
       new THREE.Vector3(pSE[0], h, pSE[1] - d), new THREE.Vector3(pSE[0], h, pSE[1]),
       new THREE.Vector3(pSE[0], h, pSE[1]), new THREE.Vector3(pSE[0] - w, h, pSE[1]),
       new THREE.Vector3(pSE[0] - w, h, pSE[1]), new THREE.Vector3(pSE[0] - w, h, pSE[1] - d),
       // Vertical pillars
-      new THREE.Vector3(pSE[0] - w, 0, pSE[1] - d), new THREE.Vector3(pSE[0] - w, h, pSE[1] - d),
-      new THREE.Vector3(pSE[0], 0, pSE[1] - d), new THREE.Vector3(pSE[0], h, pSE[1] - d),
-      new THREE.Vector3(pSE[0], 0, pSE[1]), new THREE.Vector3(pSE[0], h, pSE[1]),
-      new THREE.Vector3(pSE[0] - w, 0, pSE[1]), new THREE.Vector3(pSE[0] - w, h, pSE[1])
+      new THREE.Vector3(pSE[0] - w, baseY, pSE[1] - d), new THREE.Vector3(pSE[0] - w, h, pSE[1] - d),
+      new THREE.Vector3(pSE[0], baseY, pSE[1] - d), new THREE.Vector3(pSE[0], h, pSE[1] - d),
+      new THREE.Vector3(pSE[0], baseY, pSE[1]), new THREE.Vector3(pSE[0], h, pSE[1]),
+      new THREE.Vector3(pSE[0] - w, baseY, pSE[1]), new THREE.Vector3(pSE[0] - w, h, pSE[1])
     ];
 
     const coreGeo = new THREE.BufferGeometry().setFromPoints(corePoints);
@@ -388,13 +396,14 @@ export class HanyangResponseAdapter {
     const doorPos = new THREE.Vector3(dp[0], dp[1], dp[2]);
     const footwayPos = new THREE.Vector3(fp[0], fp[1], fp[2]);
 
-    // Doorway frame (width 1.8m, height 2.1m)
+    // Doorway frame (width 1.8m, height 2.1m) anchored at ground level
     const dw = 1.8;
     const dh = 2.1;
+    const dy = doorPos.y;
     const doorFramePoints = [
-      new THREE.Vector3(doorPos.x, 0, doorPos.z), new THREE.Vector3(doorPos.x, dh, doorPos.z),
-      new THREE.Vector3(doorPos.x, dh, doorPos.z), new THREE.Vector3(doorPos.x + dw * 0.7, dh, doorPos.z + dw * 0.7),
-      new THREE.Vector3(doorPos.x + dw * 0.7, dh, doorPos.z + dw * 0.7), new THREE.Vector3(doorPos.x + dw * 0.7, 0, doorPos.z + dw * 0.7)
+      new THREE.Vector3(doorPos.x, dy, doorPos.z), new THREE.Vector3(doorPos.x, dy + dh, doorPos.z),
+      new THREE.Vector3(doorPos.x, dy + dh, doorPos.z), new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7),
+      new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7), new THREE.Vector3(doorPos.x + dw * 0.7, dy, doorPos.z + dw * 0.7)
     ];
     const doorGeo = new THREE.BufferGeometry().setFromPoints(doorFramePoints);
     const doorMat = new THREE.LineBasicMaterial({
@@ -880,6 +889,9 @@ export class HanyangResponseAdapter {
     this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
     if (typeof this.router?.loadFacilityPackage === 'function') {
       this.router.loadFacilityPackage(this.facility);
+      if (this.useRealMapRouting && typeof this.router?.setRealMapRouting === 'function') {
+        this.router.setRealMapRouting({ enabled: true, buildingOBBs: this.buildingOBBs });
+      }
     }
 
     const bldgMeta = this.facility.buildingMetadata || {};
