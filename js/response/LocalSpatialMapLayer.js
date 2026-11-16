@@ -19,6 +19,7 @@ import {
 } from './HanyangLocalSpatialData.js';
 import { CAMERA_STAGES } from './GlobalLocalCameraTransition.js';
 import { VERIFICATION_STATUS } from './ResponseDomainTypes.js';
+import { SpatialChunkManager } from './SpatialChunkManager.js';
 
 function getXYZ(p) {
   if (Array.isArray(p)) return [p[0] || 0, p[1] || 0, p[2] || 0];
@@ -254,6 +255,14 @@ export class LocalSpatialMapLayer {
 
     this.instancedBuildings = null;
     this.buildingMaterial = null;
+    this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
+    this.chunkManager = options.chunkManager || new SpatialChunkManager();
+    this.chunkGroup = new THREE.Group();
+    this.chunkGroup.name = 'StreamedSpatialChunks3km';
+    this.chunkMeshes = new Map();
+    this.hazardPolygonGroup = new THREE.Group();
+    this.hazardPolygonGroup.name = 'HazardAvoidPolygonsGroup';
+    this.activeHazardPolygons = [];
     this.labelAnchors = [];
     this._labelDomMap = new Map();
 
@@ -263,6 +272,8 @@ export class LocalSpatialMapLayer {
     this._buildContextBuildingsInstancedMesh();
     this._buildSheltersAndFacilities();
     this._buildLabelAnchors();
+    this.rootGroup.add(this.chunkGroup);
+    this.rootGroup.add(this.hazardPolygonGroup);
 
     if (this.state.ecoMode) {
       this.setEcoMode(true);
@@ -378,27 +389,17 @@ export class LocalSpatialMapLayer {
     this.rootGroup.add(group);
   }
 
-  _buildContextBuildingsInstancedMesh() {
-    const data = this.pkg.obbBuildingsFloat32;
-    const grounds = this.pkg.obbGroundOffsets;
+  /**
+   * Shared OBB InstancedMesh builder used for both pre-built 4km core and streamed 3km chunks.
+   * @private
+   */
+  _createOBBInstancedMesh(data, grounds, material, name) {
     const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
+    if (fullCount <= 0) return null;
 
-    if (fullCount <= 0) return;
-
-    const unitBox = this._track(new THREE.BoxGeometry(1, 1, 1));
-    this.buildingMaterial = this._track(new THREE.MeshBasicMaterial({
-      color: 0x111827,
-      transparent: false,
-      opacity: 0.94,
-      depthWrite: true
-    }));
-
-    this.instancedBuildings = new THREE.InstancedMesh(unitBox, this.buildingMaterial, fullCount);
-    this.instancedBuildings.name = 'SeongdongContextBuildingsOBB';
-
+    const mesh = new THREE.InstancedMesh(this.unitBoxGeometry, material, fullCount);
+    mesh.name = name;
     const dummy = new THREE.Object3D();
-    const roofEdgeMat = this._track(new THREE.EdgesGeometry(unitBox));
-    void roofEdgeMat;
 
     for (let i = 0; i < fullCount; i++) {
       const base = i * OBB_BUILDING_STRIDE;
@@ -414,11 +415,36 @@ export class LocalSpatialMapLayer {
       dummy.rotation.set(0, yaw_rad, 0);
       dummy.scale.set(width_m, height_m, depth_m);
       dummy.updateMatrix();
-      this.instancedBuildings.setMatrixAt(i, dummy.matrix);
+      mesh.setMatrixAt(i, dummy.matrix);
     }
 
-    this.instancedBuildings.instanceMatrix.needsUpdate = true;
-    this.rootGroup.add(this.instancedBuildings);
+    mesh.instanceMatrix.needsUpdate = true;
+    return mesh;
+  }
+
+  _buildContextBuildingsInstancedMesh() {
+    const data = this.pkg.obbBuildingsFloat32;
+    const grounds = this.pkg.obbGroundOffsets;
+    const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
+
+    if (fullCount <= 0) return;
+
+    this.buildingMaterial = this._track(new THREE.MeshBasicMaterial({
+      color: 0x111827,
+      transparent: false,
+      opacity: 0.94,
+      depthWrite: true
+    }));
+
+    this.instancedBuildings = this._createOBBInstancedMesh(
+      data,
+      grounds,
+      this.buildingMaterial,
+      'SeongdongContextBuildingsOBB'
+    );
+    if (this.instancedBuildings) {
+      this.rootGroup.add(this.instancedBuildings);
+    }
   }
 
   _buildSheltersAndFacilities() {
@@ -537,7 +563,79 @@ export class LocalSpatialMapLayer {
         ? counts.overviewCount
         : counts.fullCount;
     }
+    for (const entry of this.chunkMeshes.values()) {
+      entry.mesh.count = normalized === 'OVERVIEW'
+        ? entry.chunk.overviewCount
+        : entry.chunk.buildingCount;
+    }
     return this.state.lodMode;
+  }
+
+  /**
+   * Stream adjacent 3km x 3km spatial tiles based on focal camera/target XZ position (Tier 2.2).
+   */
+  updateSpatialChunks(posOrCamera, options = {}) {
+    const pos = posOrCamera?.position || posOrCamera || { x: 0, z: 0 };
+    const status = this.chunkManager.updateForPosition(pos.x || 0, pos.z || 0, options);
+
+    for (const unloadedKey of status.unloadedKeys) {
+      const entry = this.chunkMeshes.get(unloadedKey);
+      if (entry) {
+        this.chunkGroup.remove(entry.mesh);
+        this.chunkMeshes.delete(unloadedKey);
+      }
+    }
+
+    for (const loadedKey of status.loadedKeys) {
+      const chunk = this.chunkManager.activeChunks.get(loadedKey);
+      if (!chunk || chunk.isCorePrebuilt || chunk.buildingCount === 0 || !this.buildingMaterial) continue;
+      const mesh = this._createOBBInstancedMesh(
+        chunk.obbBuildingsFloat32,
+        null,
+        this.buildingMaterial,
+        `ChunkOBB_${loadedKey}`
+      );
+      if (mesh) {
+        mesh.count = this.state.lodMode === 'OVERVIEW' ? chunk.overviewCount : chunk.buildingCount;
+        this.chunkGroup.add(mesh);
+        this.chunkMeshes.set(loadedKey, { chunk, mesh });
+      }
+    }
+
+    return status;
+  }
+
+  /**
+   * Render subdued dashed architectural outlines for active `avoid_polygons` (Tier 2.1).
+   */
+  setHazardAvoidPolygons(polygons = []) {
+    while (this.hazardPolygonGroup.children.length > 0) {
+      const child = this.hazardPolygonGroup.children[0];
+      this.hazardPolygonGroup.remove(child);
+      if (child.geometry) child.geometry.dispose();
+      if (child.material) child.material.dispose();
+    }
+
+    this.activeHazardPolygons = Array.isArray(polygons) ? [...polygons] : [];
+    for (const poly of this.activeHazardPolygons) {
+      if (!Array.isArray(poly.polygonXZ) || poly.polygonXZ.length < 3) continue;
+      const pts = poly.polygonXZ.map(([x, z]) => new THREE.Vector3(x, -8.5, z));
+      pts.push(new THREE.Vector3(poly.polygonXZ[0][0], -8.5, poly.polygonXZ[0][1]));
+
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const mat = new THREE.LineDashedMaterial({
+        color: poly.mode === 'BLOCK' ? 0xf59e0b : 0x94a3b8,
+        dashSize: 6.0,
+        gapSize: 3.5,
+        transparent: true,
+        opacity: 0.85
+      });
+      const outline = new THREE.Line(geo, mat);
+      outline.computeLineDistances();
+      outline.name = `AvoidPoly_${poly.id}`;
+      this.hazardPolygonGroup.add(outline);
+    }
+    return this.activeHazardPolygons.length;
   }
 
   /**
@@ -693,11 +791,19 @@ export class LocalSpatialMapLayer {
 
   getLayerDiagnostics() {
     const counts = this.pkg.obbLodCounts || { overviewCount: 0, fullCount: 0 };
+    let streamedChunkBuildingCount = 0;
+    for (const entry of this.chunkMeshes.values()) {
+      streamedChunkBuildingCount += entry.mesh.count;
+    }
     return {
       packageId: this.pkg.metadata?.packageId || 'UNKNOWN',
       fullCount: counts.fullCount,
       overviewCount: counts.overviewCount,
       activeInstanceCount: this.instancedBuildings ? this.instancedBuildings.count : 0,
+      activeChunkKeys: [...this.chunkManager.activeChunks.keys()],
+      activeChunkCount: this.chunkManager.activeChunks.size,
+      streamedChunkBuildingCount,
+      hazardPolygonCount: this.activeHazardPolygons.length,
       lodMode: this.state.lodMode,
       xRayEnabled: this.state.xRayEnabled,
       xRayOpacity: this.state.xRayOpacity,
@@ -712,6 +818,9 @@ export class LocalSpatialMapLayer {
   }
 
   dispose() {
+    this.setHazardAvoidPolygons([]);
+    this.chunkMeshes.clear();
+    this.chunkManager.clear();
     if (this.scene && this.rootGroup) {
       this.scene.remove(this.rootGroup);
     }

@@ -33,6 +33,58 @@ export {
   VERIFICATION_STATUS
 };
 
+/**
+ * Ray-casting point-in-polygon check in horizontal Three.js [X=East, Z=-North] plane.
+ */
+export function isPointInPolygonXZ(ptXZ, polygonXZ) {
+  if (!Array.isArray(polygonXZ) || polygonXZ.length < 3) return false;
+  const px = ptXZ[0];
+  const pz = ptXZ[1];
+  let inside = false;
+  for (let i = 0, j = polygonXZ.length - 1; i < polygonXZ.length; j = i++) {
+    const xi = polygonXZ[i][0], zi = polygonXZ[i][1];
+    const xj = polygonXZ[j][0], zj = polygonXZ[j][1];
+    const intersect = ((zi > pz) !== (zj > pz)) &&
+      (px < ((xj - xi) * (pz - zi)) / ((zj - zi) || 1e-12) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+/**
+ * Check whether closed segments A(a1->a2) and B(b1->b2) intersect in 2D XZ plane.
+ */
+export function doSegmentsIntersectXZ(a1, a2, b1, b2) {
+  const ccw = (p1, p2, p3) => (p3[1] - p1[1]) * (p2[0] - p1[0]) > (p2[1] - p1[1]) * (p3[0] - p1[0]);
+  return (ccw(a1, b1, b2) !== ccw(a2, b1, b2)) && (ccw(a1, a2, b1) !== ccw(a1, a2, b2));
+}
+
+/**
+ * Determine whether a 3D edge polyline intersects or enters a horizontal XZ hazard polygon.
+ */
+export function doesEdgeIntersectPolygonXZ(edgePoints3D, polygonXZ) {
+  if (!Array.isArray(edgePoints3D) || edgePoints3D.length === 0 || !Array.isArray(polygonXZ) || polygonXZ.length < 3) {
+    return false;
+  }
+  const ptsXZ = edgePoints3D.map(p => (p.length >= 3 ? [p[0], p[2]] : [p[0], p[1]]));
+
+  for (const pt of ptsXZ) {
+    if (isPointInPolygonXZ(pt, polygonXZ)) return true;
+  }
+
+  const nPoly = polygonXZ.length;
+  for (let i = 0; i < ptsXZ.length - 1; i++) {
+    const a1 = ptsXZ[i];
+    const a2 = ptsXZ[i + 1];
+    for (let k = 0; k < nPoly; k++) {
+      const b1 = polygonXZ[k];
+      const b2 = polygonXZ[(k + 1) % nPoly];
+      if (doSegmentsIntersectXZ(a1, a2, b1, b2)) return true;
+    }
+  }
+  return false;
+}
+
 export class PedestrianRoutingEngine {
   /**
    * @param {Object} [options]
@@ -46,6 +98,9 @@ export class PedestrianRoutingEngine {
 
     // Dynamic Link State Registry: edgeId -> LinkStateRecord
     this.linkStates = new Map();
+
+    // Dynamic Hazard Avoidance Polygons Registry (Tier 2.1)
+    this.avoidPolygons = new Map();
 
     // Legacy sets maintained for backward compatibility
     this.blockedNodes = new Set();
@@ -68,6 +123,7 @@ export class PedestrianRoutingEngine {
     this.nodes.clear();
     this.edges.clear();
     this.linkStates.clear();
+    this.avoidPolygons.clear();
     this.blockedNodes.clear();
     this.blockedEdges.clear();
     this.initializeDefaultCampusGraph();
@@ -320,8 +376,51 @@ export class PedestrianRoutingEngine {
    */
   resetAllLinkStates() {
     this.linkStates.clear();
+    this.avoidPolygons.clear();
     this.blockedEdges.clear();
     this.blockedNodes.clear();
+  }
+
+  /**
+   * Register a spatial hazard avoidance polygon (`avoid_polygons` pattern).
+   * Accepts `polygonXZ` ([[x, z], ...]) or `polygonEN` ([[east_m, north_m], ...]).
+   */
+  addAvoidPolygon(polyDef = {}) {
+    if (!polyDef.id) {
+      throw new Error('[PedestrianRoutingEngine] Avoid polygon requires an id.');
+    }
+    let polygonXZ = polyDef.polygonXZ;
+    if ((!polygonXZ || polygonXZ.length < 3) && Array.isArray(polyDef.polygonEN)) {
+      polygonXZ = polyDef.polygonEN.map(([e, n]) => [e, -n]);
+    }
+    if (!Array.isArray(polygonXZ) || polygonXZ.length < 3) {
+      throw new Error('[PedestrianRoutingEngine] Avoid polygon requires at least 3 vertices.');
+    }
+
+    const record = Object.freeze({
+      id: polyDef.id,
+      name: polyDef.name || polyDef.id,
+      mode: polyDef.mode === 'PENALIZE' ? 'PENALIZE' : 'BLOCK',
+      polygonXZ: Object.freeze(polygonXZ.map(pt => Object.freeze([pt[0], pt[1]]))),
+      exemptEdgeIds: Object.freeze([...(polyDef.exemptEdgeIds || [])]),
+      allowStartPortalEscape: polyDef.allowStartPortalEscape ?? true,
+      provenance: polyDef.provenance || VERIFICATION_STATUS.PROVISIONAL,
+      detail: polyDef.detail || ''
+    });
+    this.avoidPolygons.set(record.id, record);
+    return record;
+  }
+
+  removeAvoidPolygon(polyId) {
+    return this.avoidPolygons.delete(polyId);
+  }
+
+  clearAvoidPolygons() {
+    this.avoidPolygons.clear();
+  }
+
+  getAvoidPolygons() {
+    return [...this.avoidPolygons.values()];
   }
 
   // --------------------------------------------------------------------------
@@ -357,6 +456,7 @@ export class PedestrianRoutingEngine {
 
     const dynamicBlockedNodes = new Set([...this.blockedNodes, ...(options.blockedNodes || [])]);
     const dynamicBlockedEdges = new Set([...this.blockedEdges, ...(options.blockedEdges || [])]);
+    const activeAvoidPolygons = [...this.avoidPolygons.values(), ...(options.avoidPolygons || [])];
 
     const dist = new Map();
     const prev = new Map();
@@ -390,18 +490,57 @@ export class PedestrianRoutingEngine {
         // 2. Check Stair / Mobility Constraints
         if (excludeStairs && edge.hasStairs) continue;
 
-        // 3. Compute Effective Search Heuristic Cost
+        // 3. Compute Effective Search Heuristic Cost (including dynamic avoid_polygons)
         let costMultiplier = 1.0;
         let additivePenalty = 0.0;
+        let intersectedAvoidPoly = null;
+
+        if (activeAvoidPolygons.length > 0) {
+          let edgePts = edge.waypoints;
+          if (!Array.isArray(edgePts) || edgePts.length === 0) {
+            const uPos = this.nodes.get(u)?.localPos;
+            const vPos = this.nodes.get(v)?.localPos;
+            edgePts = [];
+            if (uPos) edgePts.push(uPos);
+            if (vPos) edgePts.push(vPos);
+          }
+
+          const defaultExitId = this.facility?.defaultExitNodeId;
+          const defaultOutdoorEgressId = this.facility?.defaultOutdoorEgressNodeId;
+          let polyBlocked = false;
+          for (const poly of activeAvoidPolygons) {
+            const isStartPortalEdge =
+              edge.highway === 'portal_connector' ||
+              u === startNodeId ||
+              (defaultExitId && u === defaultExitId) ||
+              (defaultOutdoorEgressId && u === defaultOutdoorEgressId);
+            const isExempt = (poly.exemptEdgeIds || []).includes(edge.edgeId) ||
+              (poly.allowStartPortalEscape !== false && isStartPortalEdge);
+            if (isExempt) continue;
+
+            if (doesEdgeIntersectPolygonXZ(edgePts, poly.polygonXZ)) {
+              if (poly.mode === 'BLOCK') {
+                polyBlocked = true;
+                break;
+              } else {
+                intersectedAvoidPoly = poly;
+                costMultiplier = Math.max(costMultiplier, 2.2);
+                additivePenalty += 220.0;
+              }
+            }
+          }
+          if (polyBlocked) continue;
+        }
+
         if (linkRec.state === LINK_STATE.SUSPECTED) {
           // Empirical heuristic search penalty (NOT a physical risk probability)
           // Prefers clean alternatives (such as the +117.2m detour) when available
-          costMultiplier = 2.0;
-          additivePenalty = 200.0;
+          costMultiplier = Math.max(costMultiplier, 2.0);
+          additivePenalty += 200.0;
         } else if (linkRec.state === LINK_STATE.UNKNOWN) {
           // UNKNOWN is not assumed open; empirical heuristic to prefer verified open links
-          costMultiplier = 1.5;
-          additivePenalty = 50.0;
+          costMultiplier = Math.max(costMultiplier, 1.5);
+          additivePenalty += 50.0;
         }
 
         const edgeWeight = edge.distance * costMultiplier + additivePenalty;
@@ -410,7 +549,7 @@ export class PedestrianRoutingEngine {
 
         if (!dist.has(v) || newDist < dist.get(v)) {
           dist.set(v, newDist);
-          prev.set(v, { from: u, edge, linkRec });
+          prev.set(v, { from: u, edge, linkRec, intersectedAvoidPoly });
           queue.push({ id: v, cost: newDist });
         }
       }
@@ -470,6 +609,10 @@ export class PedestrianRoutingEngine {
         traversedUnknown = true;
         unverifiedSegments.push(step.edge.edgeId);
         hazardAlerts.push(`주의: 산출 경로 구간 [${step.edge.edgeId}]은 현장 안전이 미확인된 구간(UNKNOWN)입니다. 안전을 확신하지 말고 육안 확인 후 통행하십시오.`);
+      }
+      if (step.intersectedAvoidPoly) {
+        traversedSuspected = true;
+        hazardAlerts.push(`경고: 산출 경로가 위험 주의 폴리곤 [${step.intersectedAvoidPoly.name}]과 교차합니다.`);
       }
 
       curr = step.from;

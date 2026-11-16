@@ -252,6 +252,12 @@
       <button class="ctrl-btn" id="btn-t110">T+110s 여진 차단</button>
     </div>
     <div class="btn-group">
+      <button class="ctrl-btn active" id="btn-fac-212">212동 제1공학관</button>
+      <button class="ctrl-btn" id="btn-fac-hit">701동 HIT</button>
+      <button class="ctrl-btn" id="btn-fac-paiknam">104동 백남학술관</button>
+      <button class="ctrl-btn" id="btn-hazard-poly-toggle" title="동적 위험구역 폴리곤(avoid_polygons) 회피 라우팅 전환">위험폴리곤 회피</button>
+    </div>
+    <div class="btn-group">
       <button class="ctrl-btn" id="btn-xray-toggle" title="실내/건물 검사 시 주변 건물 반투명 X-Ray 전환">X-Ray 투시</button>
       <button class="ctrl-btn" id="btn-eco-toggle" title="저사양/교육용 Eco 모드 (높이 우선 LOD + 라벨 쓰로틀링)">Eco 60fps</button>
       <a class="ctrl-btn" id="link-return-global" href="./index.html" style="text-decoration:none;">← 글로벌 지구본</a>
@@ -285,7 +291,7 @@
     import { GlobalLocalCameraTransition, CAMERA_STAGES, TRANSITION_STATUS } from './js/response/GlobalLocalCameraTransition.js';
     import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
     import { PedestrianRoutingEngine, LINK_STATE } from './js/response/PedestrianRoutingEngine.js';
-    import { DATA_PROVENANCE_SOURCE, DEFAULT_HANYANG_FACILITY_PACKAGE } from './js/response/HanyangBuildingData.js';
+    import { DATA_PROVENANCE_SOURCE, DEFAULT_HANYANG_FACILITY_PACKAGE, getFacilityPackageById } from './js/response/HanyangBuildingData.js';
     import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
     import { HANYANG_LOCAL_4KM_PACKAGE, HANYANG_LOCAL_SPATIAL_VIEWPOINTS } from './js/response/HanyangLocalSpatialData.js';
     import { LocalSpatialMapLayer, samplePointAlong3D } from './js/response/LocalSpatialMapLayer.js';
@@ -440,7 +446,7 @@
           buildingId: 'BLDG_212_ENG1',
           floor: 3,
           room: 'ROOM_301',
-          certainty: LOCATION_CERTAINTY.EXACT_ROOM
+          certainty: LOCATION_CERTAINTY.MANUAL_EXACT
         });
         uiAdapter.updateStationMotion(0.22, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
       } else if (tSec === 40) {
@@ -515,6 +521,67 @@
       syncUtilityButtons();
     });
 
+    // Multi-Facility Switcher (Tier 2.4) & Hazard Avoid Polygon Toggle (Tier 2.1)
+    let activeFacilityId = 'BLDG_212_ENG1';
+    let hazardPolyActive = false;
+
+    function switchFacilityPackage(facilityId) {
+      const pkg = getFacilityPackageById(facilityId);
+      activeFacilityId = pkg.buildingMetadata?.id || facilityId;
+      uiAdapter.setFacilityPackage(pkg);
+      camTransition.setFacilityViewpoints({
+        ...pkg.cameraViewpoints,
+        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH
+      });
+
+      document.querySelectorAll('#btn-fac-212, #btn-fac-hit, #btn-fac-paiknam').forEach(b => b.classList.remove('active'));
+      if (activeFacilityId === 'BLDG_701_HIT') document.getElementById('btn-fac-hit').classList.add('active');
+      else if (activeFacilityId === 'BLDG_104_PAIKNAM') document.getElementById('btn-fac-paiknam').classList.add('active');
+      else document.getElementById('btn-fac-212').classList.add('active');
+
+      const unitNo = pkg.buildingMetadata?.unitNumber || '212';
+      const fl = pkg.defaultFloor ?? 3;
+      const room = pkg.defaultRoomId || 'ROOM_301';
+      document.getElementById('bc-bldg').textContent = `Bldg ${unitNo}`;
+      document.getElementById('bc-personal').textContent = `${fl}F ${room}`;
+
+      setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION);
+      renderUI();
+      return activeFacilityId;
+    }
+
+    function toggleHazardAvoidPolygon(forceState) {
+      hazardPolyActive = (typeof forceState === 'boolean') ? forceState : !hazardPolyActive;
+      document.getElementById('btn-hazard-poly-toggle').classList.toggle('active', hazardPolyActive);
+
+      if (hazardPolyActive) {
+        const facadeCautionPoly = {
+          id: 'HAZARD_POLY_STAIR_CORRIDOR',
+          name: '동측 외벽·계단 낙하물 주의 구역 (PROVISIONAL)',
+          mode: 'BLOCK',
+          polygonXZ: [
+            [82, -40],
+            [165, -40],
+            [165, 62],
+            [82, 62]
+          ],
+          exemptEdgeIds: ['NODE_EXIT_1F_SE->OSM_NODE_6415394841']
+        };
+        uiAdapter.addAvoidPolygon(facadeCautionPoly);
+        localSpatialLayer.setHazardAvoidPolygons(uiAdapter.getAvoidPolygons());
+      } else {
+        uiAdapter.clearAvoidPolygons();
+        localSpatialLayer.setHazardAvoidPolygons([]);
+      }
+      renderUI();
+      return hazardPolyActive;
+    }
+
+    document.getElementById('btn-fac-212').addEventListener('click', () => switchFacilityPackage('BLDG_212_ENG1'));
+    document.getElementById('btn-fac-hit').addEventListener('click', () => switchFacilityPackage('BLDG_701_HIT'));
+    document.getElementById('btn-fac-paiknam').addEventListener('click', () => switchFacilityPackage('BLDG_104_PAIKNAM'));
+    document.getElementById('btn-hazard-poly-toggle').addEventListener('click', () => toggleHazardAvoidPolygon());
+
     // Handle viewStage URL parameter
     if (viewStage === 'earth') {
       setCameraStage(CAMERA_STAGES.GLOBAL_ORBIT);
@@ -574,6 +641,7 @@
         routePulseMarker.position.set(sampled.point[0], sampled.point[1] + 1.5, sampled.point[2]);
       }
 
+      localSpatialLayer.updateSpatialChunks(camera);
       localSpatialLayer.updateOverlayLabels(camera, labelContainer);
       renderer.render(scene, camera);
     }
@@ -588,9 +656,13 @@
 
     window.__setCameraStage = setCameraStage;
     window.__applyTimelineStep = applyTimelineStep;
+    window.__switchFacilityPackage = switchFacilityPackage;
+    window.__toggleHazardPolygon = toggleHazardAvoidPolygon;
     window.__localSpatialLayer = localSpatialLayer;
     window.__getSpatialDiagnostics = () => ({
       ...localSpatialLayer.getLayerDiagnostics(),
+      activeFacilityId,
+      hazardPolyActive,
       canMove: uiAdapter.lastGuidance?.canMove ?? null,
       routeMode: hanyangAdapter.config.activeRoute,
       renderCalls: renderer.info?.render?.calls ?? 0,

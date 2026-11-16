@@ -132,6 +132,53 @@ export class ResponseUIAdapter {
     return this.reassess();
   }
 
+  /**
+   * Register a spatial hazard avoidance polygon (Tier 2.1).
+   */
+  addAvoidPolygon(polyDef) {
+    const rec = this.router.addAvoidPolygon(polyDef);
+    this.reassess();
+    return rec;
+  }
+
+  removeAvoidPolygon(polyId) {
+    const removed = this.router.removeAvoidPolygon(polyId);
+    this.reassess();
+    return removed;
+  }
+
+  clearAvoidPolygons() {
+    this.router.clearAvoidPolygons();
+    return this.reassess();
+  }
+
+  getAvoidPolygons() {
+    return this.router.getAvoidPolygons();
+  }
+
+  /**
+   * Switch active FacilityPackage across router, 3D adapter, and user location context (Tier 2.4).
+   */
+  setFacilityPackage(facilityPackage) {
+    if (!facilityPackage) {
+      throw new Error('[ResponseUIAdapter] facilityPackage is required.');
+    }
+    this.facility = facilityPackage;
+    if (typeof this.router?.loadFacilityPackage === 'function') {
+      this.router.loadFacilityPackage(facilityPackage);
+    }
+    if (this.hanyangAdapter && typeof this.hanyangAdapter.setFacilityPackage === 'function') {
+      this.hanyangAdapter.setFacilityPackage(facilityPackage);
+    }
+    const meta = facilityPackage.buildingMetadata || {};
+    this.context.user.buildingId = meta.id || 'FACILITY';
+    this.context.user.floor = facilityPackage.defaultFloor ?? 3;
+    this.context.user.room = facilityPackage.defaultRoomId || 'ROOM_301';
+    this.context.user.locationType = 'INDOOR';
+    this.context.user.locationCertainty = LOCATION_CERTAINTY.MANUAL_EXACT;
+    return this.reassess();
+  }
+
   // --------------------------------------------------------------------------
   // CONTEXT MUTATION METHODS
   // --------------------------------------------------------------------------

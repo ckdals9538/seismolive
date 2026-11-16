@@ -1639,10 +1639,22 @@ export class UnifiedControlSurface {
         const container = document.getElementById('tab-pane-inst-geophysics');
         if (!container) return;
         const depth = (depthKm != null && !isNaN(depthKm)) ? Math.max(1, depthKm) : 10.0;
-        container.innerHTML = renderGeophysicsFolioHTML(depth);
-        initTravelTimeInteractiveProbe(container, depth, (dist, xCrit, xCross) => {
-          this.appContext.setGeophysics3DProbe(dist, xCrit, xCross);
-        });
+        const usgsDetailJson = ev?.usgsDetailJson || ev?.rawUsgsFeature || null;
+        container.innerHTML = renderGeophysicsFolioHTML(depth, { usgsDetailJson });
+        initTravelTimeInteractiveProbe(
+          container,
+          depth,
+          (dist, xCrit, xCross) => {
+            this.appContext.setGeophysics3DProbe(dist, xCrit, xCross);
+          },
+          {
+            waveformSamples: ev?.stationWaveformSamples || null,
+            sampleRateHz: ev?.stationSampleRateHz || 100,
+            onAudifyTrigger: (samples, sr) => {
+              this.appContext.soundfield?.playAudifiedWaveform?.(samples, sr)?.catch(() => {});
+            }
+          }
+        );
       }
 
       updatePerformanceHeader(ev) {

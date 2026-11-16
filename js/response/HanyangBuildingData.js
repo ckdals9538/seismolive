@@ -573,3 +573,287 @@ export const DEFAULT_HANYANG_FACILITY_PACKAGE = Object.freeze({
     })
   })
 });
+
+/**
+ * Shared factory to construct strictly provenance-tagged campus FacilityPackages
+ * without duplicating routing/adapter boilerplate (Tier 2.4).
+ */
+function createCampusFacilityPackage({
+  packageId,
+  buildingId,
+  name,
+  unitNumber,
+  centerX,
+  centerZ,
+  halfW,
+  halfD,
+  totalLevels = 5,
+  defaultFloor = 3,
+  floorHeightMeters = 3.6,
+  roomName = `${defaultFloor}01호 세미나실 (잠정)`,
+  shortestLenMeters = 520.0,
+  stepFreeLenMeters = 640.0
+}) {
+  const footprint = Object.freeze([
+    Object.freeze([centerX - halfW, centerZ - halfD]),
+    Object.freeze([centerX + halfW, centerZ - halfD]),
+    Object.freeze([centerX + halfW, centerZ + halfD]),
+    Object.freeze([centerX - halfW, centerZ + halfD]),
+    Object.freeze([centerX - halfW, centerZ - halfD])
+  ]);
+
+  const targetY = (defaultFloor - 1) * floorHeightMeters;
+  const exitX = centerX + halfW;
+  const exitZ = centerZ + halfD * 0.5;
+  const footwayX = exitX + 4.5;
+  const footwayZ = exitZ + 2.0;
+
+  const roomId = `ROOM_${defaultFloor}01`;
+  const roomNodeId = `NODE_${roomId}`;
+  const stairTopId = `NODE_STAIR_${defaultFloor}F_SE`;
+  const stairBotId = 'NODE_STAIR_1F_SE';
+  const exitNodeId = 'NODE_EXIT_1F_SE';
+  const outdoorEgressId = `${buildingId}_OUTDOOR_EGRESS`;
+  const outdoorMidStairId = `${buildingId}_MID_STAIR`;
+  const outdoorMidRampId = `${buildingId}_MID_RAMP`;
+  const stadiumIngressId = HANYANG_OUTDOOR_GRAPH.targetNodeId;
+
+  const indoorGraphs = Object.freeze({
+    [defaultFloor]: Object.freeze({
+      floorId: `FLOOR_${defaultFloor}F`,
+      levelIndex: defaultFloor,
+      elevationOffsetMeters: targetY,
+      provenance: VERIFICATION_STATUS.PROVISIONAL,
+      rooms: Object.freeze([
+        {
+          roomId,
+          name: roomName,
+          type: 'SEMINAR_HALL',
+          centerLocalPos: Object.freeze([centerX - halfW * 0.35, targetY, centerZ]),
+          nodeId: roomNodeId,
+          provenance: VERIFICATION_STATUS.PROVISIONAL
+        }
+      ]),
+      stairwells: Object.freeze([
+        {
+          stairwellId: `STAIRWELL_${defaultFloor}F_SE`,
+          name: '남동측 피난계단실 (PROVISIONAL)',
+          landingNodeId: stairTopId,
+          localPos: Object.freeze([exitX - 3.0, targetY, exitZ]),
+          provenance: VERIFICATION_STATUS.PROVISIONAL
+        }
+      ])
+    }),
+    1: Object.freeze({
+      floorId: 'FLOOR_1F',
+      levelIndex: 1,
+      elevationOffsetMeters: 0.0,
+      provenance: VERIFICATION_STATUS.PROVISIONAL,
+      stairwells: Object.freeze([
+        {
+          stairwellId: 'STAIRWELL_1F_SE',
+          landingNodeId: stairBotId,
+          localPos: Object.freeze([exitX - 3.0, 0.0, exitZ]),
+          provenance: VERIFICATION_STATUS.PROVISIONAL
+        }
+      ]),
+      exits: Object.freeze([
+        {
+          exitId: 'EXIT_1F_SE',
+          name: '1층 남동측 주 출구 (잠정)',
+          portalNodeId: exitNodeId,
+          localPos: Object.freeze([exitX, 0.0, exitZ]),
+          provenance: VERIFICATION_STATUS.PROVISIONAL
+        }
+      ])
+    })
+  });
+
+  const indoorEdges = Object.freeze([
+    { source: roomNodeId, target: stairTopId, distance: Number((halfW * 1.1).toFixed(1)), hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_PROVISIONAL' },
+    { source: stairTopId, target: stairBotId, distance: Number(((defaultFloor - 1) * 8.4).toFixed(1)), hasStairs: true, isWheelchairPassable: false, edgeType: 'VERTICAL_STAIR_DESCENT' },
+    { source: stairBotId, target: exitNodeId, distance: 4.5, hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_TO_EXIT' }
+  ]);
+
+  const outdoorGraph = Object.freeze({
+    egressNodeId: outdoorEgressId,
+    targetNodeId: stadiumIngressId,
+    nodes: Object.freeze([
+      { id: outdoorEgressId, name: `${name} 외부 보행 접속점`, localPos: Object.freeze([footwayX, -0.5, footwayZ]) },
+      { id: outdoorMidStairId, name: '직선 계단 경유점', localPos: Object.freeze([(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0]) },
+      { id: outdoorMidRampId, name: '완경사 우회 경유점', localPos: Object.freeze([footwayX - 35.0, -7.5, 165.0]) },
+      { id: stadiumIngressId, name: 'Stadium Ingress Perimeter', localPos: Object.freeze([226.75, -13.50, 218.17]) }
+    ]),
+    edges: Object.freeze([
+      {
+        edgeId: `${outdoorEgressId}->${outdoorMidStairId}`,
+        source: outdoorEgressId,
+        target: outdoorMidStairId,
+        distance: Number((shortestLenMeters * 0.48).toFixed(1)),
+        hasStairs: true,
+        isWheelchairPassable: false,
+        highway: 'steps',
+        branch: 'SHORTEST',
+        waypoints: Object.freeze([[footwayX, -0.5, footwayZ], [(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0]])
+      },
+      {
+        edgeId: `${outdoorMidStairId}->${stadiumIngressId}`,
+        source: outdoorMidStairId,
+        target: stadiumIngressId,
+        distance: Number((shortestLenMeters * 0.52).toFixed(1)),
+        hasStairs: false,
+        isWheelchairPassable: true,
+        highway: 'footway',
+        branch: 'SHORTEST',
+        waypoints: Object.freeze([[(footwayX + 226.75) * 0.5, -7.0, (footwayZ + 218.17) * 0.5 - 12.0], [226.75, -13.50, 218.17]])
+      },
+      {
+        edgeId: `${outdoorEgressId}->${outdoorMidRampId}`,
+        source: outdoorEgressId,
+        target: outdoorMidRampId,
+        distance: Number((stepFreeLenMeters * 0.46).toFixed(1)),
+        hasStairs: false,
+        isWheelchairPassable: true,
+        highway: 'footway',
+        branch: 'STEP_FREE',
+        waypoints: Object.freeze([[footwayX, -0.5, footwayZ], [footwayX - 35.0, -7.5, 165.0]])
+      },
+      {
+        edgeId: `${outdoorMidRampId}->${stadiumIngressId}`,
+        source: outdoorMidRampId,
+        target: stadiumIngressId,
+        distance: Number((stepFreeLenMeters * 0.54).toFixed(1)),
+        hasStairs: false,
+        isWheelchairPassable: true,
+        highway: 'footway',
+        branch: 'STEP_FREE',
+        waypoints: Object.freeze([[footwayX - 35.0, -7.5, 165.0], [226.75, -13.50, 218.17]])
+      }
+    ])
+  });
+
+  return Object.freeze({
+    packageId,
+    anchor: DEFAULT_HANYANG_FACILITY_PACKAGE.anchor,
+    buildingMetadata: Object.freeze({
+      id: buildingId,
+      name,
+      unitNumber,
+      structureType: '철근콘크리트구조 (프로파일 추정치)',
+      levels: Object.freeze({ aboveGround: totalLevels, underground: 0 }),
+      anchorCoordinates: DEFAULT_HANYANG_FACILITY_PACKAGE.buildingMetadata.anchorCoordinates,
+      provenance: VERIFICATION_STATUS.PARTIALLY_VERIFIED
+    }),
+    footprintMeters: footprint,
+    floorHeightMeters,
+    totalLevels,
+    defaultFloor,
+    defaultRoomId: roomId,
+    defaultRoomNodeId: roomNodeId,
+    defaultExitNodeId: exitNodeId,
+    defaultOutdoorEgressNodeId: outdoorEgressId,
+    defaultOutdoorTargetNodeId: stadiumIngressId,
+    indoorGraphs,
+    indoorEdges,
+    connector: Object.freeze({
+      connectorId: `CONN_${buildingId}_1F_SE_EXIT`,
+      source: exitNodeId,
+      target: outdoorEgressId,
+      distance: 4.5,
+      hasStairs: false,
+      isWheelchairPassable: false,
+      doorPos: Object.freeze([exitX, 0.0, exitZ]),
+      footwayPos: Object.freeze([footwayX, -0.5, footwayZ]),
+      stairCoreCorner: Object.freeze([exitX - 3.0, exitZ]),
+      stairCoreSize: Object.freeze({ width: 4.0, depth: 5.0 })
+    }),
+    outdoorGraph,
+    shelter: DEFAULT_HANYANG_FACILITY_PACKAGE.shelter,
+    routeBaselines: Object.freeze({
+      PATH_SHORTEST_RAPID: Object.freeze({
+        name: `${unitNumber}동 최단 대피 경로 (잠정)`,
+        targetLengthMeters: shortestLenMeters,
+        hasStairs: true,
+        isWheelchairPassable: false,
+        provenance: VERIFICATION_STATUS.PROVISIONAL
+      }),
+      PATH_STEP_FREE_DETOUR: Object.freeze({
+        name: `${unitNumber}동 무단차 우회 경로 (잠정)`,
+        targetLengthMeters: stepFreeLenMeters,
+        hasStairs: false,
+        isWheelchairPassable: true,
+        provenance: VERIFICATION_STATUS.PROVISIONAL
+      })
+    }),
+    routeDisplayNames: Object.freeze({
+      shortestLineName: `Path_Shortest_${buildingId}`,
+      stepFreeLineName: `Path_StepFree_${buildingId}`,
+      stairHazardsName: `Stairs_Hazard_${buildingId}`,
+      connectorLineName: `Connector_1F_SE_${buildingId}`,
+      shelterTrackName: 'Stadium_Track_Outline',
+      shelterPitchName: 'Stadium_Pitch_Safe_Zone',
+      interiorGroupName: `Interior_${defaultFloor}F_Provisional`
+    }),
+    cameraViewpoints: Object.freeze({
+      GLOBAL_ORBIT: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.GLOBAL_ORBIT,
+      REGIONAL_APPROACH: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.REGIONAL_APPROACH,
+      CAMPUS_OVERVIEW: DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints.CAMPUS_OVERVIEW,
+      BUILDING_INSPECTION: Object.freeze({
+        position: Object.freeze([centerX + 85.0, 68.0, centerZ + 65.0]),
+        target: Object.freeze([centerX, targetY, centerZ]),
+        near: 0.1,
+        far: 1200.0,
+        description: `${name} 엑소노메트릭 상세: ${defaultFloor}층 피난 평면 (PROVISIONAL)`
+      }),
+      PERSONAL_LOCATION: Object.freeze({
+        position: Object.freeze([exitX + 26.0, Math.max(24.0, targetY + 18.0), exitZ + 22.0]),
+        target: Object.freeze([exitX - 6.0, targetY, exitZ]),
+        near: 0.05,
+        far: 900.0,
+        description: `${name} ${defaultFloor}층 ${roomId} 개인화 대응 위치 (PROVISIONAL)`
+      })
+    })
+  });
+}
+
+export const HANYANG_HIT_FACILITY_PACKAGE = createCampusFacilityPackage({
+  packageId: 'FACILITY_HANYANG_HIT_701',
+  buildingId: 'BLDG_701_HIT',
+  name: '한양종합기술연구원 (HIT · 701동)',
+  unitNumber: '701',
+  centerX: -95.0,
+  centerZ: -210.0, // north_m = +210 -> Three.js Z = -210
+  halfW: 28.0,
+  halfD: 19.0,
+  totalLevels: 6,
+  defaultFloor: 4,
+  roomName: '401호 연구실 (PROVISIONAL)',
+  shortestLenMeters: 545.0,
+  stepFreeLenMeters: 675.0
+});
+
+export const HANYANG_PAIKNAM_FACILITY_PACKAGE = createCampusFacilityPackage({
+  packageId: 'FACILITY_HANYANG_PAIKNAM_104',
+  buildingId: 'BLDG_104_PAIKNAM',
+  name: '백남학술정보관 (104동)',
+  unitNumber: '104',
+  centerX: -35.0,
+  centerZ: 75.0, // north_m = -75 -> Three.js Z = +75
+  halfW: 25.0,
+  halfD: 17.0,
+  totalLevels: 5,
+  defaultFloor: 3,
+  roomName: '301호 열람실 (PROVISIONAL)',
+  shortestLenMeters: 315.0,
+  stepFreeLenMeters: 398.0
+});
+
+export const FACILITY_PACKAGE_REGISTRY = Object.freeze({
+  BLDG_212_ENG1: DEFAULT_HANYANG_FACILITY_PACKAGE,
+  BLDG_701_HIT: HANYANG_HIT_FACILITY_PACKAGE,
+  BLDG_104_PAIKNAM: HANYANG_PAIKNAM_FACILITY_PACKAGE
+});
+
+export function getFacilityPackageById(facilityId) {
+  return FACILITY_PACKAGE_REGISTRY[facilityId] || DEFAULT_HANYANG_FACILITY_PACKAGE;
+}

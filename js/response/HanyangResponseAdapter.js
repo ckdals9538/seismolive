@@ -662,6 +662,53 @@ export class HanyangResponseAdapter {
   }
 
   /**
+   * Hot-swap the active FacilityPackage at runtime (Tier 2.4 Multi-Building Switcher)
+   * without leaving stale Three.js geometries/materials in memory.
+   */
+  setFacilityPackage(facilityPackage) {
+    if (!facilityPackage) {
+      throw new Error('[HanyangResponseAdapter] facilityPackage is required.');
+    }
+
+    // Dispose prior child meshes and clear rootGroup cleanly
+    while (this.rootGroup.children.length > 0) {
+      this.rootGroup.remove(this.rootGroup.children[0]);
+    }
+    this.disposables.forEach(item => {
+      if (item && typeof item.dispose === 'function') item.dispose();
+    });
+    this.disposables.length = 0;
+    this.floorGroups.clear();
+
+    this.facility = facilityPackage;
+    this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
+    if (typeof this.router?.loadFacilityPackage === 'function') {
+      this.router.loadFacilityPackage(this.facility);
+    }
+
+    const bldgMeta = this.facility.buildingMetadata || {};
+    const bldgId = bldgMeta.id || 'FACILITY';
+    this.rootGroup.name = bldgId === 'BLDG_212_ENG1' ? 'HanyangBldg212_ResponseRoot' : `${bldgId}_ResponseRoot`;
+    this.config.floorHeightMeters = this.facility.floorHeightMeters ?? 3.6;
+    this.config.totalLevels = bldgMeta.levels?.aboveGround ?? this.facility.totalLevels ?? 5;
+    this.config.selectedFloor = this.facility.defaultFloor ?? 3;
+
+    this.routePolylines = { SHORTEST: [], STEP_FREE: [] };
+    this.pathGroup = new THREE.Group();
+    this.pathGroup.name = 'PedestrianPathsGroup';
+    this.shelterGroup = new THREE.Group();
+    this.shelterGroup.name = 'ShelterGroup';
+    this.rootGroup.add(this.pathGroup);
+    this.rootGroup.add(this.shelterGroup);
+
+    this.buildBuildingStructure();
+    this.buildPedestrianPaths();
+    this.buildShelterRepresentation();
+    this.highlightFloor(this.config.selectedFloor);
+    this.setRouteDisplay(this.config.activeRoute || 'ALL');
+  }
+
+  /**
    * Complete memory cleanup.
    */
   dispose() {

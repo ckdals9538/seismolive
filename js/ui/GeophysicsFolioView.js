@@ -6,6 +6,33 @@
 // ============================================================================
 
 import { computeTravelTimeParams } from '../geophysics/TravelTimeSolvers.js';
+import { synthesizeDualBandAudifiedSamples } from '../audio/livingSoundfieldEngine.js';
+import { extractOfficialUsgsProducts, USGS_PRODUCT_STATUS } from '../data/UsgsOfficialProductsBridge.js';
+
+/**
+ * Deterministic P + S + Rayleigh synthetic waveform packet for classroom demonstration
+ * when no real SAC trace is attached (explicitly labeled synthetic).
+ */
+export function buildDemoAudificationWaveform(depthKm = 10.0, sampleRateHz = 100, durationSec = 16) {
+  const n = Math.max(2, Math.floor(sampleRateHz * durationSec));
+  const samples = new Float32Array(n);
+  const tP = 1.5;
+  const tS = Math.min(durationSec * 0.55, tP + Math.max(1.2, depthKm * 0.18));
+  const tR = Math.min(durationSec * 0.72, tS + 1.8);
+
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRateHz;
+    const pEnv = Math.exp(-Math.pow((t - tP) / 0.7, 2)) * (t >= tP - 0.5 ? 1 : 0);
+    const sEnv = Math.exp(-Math.pow((t - tS) / 1.1, 2)) * (t >= tS - 0.8 ? 1 : 0);
+    const rEnv = Math.exp(-Math.pow((t - tR) / 2.6, 2)) * (t >= tR - 1.2 ? 1 : 0);
+
+    const pSig = 0.7e-4 * Math.sin(2 * Math.PI * 3.8 * (t - tP)) * pEnv;
+    const sSig = 1.4e-4 * Math.sin(2 * Math.PI * 1.9 * (t - tS)) * sEnv;
+    const rSig = 2.2e-4 * Math.sin(2 * Math.PI * 0.18 * (t - tR)) * rEnv;
+    samples[i] = pSig + sSig + rSig;
+  }
+  return samples;
+}
 
 export function generateTravelTimeCurveSVG(params, width = 580, height = 155) {
   const { V1, V2, ti, xCrit, xCross, t0 } = params;
@@ -127,9 +154,14 @@ export function generateTravelTimeCurveSVG(params, width = 580, height = 155) {
   `;
 }
 
-export function renderGeophysicsFolioHTML(depthKm = 10.0) {
+export function renderGeophysicsFolioHTML(depthKm = 10.0, options = {}) {
   const p = computeTravelTimeParams(depthKm);
   const svgHtml = generateTravelTimeCurveSVG(p);
+  const official = options.officialProducts || extractOfficialUsgsProducts(options.usgsDetailJson || null);
+
+  const officialSummaryText = official.status === USGS_PRODUCT_STATUS.UNAVAILABLE
+    ? '공식 ShakeMap / OAF 산출물: 미제공 (null 유지 · 경험식 대체 금지)'
+    : `USGS 공식 산출물 검증: ShakeMap ${official.shakemap ? `MMI ${official.shakemap.maxMmi ?? 'N/A'}` : 'null'} · OAF ${official.oaf ? '제공' : 'null'}`;
 
   return `
     <!-- Section 01: P-S Wavefield & Epicentral Triangulation -->
@@ -201,6 +233,22 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0) {
         <div class="eg-item"><span class="eg-tag mod">[모델 가정]</span> <span class="eg-val">1D 평탄 수평 음향 임피던스 경계 및 CMP Fold 중합</span></div>
       </div>
     </div>
+
+    <!-- Section 04: Dual-Band Seismic Audification & Official Products -->
+    <div class="editorial-section">
+      <div class="editorial-sec-header">04 / 이중 대역 지진파 청각화 &amp; 공식 산출물 검증 (AUDIFICATION &amp; OFFICIAL USGS PRODUCTS)</div>
+      <div class="editorial-formula-box" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <button id="btn-audify-waveform" type="button" class="surface-btn secondary compact" style="font-size:11px; padding:5px 10px;">
+            이중 대역 파형 청각화 재생 (0.5Hz 분리 · Arctan 압축)
+          </button>
+          <span id="audify-status-readout" style="font-size:10.5px; color:#8797AC; font-family:'SF Mono', Menlo, monospace;">대기 중 (L: ≥0.5Hz 실체파 가속 | R: &lt;0.5Hz 표면파 VCO FM)</span>
+        </div>
+        <div id="usgs-official-products-strip" style="font-size:10.5px; color:${official.status === USGS_PRODUCT_STATUS.UNAVAILABLE ? '#8797AC' : '#EAE4D5'}; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
+          ${officialSummaryText}
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -210,8 +258,31 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0) {
  * @param {number} depthKm
  * @param {Function|null} [onProbeUpdate=null] - Explicit probe callback(dist, xCrit, xCross)
  */
-export function initTravelTimeInteractiveProbe(container, depthKm = 10.0, onProbeUpdate = null) {
+export function initTravelTimeInteractiveProbe(container, depthKm = 10.0, onProbeUpdate = null, options = {}) {
   if (!container) return;
+
+  // Bind Dual-Band Seismic Audification button even independently of SVG cursor move
+  const btnAudify = container.querySelector('#btn-audify-waveform');
+  const audifyReadout = container.querySelector('#audify-status-readout');
+  if (btnAudify) {
+    btnAudify.addEventListener('click', () => {
+      const sampleRate = options.sampleRateHz || 100;
+      const samples = options.waveformSamples || buildDemoAudificationWaveform(depthKm, sampleRate, 16);
+      const synth = synthesizeDualBandAudifiedSamples(samples, sampleRate, {
+        audioSampleRate: 8000,
+        speedFactor: 60
+      });
+      if (audifyReadout) {
+        audifyReadout.textContent = `청각화 계산 완료 · L(실체파 RMS ${synth.bodyBandRms.toFixed(3)}) | R(표면파 VCO RMS ${synth.surfaceBandRms.toFixed(3)})`;
+      }
+      if (typeof options.onAudifyTrigger === 'function') {
+        options.onAudifyTrigger(samples, sampleRate, synth);
+      } else if (typeof globalThis !== 'undefined' && typeof globalThis.livingSoundfield?.playAudifiedWaveform === 'function') {
+        globalThis.livingSoundfield.playAudifiedWaveform(samples, sampleRate).catch(() => {});
+      }
+    });
+  }
+
   const svg = container.querySelector('.tx-curve-svg');
   if (!svg) return;
 
