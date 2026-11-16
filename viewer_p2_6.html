@@ -59,30 +59,35 @@
     /* Exhibition Control Bar (Top-Right) */
     #exhibition-bar {
       position: absolute;
-      top: 24px;
-      right: 32px;
+      top: 20px;
+      right: 24px;
       z-index: 20;
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 6px;
+      gap: 4px;
     }
     .btn-group {
       display: flex;
-      gap: 5px;
-      background: rgba(10, 14, 22, 0.85);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 4px;
+      background: rgba(6, 10, 18, 0.76);
       border: 1px solid rgba(255, 255, 255, 0.12);
-      padding: 5px 8px;
+      border-radius: 4px;
+      padding: 3px 6px;
+      backdrop-filter: blur(8px);
     }
     .ctrl-btn {
       background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 2px;
       color: #94a3b8;
-      font-size: 10px;
-      letter-spacing: 0.04em;
-      padding: 4px 8px;
+      font-size: 9.5px;
+      letter-spacing: 0.03em;
+      padding: 3px 7px;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.18s ease;
     }
     .ctrl-btn:hover {
       border-color: #e2e8f0;
@@ -98,15 +103,15 @@
     /* Minimal Editorial Guidance Strip (Bottom-Left) */
     #guidance-container {
       position: absolute;
-      bottom: 28px;
-      left: 32px;
-      max-width: 680px;
+      bottom: 24px;
+      left: 28px;
+      max-width: 620px;
       z-index: 10;
       pointer-events: none;
-      background: rgba(2, 4, 8, 0.92);
+      background: rgba(4, 7, 14, 0.82);
       border-left: 2px solid #e2e8f0;
-      padding: 16px 20px;
-      backdrop-filter: blur(8px);
+      padding: 13px 16px;
+      backdrop-filter: blur(10px);
     }
     .guidance-phase {
       font-size: 10px;
@@ -171,7 +176,7 @@
       gap: 16px;
     }
 
-    /* HUD-Avoiding 4km Spatial Overlay Labels (Nocturnal Monolith Typography) */
+    /* HUD-Avoiding 4km Spatial Overlay Labels (Minimal Archival Pins) */
     #spatial-label-layer {
       position: absolute;
       inset: 0;
@@ -186,21 +191,23 @@
       display: none;
       flex-direction: column;
       gap: 1px;
-      padding: 4px 8px;
-      background: rgba(2, 4, 8, 0.86);
-      border: 1px solid rgba(148, 163, 184, 0.28);
+      padding: 3px 7px;
+      background: rgba(5, 9, 18, 0.72);
+      border: 1px solid rgba(148, 163, 184, 0.22);
       border-left: 2px solid #94a3b8;
+      border-radius: 2px;
       color: #f8fafc;
-      font-size: 10px;
+      font-size: 9.5px;
       line-height: 1.25;
       white-space: nowrap;
+      backdrop-filter: blur(4px);
       will-change: transform;
     }
     .spatial-map-label.cat-target_building {
       border-left-color: #f8fafc;
     }
     .spatial-map-label.cat-primary_shelter {
-      border-left-color: #e2e8f0;
+      border-left-color: #38bdf8;
     }
     .spatial-map-label.cat-hazard_context,
     .spatial-map-label.is-provisional {
@@ -210,13 +217,77 @@
     }
     .spatial-map-label .sml-title {
       font-weight: 500;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
       color: #f8fafc;
     }
     .spatial-map-label .sml-sub {
-      font-size: 8.5px;
-      letter-spacing: 0.02em;
+      font-size: 8px;
+      letter-spacing: 0.01em;
       color: #94a3b8;
+    }
+
+    /* Reference Architectural Daylight Theme */
+    body.theme-day {
+      background-color: #e6ede7;
+      color: #1e293b;
+    }
+    body.theme-day #header-overlay .title {
+      color: #0f172a;
+    }
+    body.theme-day #header-overlay .subtitle,
+    body.theme-day .spatial-breadcrumb {
+      color: #475569;
+    }
+    body.theme-day .spatial-step.active {
+      color: #0369a1;
+    }
+    body.theme-day .btn-group {
+      background: rgba(248, 250, 247, 0.88);
+      border-color: rgba(15, 23, 42, 0.14);
+    }
+    body.theme-day .ctrl-btn {
+      border-color: rgba(15, 23, 42, 0.12);
+      color: #334155;
+    }
+    body.theme-day .ctrl-btn:hover {
+      border-color: #0f172a;
+      color: #0f172a;
+    }
+    body.theme-day .ctrl-btn.active {
+      border-color: #0284c7;
+      background: rgba(2, 132, 199, 0.12);
+      color: #0369a1;
+    }
+    body.theme-day #guidance-container {
+      background: rgba(248, 250, 247, 0.90);
+      border-left-color: #0f172a;
+      color: #1e293b;
+    }
+    body.theme-day .guidance-phase,
+    body.theme-day .guidance-meta {
+      color: #475569;
+    }
+    body.theme-day .guidance-headline {
+      color: #0f172a;
+    }
+    body.theme-day .guidance-primary {
+      color: #334155;
+    }
+    body.theme-day #meta-detail,
+    body.theme-day #meta-unverified {
+      color: #475569 !important;
+    }
+    body.theme-day .spatial-map-label {
+      background: rgba(255, 255, 255, 0.88);
+      border-color: rgba(15, 23, 42, 0.18);
+      border-left-color: #475569;
+      color: #0f172a;
+    }
+    body.theme-day .spatial-map-label .sml-title {
+      color: #0f172a;
+    }
+    body.theme-day .spatial-map-label .sml-sub {
+      color: #64748b;
     }
   </style>
 </head>
@@ -259,6 +330,7 @@
     </div>
     <div class="btn-group">
       <button class="ctrl-btn" id="btn-field-audit-toggle" title="P3.1 현장 실측 체크리스트 (F-01~F-06) 점검 상태 보기">P3.1 실측 (0/6)</button>
+      <button class="ctrl-btn" id="btn-theme-toggle" title="야간 모놀리스 ↔ 주간 건축 레퍼런스 테마 전환">테마: 야간 모놀리스</button>
       <button class="ctrl-btn" id="btn-xray-toggle" title="실내/건물 검사 시 주변 건물 반투명 X-Ray 전환">X-Ray 투시</button>
       <button class="ctrl-btn" id="btn-eco-toggle" title="저사양/교육용 Eco 모드 (높이 우선 LOD + 라벨 쓰로틀링)">Eco 60fps</button>
       <a class="ctrl-btn" id="link-return-global" href="./index.html" style="text-decoration:none;">← 글로벌 지구본</a>
@@ -301,6 +373,7 @@
   <!-- Three.js Module Import -->
   <script type="module">
     import * as THREE from './js/lib/three.module.js';
+    import { OrbitControls } from './js/lib/OrbitControls.module.js';
     import { HanyangResponseAdapter } from './js/response/HanyangResponseAdapter.js';
     import { GlobalLocalCameraTransition, CAMERA_STAGES, TRANSITION_STATUS } from './js/response/GlobalLocalCameraTransition.js';
     import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
@@ -309,11 +382,20 @@
     import { buildSimulatedDrillSurveyPacket } from './js/response/GroundDataContract.js';
     import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
     import { HANYANG_LOCAL_4KM_PACKAGE, HANYANG_LOCAL_SPATIAL_VIEWPOINTS } from './js/response/HanyangLocalSpatialData.js';
-    import { LocalSpatialMapLayer, samplePointAlong3D } from './js/response/LocalSpatialMapLayer.js';
+    import { LocalSpatialMapLayer, LOCAL_VISUAL_THEMES, samplePointAlong3D } from './js/response/LocalSpatialMapLayer.js';
 
     const params = new URLSearchParams(window.location.search);
     const viewStage = params.get('stage') || 'campus'; // 'earth' | 'local4km' | 'campus' | 'bldg' | 'personal' | 't67' | 't110'
+    const initialTheme = (params.get('theme') === 'day') ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
     const baseDpr = Math.min(window.devicePixelRatio || 1, 2);
+
+    function withExtendedFar(viewpoints) {
+      const out = {};
+      for (const [k, vp] of Object.entries(viewpoints || {})) {
+        out[k] = { ...vp, far: Math.max(vp?.far || 6500, 6500) };
+      }
+      return out;
+    }
 
     // Scene & Renderer Setup
     const container = document.getElementById('canvas-container');
@@ -322,16 +404,33 @@
     const height = window.innerHeight;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x020408);
-    scene.fog = new THREE.FogExp2(0x020408, 0.00055);
+    const initialPalette = LOCAL_VISUAL_THEMES[initialTheme];
+    scene.background = new THREE.Color(initialPalette.background);
+    scene.fog = new THREE.FogExp2(initialPalette.fogColor, initialPalette.fogDensity);
 
-    const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 6000);
+    const camera = new THREE.PerspectiveCamera(40, width / height, 0.25, 6500);
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(baseDpr);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.06;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // Global Earth Sphere (Curved surface to establish global continuity)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.07;
+    controls.maxPolarAngle = Math.PI * 0.475;
+    controls.minPolarAngle = 0.02;
+    controls.minDistance = 8.0;
+    controls.maxDistance = 4200.0;
+    controls.screenSpacePanning = false;
+    controls.rotateSpeed = 0.65;
+    controls.zoomSpeed = 0.9;
+
+    // Global Earth Sphere (only shown in GLOBAL_ORBIT stage so local terrain stays crisp)
     const earthRadius = 140.0;
     const earthGeo = new THREE.SphereGeometry(earthRadius, 48, 36);
     const earthMat = new THREE.MeshBasicMaterial({
@@ -342,6 +441,7 @@
     });
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
     earthMesh.position.set(0, -earthRadius - 18, 0);
+    earthMesh.visible = false;
     scene.add(earthMesh);
 
     // WGS84 Geodetic Vertical Beacon over Anchor
@@ -359,14 +459,10 @@
     beaconLine.computeLineDistances();
     scene.add(beaconLine);
 
-    // Subtle Ground Grid (expanded to 4km local map context)
-    const grid = new THREE.GridHelper(3600, 90, 0x1e293b, 0x070b14);
-    grid.position.set(120, -18, 50);
-    scene.add(grid);
-
-    // 4km Pre-Built Seongdong / Hanyang Local Spatial Layer (Strategy C)
+    // 4km Pre-Built Seongdong / Hanyang Local Spatial Layer (Strategy C + Real OSM/DEM)
     const localSpatialLayer = new LocalSpatialMapLayer(scene, {
-      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE
+      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE,
+      theme: initialTheme
     });
 
     // Cumulative Arc-Length Egress Progress Marker along Active Route
@@ -394,12 +490,31 @@
 
     const camTransition = new GlobalLocalCameraTransition({
       camera,
-      viewpoints: {
+      controls,
+      viewpoints: withExtendedFar({
         ...DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints,
-        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH
-      }
+        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH,
+        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
+      })
     });
     camTransition.attachUserInterruptListeners(container);
+
+    let activeVisualTheme = initialTheme;
+    function applyVisualTheme(themeKey) {
+      const normalized = (themeKey === 'ARCHITECTURAL_DAY') ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
+      activeVisualTheme = normalized;
+      const palette = localSpatialLayer.setVisualTheme(normalized);
+      scene.background.setHex(palette.background);
+      scene.fog = new THREE.FogExp2(palette.fogColor, palette.fogDensity);
+      document.body.classList.toggle('theme-day', normalized === 'ARCHITECTURAL_DAY');
+      const themeBtn = document.getElementById('btn-theme-toggle');
+      if (themeBtn) {
+        themeBtn.textContent = normalized === 'ARCHITECTURAL_DAY' ? '테마: 주간 레퍼런스' : '테마: 야간 모놀리스';
+        themeBtn.classList.toggle('active', normalized === 'ARCHITECTURAL_DAY');
+      }
+      return normalized;
+    }
+    applyVisualTheme(initialTheme);
 
     function syncUtilityButtons() {
       const diag = localSpatialLayer.getLayerDiagnostics();
@@ -413,6 +528,7 @@
     function setCameraStage(stageKey) {
       document.querySelectorAll('#btn-stage-earth, #btn-stage-local4km, #btn-stage-campus, #btn-stage-bldg, #btn-stage-personal').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.spatial-step').forEach(s => s.classList.remove('active'));
+      earthMesh.visible = (stageKey === CAMERA_STAGES.GLOBAL_ORBIT);
 
       if (stageKey === CAMERA_STAGES.GLOBAL_ORBIT) {
         document.getElementById('btn-stage-earth').classList.add('active');
@@ -553,6 +669,11 @@
     document.getElementById('btn-t67').addEventListener('click', () => applyTimelineStep(67));
     document.getElementById('btn-t110').addEventListener('click', () => applyTimelineStep(110));
 
+    document.getElementById('btn-theme-toggle').addEventListener('click', () => {
+      const next = activeVisualTheme === 'ARCHITECTURAL_DAY' ? 'MONOLITH_NIGHT' : 'ARCHITECTURAL_DAY';
+      applyVisualTheme(next);
+    });
+
     document.getElementById('btn-xray-toggle').addEventListener('click', () => {
       const next = !localSpatialLayer.state.xRayEnabled;
       localSpatialLayer.setXRayMode(next, 0.16, true);
@@ -574,10 +695,11 @@
       const pkg = getFacilityPackageById(facilityId);
       activeFacilityId = pkg.buildingMetadata?.id || facilityId;
       uiAdapter.setFacilityPackage(pkg);
-      camTransition.setFacilityViewpoints({
+      camTransition.setFacilityViewpoints(withExtendedFar({
         ...pkg.cameraViewpoints,
-        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH
-      });
+        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH,
+        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
+      }));
 
       document.querySelectorAll('#btn-fac-212, #btn-fac-hit, #btn-fac-paiknam').forEach(b => b.classList.remove('active'));
       if (activeFacilityId === 'BLDG_701_HIT') document.getElementById('btn-fac-hit').classList.add('active');
@@ -713,20 +835,17 @@
 
     renderUI();
 
-    // Subtle camera orbit when idle + arc-length route marker + HUD-avoiding label update
-    let idleAngle = 0.0;
+    // OrbitControls damping + arc-length route marker + HUD-avoiding label update
     let routePhase = 0.0;
+    let userHasControlled = false;
+    controls.addEventListener('start', () => { userHasControlled = true; });
 
     function animate() {
       requestAnimationFrame(animate);
 
       const isRunning = camTransition.update();
-      if (!isRunning && camTransition.status !== TRANSITION_STATUS.USER_OVERRIDE) {
-        if (camTransition.currentStage === CAMERA_STAGES.CAMPUS_OVERVIEW) {
-          idleAngle += 0.0004;
-          camera.position.x = 230 + Math.sin(idleAngle) * 15;
-          camera.position.z = -90 + Math.cos(idleAngle) * 15;
-        }
+      if (!isRunning) {
+        controls.update();
       }
 
       const guidance = uiAdapter.lastGuidance;
@@ -756,6 +875,8 @@
     window.__applyTimelineStep = applyTimelineStep;
     window.__switchFacilityPackage = switchFacilityPackage;
     window.__toggleHazardPolygon = toggleHazardAvoidPolygon;
+    window.__setVisualTheme = applyVisualTheme;
+    window.__controls = controls;
     window.__groundDataManager = uiAdapter.groundDataManager;
     window.__getFieldChecklistSummary = () => uiAdapter.getFieldChecklistSummary();
     window.__localSpatialLayer = localSpatialLayer;
@@ -766,7 +887,8 @@
       canMove: uiAdapter.lastGuidance?.canMove ?? null,
       routeMode: hanyangAdapter.config.activeRoute,
       renderCalls: renderer.info?.render?.calls ?? 0,
-      pixelRatio: renderer.getPixelRatio()
+      pixelRatio: renderer.getPixelRatio(),
+      hasOrbitControls: Boolean(controls && controls.enabled)
     });
   </script>
 </body>

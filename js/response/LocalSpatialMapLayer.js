@@ -15,11 +15,77 @@
 import * as THREE from '../lib/three.module.js';
 import {
   HANYANG_LOCAL_4KM_PACKAGE,
-  OBB_BUILDING_STRIDE
+  OBB_BUILDING_STRIDE,
+  sampleTerrainHeight
 } from './HanyangLocalSpatialData.js';
 import { CAMERA_STAGES } from './GlobalLocalCameraTransition.js';
 import { VERIFICATION_STATUS } from './ResponseDomainTypes.js';
 import { SpatialChunkManager } from './SpatialChunkManager.js';
+
+export const LOCAL_VISUAL_THEMES = Object.freeze({
+  MONOLITH_NIGHT: Object.freeze({
+    id: 'MONOLITH_NIGHT',
+    label: '야간 모놀리스',
+    background: 0x050912,
+    fogColor: 0x050912,
+    fogDensity: 0.00028,
+    terrainLow: 0x0c1422,
+    terrainMid: 0x162235,
+    terrainHigh: 0x243652,
+    terrainGreen: 0x132926,
+    greenOverlay: 0x17332e,
+    skirt: 0x0a101b,
+    water: 0x134266,
+    roadMajor: 0x5c6f89,
+    roadPrimary: 0x41536b,
+    roadMinor: 0x27364b,
+    rail: 0x64748b,
+    contour: 0x263854,
+    contourOpacity: 0.42,
+    bldgLow: 0x73849c,
+    bldgMid: 0x90a3bc,
+    bldgHigh: 0xb2c3d9,
+    hemiSky: 0x9eb8db,
+    hemiGround: 0x202c3d,
+    hemiIntensity: 1.45,
+    sunColor: 0xfff3de,
+    sunIntensity: 2.35,
+    rimColor: 0x6b93c4,
+    rimIntensity: 0.65,
+    xrayColor: 0x1e293b
+  }),
+  ARCHITECTURAL_DAY: Object.freeze({
+    id: 'ARCHITECTURAL_DAY',
+    label: '주간 레퍼런스',
+    background: 0xe6ede7,
+    fogColor: 0xe6ede7,
+    fogDensity: 0.00022,
+    terrainLow: 0xdbe3cd,
+    terrainMid: 0xc2d0ae,
+    terrainHigh: 0x97ab84,
+    terrainGreen: 0xc5dbb1,
+    greenOverlay: 0xc4deb0,
+    skirt: 0xb9c4aa,
+    water: 0x3d94b0,
+    roadMajor: 0xf3cd6d,
+    roadPrimary: 0xf4df9a,
+    roadMinor: 0xf6f3eb,
+    rail: 0xa6b0a0,
+    contour: 0x95a48b,
+    contourOpacity: 0.34,
+    bldgLow: 0xd4d6d1,
+    bldgMid: 0xc5c9c4,
+    bldgHigh: 0xb0c2c3,
+    hemiSky: 0xd8e7f2,
+    hemiGround: 0xb5c4a3,
+    hemiIntensity: 1.95,
+    sunColor: 0xfff2d6,
+    sunIntensity: 2.75,
+    rimColor: 0xcce0f2,
+    rimIntensity: 0.40,
+    xrayColor: 0x64748b
+  })
+});
 
 function getXYZ(p) {
   if (Array.isArray(p)) return [p[0] || 0, p[1] || 0, p[2] || 0];
@@ -173,11 +239,16 @@ export function solveLabelCollisions2D(
   return { visibleLabels, hiddenIds };
 }
 
+function buildingHash(east_m, north_m) {
+  const n = Math.sin(east_m * 0.13243 + north_m * 0.21973) * 43758.5453;
+  return n - Math.floor(n);
+}
+
 /**
- * Convert an array of [east_m, north_m] pairs into a flat Three.js BufferGeometry ribbon
+ * Convert an array of [east_m, north_m] pairs into a terrain-draped Three.js BufferGeometry ribbon
  * oriented in the X=East, Y=elevation, Z=-North horizontal plane.
  */
-function createRibbonGeometry(pointsEN, widthMeters, elevationY) {
+function createRibbonGeometry(pointsEN, widthMeters, fixedElevationY = null, elevationOffset = 0.22) {
   if (!pointsEN || pointsEN.length < 2) return new THREE.BufferGeometry();
 
   const halfW = widthMeters * 0.5;
@@ -189,23 +260,24 @@ function createRibbonGeometry(pointsEN, widthMeters, elevationY) {
     const pNext = pointsEN[Math.min(pointsEN.length - 1, i + 1)];
     const pCur = pointsEN[i];
 
-    // Direction in (X=East, Z=-North)
     let dx = pNext[0] - pPrev[0];
     let dz = -(pNext[1] - pPrev[1]);
     const len = Math.hypot(dx, dz) || 1.0;
     dx /= len;
     dz /= len;
 
-    // Perpendicular normal in XZ plane
     const nx = -dz;
     const nz = dx;
 
     const cx = pCur[0];
     const cz = -pCur[1];
+    const cy = fixedElevationY !== null
+      ? fixedElevationY
+      : sampleTerrainHeight(pCur[0], pCur[1]) + elevationOffset;
 
     positions.push(
-      cx + nx * halfW, elevationY, cz + nz * halfW,
-      cx - nx * halfW, elevationY, cz - nz * halfW
+      cx + nx * halfW, cy, cz + nz * halfW,
+      cx - nx * halfW, cy, cz - nz * halfW
     );
 
     if (i > 0) {
@@ -218,6 +290,141 @@ function createRibbonGeometry(pointsEN, widthMeters, elevationY) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Subdivide polyline edges exceeding maxStepMeters so long road ribbons follow terrain relief smoothly.
+ */
+function subdividePolylineEN(pointsEN, maxStepMeters = 45.0) {
+  if (!pointsEN || pointsEN.length < 2) return pointsEN || [];
+  const out = [pointsEN[0]];
+  for (let i = 1; i < pointsEN.length; i++) {
+    const a = pointsEN[i - 1];
+    const b = pointsEN[i];
+    const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const steps = Math.max(1, Math.ceil(dist / maxStepMeters));
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+    }
+  }
+  return out;
+}
+
+/**
+ * Merge many [cls, bridge, pointsEN] chains into a single BufferGeometry for minimal draw calls.
+ */
+function createMergedRoadGeometry(segments, widthResolver) {
+  const positions = [];
+  const indices = [];
+
+  for (const seg of segments) {
+    const cls = seg[0];
+    const bridge = seg[1];
+    const rawPts = seg[2];
+    if (!rawPts || rawPts.length < 2) continue;
+
+    const pts = subdividePolylineEN(rawPts, 42.0);
+    const halfW = widthResolver(cls) * 0.5;
+    const baseVertex = positions.length / 3;
+
+    for (let i = 0; i < pts.length; i++) {
+      const pPrev = pts[Math.max(0, i - 1)];
+      const pNext = pts[Math.min(pts.length - 1, i + 1)];
+      const pCur = pts[i];
+
+      let dx = pNext[0] - pPrev[0];
+      let dz = -(pNext[1] - pPrev[1]);
+      const len = Math.hypot(dx, dz) || 1.0;
+      dx /= len;
+      dz /= len;
+
+      const nx = -dz;
+      const nz = dx;
+      const h = sampleTerrainHeight(pCur[0], pCur[1]);
+      const elev = bridge
+        ? Math.max(h, -15.6) + 3.6
+        : h + (cls === 'motorway' || cls === 'trunk' ? 0.52 : cls === 'primary' ? 0.42 : 0.30);
+
+      positions.push(
+        pCur[0] + nx * halfW, elev, -pCur[1] + nz * halfW,
+        pCur[0] - nx * halfW, elev, -pCur[1] - nz * halfW
+      );
+
+      if (i > 0) {
+        const v0 = baseVertex + (i - 1) * 2;
+        indices.push(v0, v0 + 1, v0 + 2);
+        indices.push(v0 + 1, v0 + 3, v0 + 2);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Triangulate polygon features in ENU coords ([east_m, north_m]) into a single BufferGeometry.
+ */
+function createTriangulatedPolygonsGeometry(polyItems, isWater = false) {
+  const positions = [];
+  for (const item of polyItems) {
+    const outerPts = isWater ? item.outer : item;
+    if (!Array.isArray(outerPts) || outerPts.length < 3) continue;
+
+    const cleanOuter = outerPts.slice();
+    if (cleanOuter.length > 2) {
+      const first = cleanOuter[0];
+      const last = cleanOuter[cleanOuter.length - 1];
+      if (Math.hypot(first[0] - last[0], first[1] - last[1]) < 0.05) {
+        cleanOuter.pop();
+      }
+    }
+    if (cleanOuter.length < 3) continue;
+
+    const outer2D = cleanOuter.map(([e, n]) => new THREE.Vector2(e, -n));
+    const hole2Ds = [];
+    if (isWater && Array.isArray(item.holes)) {
+      for (const hr of item.holes) {
+        const cleanHole = hr.slice();
+        if (cleanHole.length > 2) {
+          const f = cleanHole[0];
+          const l = cleanHole[cleanHole.length - 1];
+          if (Math.hypot(f[0] - l[0], f[1] - l[1]) < 0.05) cleanHole.pop();
+        }
+        if (cleanHole.length >= 3) {
+          hole2Ds.push(cleanHole.map(([e, n]) => new THREE.Vector2(e, -n)));
+        }
+      }
+    }
+
+    const faces = THREE.ShapeUtils.triangulateShape(outer2D, hole2Ds);
+    const flatPts = [outer2D, ...hole2Ds].flat();
+    const fixedY = isWater ? item.y : null;
+
+    for (const face of faces) {
+      const a = flatPts[face[0]];
+      const b = flatPts[face[1]];
+      const c = flatPts[face[2]];
+      const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      if (Math.abs(cross) < 1e-6) continue;
+      // Ensure +Y upward winding in Three.js XZ plane
+      const order = cross > 0 ? [face[0], face[2], face[1]] : face;
+      for (const k of order) {
+        const p = flatPts[k];
+        const yVal = fixedY !== null ? fixedY : sampleTerrainHeight(p.x, -p.y) + 0.14;
+        positions.push(p.x, yVal, p.y);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.computeVertexNormals();
   return geo;
 }
@@ -241,7 +448,9 @@ export class LocalSpatialMapLayer {
     this.rootGroup = new THREE.Group();
     this.rootGroup.name = 'LocalSpatial4kmRoot';
 
+    const requestedTheme = options.theme === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
     this.state = {
+      theme: requestedTheme,
       lodMode: 'FULL', // 'OVERVIEW' | 'FULL'
       xRayEnabled: false,
       xRayOpacity: 0.16,
@@ -255,6 +464,20 @@ export class LocalSpatialMapLayer {
 
     this.instancedBuildings = null;
     this.buildingMaterial = null;
+    this._buildingDataRef = null;
+    this.terrainMesh = null;
+    this.terrainBaseFloor = null;
+    this.terrainSkirtMesh = null;
+    this.waterPolygonMat = null;
+    this.waterRibbonMat = null;
+    this.waterBankMat = null;
+    this.greenOverlayMat = null;
+    this.contourMat = null;
+    this.roadMats = {};
+    this.hemiLight = null;
+    this.sunLight = null;
+    this.rimLight = null;
+
     this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
     this.chunkManager = options.chunkManager || new SpatialChunkManager();
     this.chunkGroup = new THREE.Group();
@@ -266,6 +489,8 @@ export class LocalSpatialMapLayer {
     this.labelAnchors = [];
     this._labelDomMap = new Map();
 
+    this._buildLocalLighting();
+    this._buildTerrainMesh();
     this._buildTerrainContours();
     this._buildWaterwaysAndAlluvialCaution();
     this._buildRoadNetwork();
@@ -274,6 +499,8 @@ export class LocalSpatialMapLayer {
     this._buildLabelAnchors();
     this.rootGroup.add(this.chunkGroup);
     this.rootGroup.add(this.hazardPolygonGroup);
+
+    this.setVisualTheme(this.state.theme);
 
     if (this.state.ecoMode) {
       this.setEcoMode(true);
@@ -284,25 +511,193 @@ export class LocalSpatialMapLayer {
     }
   }
 
+  _getThemePalette() {
+    return LOCAL_VISUAL_THEMES[this.state.theme] || LOCAL_VISUAL_THEMES.MONOLITH_NIGHT;
+  }
+
   _track(resource) {
     if (resource) this.disposables.push(resource);
     return resource;
   }
 
+  _buildLocalLighting() {
+    const palette = this._getThemePalette();
+    const lights = new THREE.Group();
+    lights.name = 'LocalSpatialLights4km';
+
+    this.hemiLight = new THREE.HemisphereLight(palette.hemiSky, palette.hemiGround, palette.hemiIntensity);
+    lights.add(this.hemiLight);
+
+    this.sunLight = new THREE.DirectionalLight(palette.sunColor, palette.sunIntensity);
+    this.sunLight.position.set(-950, 1450, 750);
+    this.sunLight.target.position.set(60, 0, 40);
+    this.sunLight.castShadow = true;
+    this.sunLight.shadow.mapSize.set(2048, 2048);
+    Object.assign(this.sunLight.shadow.camera, {
+      left: -850,
+      right: 850,
+      top: 850,
+      bottom: -850,
+      near: 200,
+      far: 3600
+    });
+    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.normalBias = 1.5;
+    lights.add(this.sunLight);
+    lights.add(this.sunLight.target);
+
+    this.rimLight = new THREE.DirectionalLight(palette.rimColor, palette.rimIntensity);
+    this.rimLight.position.set(900, 650, -800);
+    lights.add(this.rimLight);
+
+    this.rootGroup.add(lights);
+  }
+
+  _applyTerrainVertexColors(geometry, grid) {
+    const palette = this._getThemePalette();
+    const cLow = new THREE.Color(palette.terrainLow);
+    const cMid = new THREE.Color(palette.terrainMid);
+    const cHigh = new THREE.Color(palette.terrainHigh);
+    const cGreen = new THREE.Color(palette.terrainGreen);
+    const tmp = new THREE.Color();
+
+    const { nx, nz, heights, greenMask } = grid;
+    const count = (nx + 1) * (nz + 1);
+    const colors = new Float32Array(count * 3);
+
+    for (let i = 0; i < count; i++) {
+      const h = heights[i];
+      const tLowMid = Math.max(0, Math.min(1, (h + 15.0) / 16.0));
+      const tMidHigh = Math.max(0, Math.min(1, (h - 2.0) / 22.0));
+      tmp.copy(cLow).lerp(cMid, tLowMid).lerp(cHigh, tMidHigh);
+      if (greenMask && greenMask[i]) {
+        tmp.lerp(cGreen, 0.58);
+      }
+      colors[i * 3 + 0] = tmp.r;
+      colors[i * 3 + 1] = tmp.g;
+      colors[i * 3 + 2] = tmp.b;
+    }
+
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    if (geometry.attributes.color) {
+      geometry.attributes.color.needsUpdate = true;
+    }
+  }
+
+  _buildTerrainMesh() {
+    const grid = this.pkg.terrainGrid;
+    const palette = this._getThemePalette();
+
+    const baseGeo = this._track(new THREE.PlaneGeometry(14000, 14000));
+    baseGeo.rotateX(-Math.PI / 2);
+    const baseMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.background,
+      roughness: 1.0,
+      metalness: 0.0
+    }));
+    this.terrainBaseFloor = new THREE.Mesh(baseGeo, baseMat);
+    this.terrainBaseFloor.position.set(0, -24.5, 0);
+    this.terrainBaseFloor.receiveShadow = true;
+    this.terrainBaseFloor.name = 'ExtendedGroundHorizon';
+    this.rootGroup.add(this.terrainBaseFloor);
+
+    if (!grid || !Array.isArray(grid.heights)) return;
+
+    const { nx, nz, halfExtentMeters, heights } = grid;
+    const span = halfExtentMeters * 2.0;
+    const positions = [];
+    const indices = [];
+
+    for (let j = 0; j <= nz; j++) {
+      const north_m = -halfExtentMeters + (j / nz) * span;
+      const cz = -north_m;
+      for (let i = 0; i <= nx; i++) {
+        const east_m = -halfExtentMeters + (i / nx) * span;
+        const h = heights[j * (nx + 1) + i];
+        positions.push(east_m, h, cz);
+        if (i < nx && j < nz) {
+          const k = j * (nx + 1) + i;
+          // In (east, z=-north): j increases northwards so z decreases!
+          // Wind triangles for +Y upward normal: (k, k+1, k+nx+1) and (k+1, k+nx+2, k+nx+1)
+          indices.push(k, k + 1, k + nx + 1);
+          indices.push(k + 1, k + nx + 2, k + nx + 1);
+        }
+      }
+    }
+
+    const geo = this._track(new THREE.BufferGeometry());
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    this._applyTerrainVertexColors(geo, grid);
+    geo.computeVertexNormals();
+
+    const terrainMat = this._track(new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      roughness: 0.92,
+      metalness: 0.02
+    }));
+
+    this.terrainMesh = new THREE.Mesh(geo, terrainMat);
+    this.terrainMesh.name = 'SeongdongTerrainMesh4km';
+    this.terrainMesh.receiveShadow = true;
+    this.rootGroup.add(this.terrainMesh);
+
+    // Outer architectural slab skirt framing the 4.4km terrain cut
+    const baseBottom = -24.2;
+    const skirtPos = [];
+    const pushQuad = (e0, n0, e1, n1) => {
+      const h0 = sampleTerrainHeight(e0, n0);
+      const h1 = sampleTerrainHeight(e1, n1);
+      const z0 = -n0;
+      const z1 = -n1;
+      skirtPos.push(
+        e0, baseBottom, z0, e1, h1, z1, e0, h0, z0,
+        e0, baseBottom, z0, e1, baseBottom, z1, e1, h1, z1
+      );
+    };
+    const eMin = -halfExtentMeters;
+    const eMax = halfExtentMeters;
+    for (let i = 0; i < nx; i++) {
+      const x0 = eMin + (i / nx) * span;
+      const x1 = eMin + ((i + 1) / nx) * span;
+      pushQuad(x0, eMin, x1, eMin);
+      pushQuad(x1, eMax, x0, eMax);
+    }
+    for (let j = 0; j < nz; j++) {
+      const y0 = eMin + (j / nz) * span;
+      const y1 = eMin + ((j + 1) / nz) * span;
+      pushQuad(eMax, y0, eMax, y1);
+      pushQuad(eMin, y1, eMin, y0);
+    }
+    const skirtGeo = this._track(new THREE.BufferGeometry());
+    skirtGeo.setAttribute('position', new THREE.Float32BufferAttribute(skirtPos, 3));
+    skirtGeo.computeVertexNormals();
+    const skirtMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.skirt,
+      roughness: 0.9,
+      side: THREE.DoubleSide
+    }));
+    this.terrainSkirtMesh = new THREE.Mesh(skirtGeo, skirtMat);
+    this.terrainSkirtMesh.name = 'TerrainCutSkirt4km';
+    this.rootGroup.add(this.terrainSkirtMesh);
+  }
+
   _buildTerrainContours() {
+    const palette = this._getThemePalette();
     const group = new THREE.Group();
     group.name = 'HillslopeContours4km';
-    const mat = this._track(new THREE.LineBasicMaterial({
-      color: 0x1e293b,
+    this.contourMat = this._track(new THREE.LineBasicMaterial({
+      color: palette.contour,
       transparent: true,
-      opacity: 0.55
+      opacity: palette.contourOpacity
     }));
 
     const contours = this.pkg.terrainAndHydrology?.hillslopeContours || [];
     for (const c of contours) {
-      const pts = c.pointsENU.map(([e, n]) => new THREE.Vector3(e, c.relativeY, -n));
+      const pts = c.pointsENU.map(([e, n]) => new THREE.Vector3(e, sampleTerrainHeight(e, n) + 0.45, -n));
       const geo = this._track(new THREE.BufferGeometry().setFromPoints(pts));
-      const line = new THREE.Line(geo, mat);
+      const line = new THREE.Line(geo, this.contourMat);
       line.name = c.id;
       group.add(line);
     }
@@ -310,38 +705,77 @@ export class LocalSpatialMapLayer {
   }
 
   _buildWaterwaysAndAlluvialCaution() {
+    const palette = this._getThemePalette();
     const group = new THREE.Group();
     group.name = 'HydrologyAndAlluvialCaution4km';
 
-    const waterMat = this._track(new THREE.MeshBasicMaterial({
-      color: 0x091628,
+    this.waterPolygonMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.water,
+      roughness: 0.34,
+      metalness: 0.16,
+      side: THREE.DoubleSide
+    }));
+    this.waterRibbonMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.water,
+      roughness: 0.36,
+      metalness: 0.14,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.88
+      opacity: 0.85
     }));
-    const bankMat = this._track(new THREE.LineBasicMaterial({
-      color: 0x1e3a5f,
+    this.waterBankMat = this._track(new THREE.LineBasicMaterial({
+      color: 0x38bdf8,
       transparent: true,
-      opacity: 0.55
+      opacity: 0.35
+    }));
+    this.greenOverlayMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.greenOverlay,
+      roughness: 0.92,
+      metalness: 0.0,
+      side: THREE.DoubleSide
     }));
 
+    // 1. Real Triangulated Green/Park Polygons (Seoul Forest, Salgoji, Eungbongsan)
+    const greenPolys = this.pkg.terrainAndHydrology?.greenPolygons || [];
+    if (greenPolys.length > 0) {
+      const greenGeo = this._track(createTriangulatedPolygonsGeometry(greenPolys, false));
+      const greenMesh = new THREE.Mesh(greenGeo, this.greenOverlayMat);
+      greenMesh.name = 'RealGreenParkPolygons4km';
+      greenMesh.receiveShadow = true;
+      group.add(greenMesh);
+    }
+
+    // 2. Real Triangulated Water Polygons (Han River, Jungnangcheon, Cheonggyecheon)
+    const waterPolys = this.pkg.terrainAndHydrology?.waterPolygons || [];
+    if (waterPolys.length > 0) {
+      const waterGeo = this._track(createTriangulatedPolygonsGeometry(waterPolys, true));
+      const waterMesh = new THREE.Mesh(waterGeo, this.waterPolygonMat);
+      waterMesh.name = 'RealWaterwayPolygons4km';
+      waterMesh.receiveShadow = true;
+      group.add(waterMesh);
+    }
+
+    // 3. Fallback / Named River Centerline Ribbons
     const waterways = this.pkg.terrainAndHydrology?.waterways || [];
     for (const w of waterways) {
-      const ribbonGeo = this._track(createRibbonGeometry(w.pointsEN, w.widthMeters, w.elevationY));
-      const ribbonMesh = new THREE.Mesh(ribbonGeo, waterMat);
-      ribbonMesh.name = w.id;
-      group.add(ribbonMesh);
+      if (waterPolys.length === 0) {
+        const ribbonGeo = this._track(createRibbonGeometry(w.pointsEN, w.widthMeters, w.elevationY));
+        const ribbonMesh = new THREE.Mesh(ribbonGeo, this.waterRibbonMat);
+        ribbonMesh.name = w.id;
+        group.add(ribbonMesh);
+      }
 
-      const centerPts = w.pointsEN.map(([e, n]) => new THREE.Vector3(e, w.elevationY + 0.25, -n));
+      const centerPts = w.pointsEN.map(([e, n]) => new THREE.Vector3(e, w.elevationY + 0.35, -n));
       const centerGeo = this._track(new THREE.BufferGeometry().setFromPoints(centerPts));
-      const centerLine = new THREE.Line(centerGeo, bankMat);
+      const centerLine = new THREE.Line(centerGeo, this.waterBankMat);
+      centerLine.name = `${w.id}_Axis`;
       group.add(centerLine);
     }
 
-    // PROVISIONAL Alluvial Basin Caution Zone (strictly dashed subtle slate — zero rainbow heatmap)
+    // 4. PROVISIONAL Alluvial Basin Caution Zone (strictly dashed subtle slate — zero rainbow heatmap)
     const caution = this.pkg.terrainAndHydrology?.alluvialCautionZone;
     if (caution && Array.isArray(caution.polygonEN)) {
-      const pts = caution.polygonEN.map(([e, n]) => new THREE.Vector3(e, caution.elevationY, -n));
+      const pts = caution.polygonEN.map(([e, n]) => new THREE.Vector3(e, Math.max(caution.elevationY, sampleTerrainHeight(e, n) + 0.55), -n));
       const lineGeo = this._track(new THREE.BufferGeometry().setFromPoints(pts));
       const dashMat = this._track(new THREE.LineDashedMaterial({
         color: 0x64748b,
@@ -361,32 +795,96 @@ export class LocalSpatialMapLayer {
   }
 
   _buildRoadNetwork() {
+    const palette = this._getThemePalette();
     const group = new THREE.Group();
     group.name = 'LocalRoadNetwork4km';
 
-    const arterialMat = this._track(new THREE.MeshBasicMaterial({
-      color: 0x1e293b,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.75
-    }));
-    const collectorMat = this._track(new THREE.MeshBasicMaterial({
-      color: 0x151e2e,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.65
-    }));
+    this.roadMats = {
+      major: this._track(new THREE.MeshStandardMaterial({
+        color: palette.roadMajor,
+        roughness: 0.88,
+        metalness: 0.04,
+        side: THREE.DoubleSide
+      })),
+      primary: this._track(new THREE.MeshStandardMaterial({
+        color: palette.roadPrimary,
+        roughness: 0.90,
+        metalness: 0.03,
+        side: THREE.DoubleSide
+      })),
+      minor: this._track(new THREE.MeshStandardMaterial({
+        color: palette.roadMinor,
+        roughness: 0.94,
+        metalness: 0.02,
+        side: THREE.DoubleSide
+      })),
+      rail: this._track(new THREE.MeshStandardMaterial({
+        color: palette.rail,
+        roughness: 0.78,
+        metalness: 0.14,
+        side: THREE.DoubleSide
+      }))
+    };
 
-    const roads = this.pkg.roadNetwork || [];
-    for (const r of roads) {
-      const mat = r.hierarchy === 'ARTERIAL' ? arterialMat : collectorMat;
-      const geo = this._track(createRibbonGeometry(r.pointsEN, r.widthMeters, r.elevationY));
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.name = r.id;
-      group.add(mesh);
+    const denseRoads = this.pkg.denseRoadNetwork || [];
+    if (denseRoads.length > 0) {
+      const majorSegs = denseRoads.filter(r => r[0] === 'motorway' || r[0] === 'trunk');
+      const primarySegs = denseRoads.filter(r => r[0] === 'primary');
+      const minorSegs = denseRoads.filter(r => r[0] === 'secondary' || r[0] === 'tertiary');
+      const railSegs = denseRoads.filter(r => r[0] === 'rail');
+
+      const tiers = [
+        { segs: minorSegs, mat: this.roadMats.minor, widthFn: c => (c === 'secondary' ? 10.5 : 6.8), name: 'DenseRoads_Minor4km' },
+        { segs: primarySegs, mat: this.roadMats.primary, widthFn: () => 17.5, name: 'DenseRoads_Primary4km' },
+        { segs: majorSegs, mat: this.roadMats.major, widthFn: c => (c === 'motorway' ? 26.0 : 22.0), name: 'DenseRoads_Major4km' },
+        { segs: railSegs, mat: this.roadMats.rail, widthFn: () => 6.2, name: 'DenseRoads_Rail4km' }
+      ];
+
+      for (const tier of tiers) {
+        if (tier.segs.length === 0) continue;
+        const geo = this._track(createMergedRoadGeometry(tier.segs, tier.widthFn));
+        const mesh = new THREE.Mesh(geo, tier.mat);
+        mesh.name = tier.name;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      }
+    } else {
+      const roads = this.pkg.roadNetwork || [];
+      for (const r of roads) {
+        const mat = r.hierarchy === 'ARTERIAL' ? this.roadMats.primary : this.roadMats.minor;
+        const geo = this._track(createRibbonGeometry(r.pointsEN, r.widthMeters, null, 0.35));
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.name = r.id;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      }
     }
 
     this.rootGroup.add(group);
+  }
+
+  _applyBuildingInstanceColors(mesh, data) {
+    if (!mesh || !data) return;
+    const palette = this._getThemePalette();
+    const cLow = new THREE.Color(palette.bldgLow);
+    const cMid = new THREE.Color(palette.bldgMid);
+    const cHigh = new THREE.Color(palette.bldgHigh);
+    const color = new THREE.Color();
+    const count = Math.floor(data.length / OBB_BUILDING_STRIDE);
+
+    for (let i = 0; i < count; i++) {
+      const base = i * OBB_BUILDING_STRIDE;
+      const east_m = data[base + 0];
+      const north_m = data[base + 1];
+      const h = data[base + 5];
+      const baseHex = h >= 42 ? cHigh : (h >= 16 ? cMid : cLow);
+      const toneVar = 0.87 + buildingHash(east_m, north_m) * 0.22;
+      color.copy(baseHex).multiplyScalar(toneVar);
+      mesh.setColorAt(i, color);
+    }
+    if (mesh.instanceColor) {
+      mesh.instanceColor.needsUpdate = true;
+    }
   }
 
   /**
@@ -399,6 +897,8 @@ export class LocalSpatialMapLayer {
 
     const mesh = new THREE.InstancedMesh(this.unitBoxGeometry, material, fullCount);
     mesh.name = name;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     const dummy = new THREE.Object3D();
 
     for (let i = 0; i < fullCount; i++) {
@@ -409,7 +909,9 @@ export class LocalSpatialMapLayer {
       const depth_m = data[base + 3];
       const yaw_rad = data[base + 4];
       const height_m = data[base + 5];
-      const groundY = (grounds && i < grounds.length) ? grounds[i] : -12.0;
+      const groundY = (grounds && i < grounds.length)
+        ? grounds[i]
+        : sampleTerrainHeight(east_m, north_m);
 
       dummy.position.set(east_m, groundY + height_m * 0.5, -north_m);
       dummy.rotation.set(0, yaw_rad, 0);
@@ -419,6 +921,8 @@ export class LocalSpatialMapLayer {
     }
 
     mesh.instanceMatrix.needsUpdate = true;
+    this._applyBuildingInstanceColors(mesh, data);
+    mesh.computeBoundingSphere();
     return mesh;
   }
 
@@ -429,8 +933,11 @@ export class LocalSpatialMapLayer {
 
     if (fullCount <= 0) return;
 
-    this.buildingMaterial = this._track(new THREE.MeshBasicMaterial({
-      color: 0x111827,
+    this._buildingDataRef = data;
+    this.buildingMaterial = this._track(new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.77,
+      metalness: 0.06,
       transparent: false,
       opacity: 0.94,
       depthWrite: true
@@ -459,10 +966,11 @@ export class LocalSpatialMapLayer {
       const isPrimary = s.category === 'PRIMARY_SHELTER';
       const isMedical = s.category === 'MEDICAL_CENTER';
       const color = isPrimary ? 0xe2e8f0 : (isMedical ? 0x94a3b8 : 0x64748b);
+      const groundY = isPrimary ? s.positionThree[1] : sampleTerrainHeight(s.east_m, s.north_m);
 
       const sGroup = new THREE.Group();
       sGroup.name = `FacilityPin_${s.id}`;
-      sGroup.position.set(s.positionThree[0], s.positionThree[1], s.positionThree[2]);
+      sGroup.position.set(s.positionThree[0], groundY, s.positionThree[2]);
 
       const ringMat = this._track(new THREE.MeshBasicMaterial({
         color,
@@ -471,13 +979,13 @@ export class LocalSpatialMapLayer {
         opacity: isPrimary ? 0.65 : 0.45
       }));
       const ring = new THREE.Mesh(ringGeo, ringMat);
-      ring.position.y = 0.25;
+      ring.position.y = 0.35;
       sGroup.add(ring);
 
       // Subtle vertical architectural plumb line (non-glowing, thin slate/ivory line)
       const lineGeo = this._track(new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(0, 0.25, 0),
-        new THREE.Vector3(0, isPrimary ? 24.0 : 18.0, 0)
+        new THREE.Vector3(0, 0.35, 0),
+        new THREE.Vector3(0, isPrimary ? 26.0 : 20.0, 0)
       ]));
       const lineMat = this._track(new THREE.LineBasicMaterial({
         color,
@@ -490,6 +998,64 @@ export class LocalSpatialMapLayer {
     }
 
     this.rootGroup.add(group);
+  }
+
+  /**
+   * Switch between 'MONOLITH_NIGHT' (high-contrast nocturnal monolith) and
+   * 'ARCHITECTURAL_DAY' (warm daylight urban atlas reference).
+   */
+  setVisualTheme(themeName = 'MONOLITH_NIGHT') {
+    const key = themeName === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
+    this.state.theme = key;
+    const palette = this._getThemePalette();
+
+    if (this.hemiLight) {
+      this.hemiLight.color.setHex(palette.hemiSky);
+      this.hemiLight.groundColor.setHex(palette.hemiGround);
+      this.hemiLight.intensity = palette.hemiIntensity;
+    }
+    if (this.sunLight) {
+      this.sunLight.color.setHex(palette.sunColor);
+      this.sunLight.intensity = palette.sunIntensity;
+    }
+    if (this.rimLight) {
+      this.rimLight.color.setHex(palette.rimColor);
+      this.rimLight.intensity = palette.rimIntensity;
+    }
+    if (this.terrainBaseFloor?.material) {
+      this.terrainBaseFloor.material.color.setHex(palette.background);
+    }
+    if (this.terrainMesh?.geometry && this.pkg.terrainGrid) {
+      this._applyTerrainVertexColors(this.terrainMesh.geometry, this.pkg.terrainGrid);
+    }
+    if (this.terrainSkirtMesh?.material) {
+      this.terrainSkirtMesh.material.color.setHex(palette.skirt);
+    }
+    if (this.contourMat) {
+      this.contourMat.color.setHex(palette.contour);
+      this.contourMat.opacity = palette.contourOpacity;
+    }
+    if (this.waterPolygonMat) this.waterPolygonMat.color.setHex(palette.water);
+    if (this.waterRibbonMat) this.waterRibbonMat.color.setHex(palette.water);
+    if (this.greenOverlayMat) this.greenOverlayMat.color.setHex(palette.greenOverlay);
+
+    if (this.roadMats.major) this.roadMats.major.color.setHex(palette.roadMajor);
+    if (this.roadMats.primary) this.roadMats.primary.color.setHex(palette.roadPrimary);
+    if (this.roadMats.minor) this.roadMats.minor.color.setHex(palette.roadMinor);
+    if (this.roadMats.rail) this.roadMats.rail.color.setHex(palette.rail);
+
+    if (this.instancedBuildings && this._buildingDataRef) {
+      this._applyBuildingInstanceColors(this.instancedBuildings, this._buildingDataRef);
+    }
+    for (const entry of this.chunkMeshes.values()) {
+      this._applyBuildingInstanceColors(entry.mesh, entry.chunk.obbBuildingsFloat32);
+    }
+
+    if (this.buildingMaterial) {
+      this.buildingMaterial.color.setHex(this.state.xRayEnabled ? palette.xrayColor : 0xffffff);
+    }
+
+    return palette;
   }
 
   _buildLabelAnchors() {
@@ -619,8 +1185,8 @@ export class LocalSpatialMapLayer {
     this.activeHazardPolygons = Array.isArray(polygons) ? [...polygons] : [];
     for (const poly of this.activeHazardPolygons) {
       if (!Array.isArray(poly.polygonXZ) || poly.polygonXZ.length < 3) continue;
-      const pts = poly.polygonXZ.map(([x, z]) => new THREE.Vector3(x, -8.5, z));
-      pts.push(new THREE.Vector3(poly.polygonXZ[0][0], -8.5, poly.polygonXZ[0][1]));
+      const pts = poly.polygonXZ.map(([x, z]) => new THREE.Vector3(x, sampleTerrainHeight(x, -z) + 1.4, z));
+      pts.push(new THREE.Vector3(poly.polygonXZ[0][0], sampleTerrainHeight(poly.polygonXZ[0][0], -poly.polygonXZ[0][1]) + 1.4, poly.polygonXZ[0][1]));
 
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
       const mat = new THREE.LineDashedMaterial({
@@ -647,12 +1213,13 @@ export class LocalSpatialMapLayer {
     }
     this.state.xRayEnabled = Boolean(enabled);
     this.state.xRayOpacity = enabled ? opacity : 0.94;
+    const palette = this._getThemePalette();
 
     if (this.buildingMaterial) {
       this.buildingMaterial.transparent = Boolean(enabled);
       this.buildingMaterial.opacity = this.state.xRayOpacity;
       this.buildingMaterial.depthWrite = !enabled;
-      this.buildingMaterial.color.setHex(enabled ? 0x0f172a : 0x111827);
+      this.buildingMaterial.color.setHex(enabled ? palette.xrayColor : 0xffffff);
       this.buildingMaterial.needsUpdate = true;
     }
     return this.state.xRayEnabled;
@@ -797,6 +1364,7 @@ export class LocalSpatialMapLayer {
     }
     return {
       packageId: this.pkg.metadata?.packageId || 'UNKNOWN',
+      theme: this.state.theme,
       fullCount: counts.fullCount,
       overviewCount: counts.overviewCount,
       activeInstanceCount: this.instancedBuildings ? this.instancedBuildings.count : 0,
@@ -813,7 +1381,9 @@ export class LocalSpatialMapLayer {
       hiddenLabelCount: this.state.hiddenLabelCount,
       shelterCount: (this.pkg.sheltersAndFacilities || []).length,
       roadCount: (this.pkg.roadNetwork || []).length,
-      waterwayCount: (this.pkg.terrainAndHydrology?.waterways || []).length
+      denseRoadCount: (this.pkg.denseRoadNetwork || []).length,
+      waterwayCount: (this.pkg.terrainAndHydrology?.waterways || []).length,
+      waterPolygonCount: (this.pkg.terrainAndHydrology?.waterPolygons || []).length
     };
   }
 

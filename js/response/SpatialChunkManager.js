@@ -86,26 +86,32 @@ export class SpatialChunkManager {
     let overviewCount = 0;
 
     if (!isCorePrebuilt) {
-      const count = 48;
+      const count = 120;
       const raw = [];
       const seed = (((cx + 128) * 73856093) ^ ((cz + 128) * 19349663)) >>> 0;
       const rand = mulberry32(seed);
 
-      for (let i = 0; i < count; i++) {
-        const localX = (rand() - 0.5) * (this.chunkSizeMeters - 260);
-        const localZ = (rand() - 0.5) * (this.chunkSizeMeters - 260);
+      let attempts = 0;
+      while (raw.length < count && attempts < count * 8) {
+        attempts++;
+        const localX = (rand() - 0.5) * (this.chunkSizeMeters - 120);
+        const localZ = (rand() - 0.5) * (this.chunkSizeMeters - 120);
         const east_m = Number((centerX + localX).toFixed(1));
         const north_m = Number((-(centerZ + localZ)).toFixed(1)); // Three.js Z = -North
-        const width_m = Number((28 + rand() * 44).toFixed(1));
-        const depth_m = Number((18 + rand() * 28).toFixed(1));
-        const yaw_rad = Number(((rand() - 0.5) * 0.9).toFixed(3));
-        const height_m = Number((18 + rand() * 58).toFixed(1));
+        // Avoid duplicating real OSM footprints inside core [-1980, +1980]m box
+        if (Math.abs(east_m) <= 1980 && Math.abs(north_m) <= 1980) continue;
+
+        const width_m = Number((18 + rand() * 38).toFixed(1));
+        const depth_m = Number((14 + rand() * 24).toFixed(1));
+        const yaw_rad = Number(((rand() - 0.5) * 1.1).toFixed(3));
+        const height_m = Number((12 + rand() * 54).toFixed(1));
         raw.push({ east_m, north_m, width_m, depth_m, yaw_rad, height_m });
       }
 
       raw.sort((a, b) => b.height_m - a.height_m);
-      obbBuildingsFloat32 = new Float32Array(count * CHUNK_OBB_STRIDE);
-      for (let i = 0; i < count; i++) {
+      const actualCount = raw.length;
+      obbBuildingsFloat32 = new Float32Array(actualCount * CHUNK_OBB_STRIDE);
+      for (let i = 0; i < actualCount; i++) {
         const b = raw[i];
         const base = i * CHUNK_OBB_STRIDE;
         obbBuildingsFloat32[base + 0] = b.east_m;
@@ -115,8 +121,8 @@ export class SpatialChunkManager {
         obbBuildingsFloat32[base + 4] = b.yaw_rad;
         obbBuildingsFloat32[base + 5] = b.height_m;
       }
-      buildingCount = count;
-      overviewCount = Math.min(20, count);
+      buildingCount = actualCount;
+      overviewCount = Math.min(36, actualCount);
     }
 
     const chunk = Object.freeze({

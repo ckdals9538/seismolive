@@ -22,6 +22,14 @@ export const EXHIBITION_MODES = Object.freeze({
   LOCAL_4KM_RESPONSE: 'MODE_LOCAL_4KM_RESPONSE'
 });
 
+function withExtendedFar(viewpoints) {
+  const out = {};
+  for (const [k, vp] of Object.entries(viewpoints || {})) {
+    out[k] = { ...vp, far: Math.max(vp?.far || 6000, 6000) };
+  }
+  return out;
+}
+
 export class ExhibitionModeManager {
   constructor(options = {}) {
     if (!options.scene || !options.camera) {
@@ -35,6 +43,7 @@ export class ExhibitionModeManager {
 
     this.activeMode = EXHIBITION_MODES.GLOBAL_EXHIBITION;
     this.localStage = CAMERA_STAGES.REGIONAL_APPROACH;
+    this.localTheme = options.theme === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
     this.isLocalInitialized = false;
 
     this.localWorldGroup = new THREE.Group();
@@ -70,12 +79,9 @@ export class ExhibitionModeManager {
   _ensureLocalSceneInitialized() {
     if (this.isLocalInitialized) return;
 
-    this.localGrid = new THREE.GridHelper(3200, 80, 0x1e293b, 0x070b14);
-    this.localGrid.position.set(120, -18, 50);
-    this.localWorldGroup.add(this.localGrid);
-
     this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
-      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE
+      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE,
+      theme: this.localTheme
     });
 
     this.hanyangAdapter = new HanyangResponseAdapter(this.localWorldGroup, {
@@ -92,13 +98,37 @@ export class ExhibitionModeManager {
     this.camTransition = new GlobalLocalCameraTransition({
       camera: this.camera,
       controls: this.controls,
-      viewpoints: {
+      viewpoints: withExtendedFar({
         ...DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints,
-        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH
-      }
+        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH,
+        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
+      })
     });
 
     this.isLocalInitialized = true;
+  }
+
+  _applyLocalSceneAtmosphere() {
+    if (!this.localSpatialLayer) return;
+    const palette = this.localSpatialLayer.setVisualTheme(this.localTheme);
+    if (this.scene) {
+      if (this.scene.background && this.scene.background.isColor) {
+        this.scene.background.setHex(palette.background);
+      } else {
+        this.scene.background = new THREE.Color(palette.background);
+      }
+      this.scene.fog = new THREE.FogExp2(palette.fogColor, palette.fogDensity);
+    }
+    const themeBtn = this._overlayEl?.querySelector('#inscene-btn-theme');
+    if (themeBtn) {
+      themeBtn.textContent = this.localTheme === 'ARCHITECTURAL_DAY' ? '테마: 주간 레퍼런스' : '테마: 야간 모놀리스';
+    }
+  }
+
+  toggleLocalTheme() {
+    this.localTheme = this.localTheme === 'ARCHITECTURAL_DAY' ? 'MONOLITH_NIGHT' : 'ARCHITECTURAL_DAY';
+    this._applyLocalSceneAtmosphere();
+    return this.localTheme;
   }
 
   _ensureOverlayDOM() {
@@ -115,7 +145,7 @@ export class ExhibitionModeManager {
       'display:none',
       'gap:6px',
       'align-items:center',
-      'background:rgba(2,4,8,0.92)',
+      'background:rgba(2,4,8,0.88)',
       'border:1px solid rgba(255,255,255,0.16)',
       'padding:6px 10px',
       'font-size:11px',
@@ -138,6 +168,14 @@ export class ExhibitionModeManager {
       btn.addEventListener('click', () => this.setLocalStage(s.stage));
       bar.appendChild(btn);
     }
+
+    const themeBtn = document.createElement('button');
+    themeBtn.id = 'inscene-btn-theme';
+    themeBtn.type = 'button';
+    themeBtn.className = 'surface-btn secondary compact';
+    themeBtn.textContent = this.localTheme === 'ARCHITECTURAL_DAY' ? '테마: 주간 레퍼런스' : '테마: 야간 모놀리스';
+    themeBtn.addEventListener('click', () => this.toggleLocalTheme());
+    bar.appendChild(themeBtn);
 
     const exitBtn = document.createElement('button');
     exitBtn.id = 'inscene-btn-exit-global';
@@ -179,6 +217,8 @@ export class ExhibitionModeManager {
       }
       this._savedGlobalSnapshot = {
         hiddenDomStates,
+        sceneBackground: this.scene.background ? (this.scene.background.clone ? this.scene.background.clone() : this.scene.background) : null,
+        sceneFog: this.scene.fog || null,
         camPos: this.camera.position.clone(),
         camNear: this.camera.near,
         camFar: this.camera.far,
@@ -192,11 +232,12 @@ export class ExhibitionModeManager {
 
     this.activeMode = EXHIBITION_MODES.LOCAL_4KM_RESPONSE;
     this.localWorldGroup.visible = true;
+    this._applyLocalSceneAtmosphere();
 
     if (this.controls) {
       this.controls.minDistance = 8.0;
-      this.controls.maxDistance = 3200.0;
-      this.controls.maxPolarAngle = Math.PI * 0.485;
+      this.controls.maxDistance = 4200.0;
+      this.controls.maxPolarAngle = Math.PI * 0.48;
       this.controls.enabled = true;
     }
 
@@ -250,6 +291,10 @@ export class ExhibitionModeManager {
     this._savedVisibilityMap.clear();
 
     if (snap) {
+      if (this.scene) {
+        this.scene.background = snap.sceneBackground || null;
+        this.scene.fog = snap.sceneFog || null;
+      }
       this.camera.position.copy(snap.camPos);
       this.camera.near = snap.camNear;
       this.camera.far = snap.camFar;

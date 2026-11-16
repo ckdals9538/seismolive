@@ -15,8 +15,38 @@
 // ============================================================================
 
 import { VERIFICATION_STATUS } from './ResponseDomainTypes.js';
+import {
+  REAL_TERRAIN_GRID,
+  REAL_WATER_POLYGONS,
+  REAL_GREEN_POLYGONS,
+  REAL_DENSE_ROADS,
+  REAL_OSM_BUILDINGS_FLAT
+} from './HanyangRealSpatialPayload.js';
 
 export const OBB_BUILDING_STRIDE = 6; // [east_m, north_m, width_m, depth_m, yaw_rad, height_m]
+export const TERRAIN_GRID = REAL_TERRAIN_GRID;
+export const DENSE_ROAD_NETWORK = REAL_DENSE_ROADS;
+
+/**
+ * Sample local ENU terrain elevation (meters) via bilinear interpolation
+ * on the 65x65 real Mapzen DEM + Hanyang campus slope grid [-2200m, +2200m].
+ */
+export function sampleTerrainHeight(east_m = 0, north_m = 0) {
+  const { nx, nz, halfExtentMeters, heights } = REAL_TERRAIN_GRID;
+  const span = halfExtentMeters * 2.0;
+  const gx = Math.max(0, Math.min(nx - 1e-6, ((east_m + halfExtentMeters) / span) * nx));
+  const gn = Math.max(0, Math.min(nz - 1e-6, ((north_m + halfExtentMeters) / span) * nz));
+  const ix = Math.floor(gx);
+  const inIdx = Math.floor(gn);
+  const fx = gx - ix;
+  const fn = gn - inIdx;
+  const row = nx + 1;
+  const idx0 = inIdx * row + ix;
+  return (
+    (heights[idx0] * (1.0 - fx) + heights[idx0 + 1] * fx) * (1.0 - fn) +
+    (heights[idx0 + row] * (1.0 - fx) + heights[idx0 + row + 1] * fx) * fn
+  );
+}
 
 export const HANYANG_LOCAL_SPATIAL_METADATA = Object.freeze({
   packageId: 'HYU_SEONGDONG_4KM_LOCAL_V1',
@@ -42,18 +72,25 @@ export const HANYANG_LOCAL_SPATIAL_METADATA = Object.freeze({
 
 export const HANYANG_LOCAL_SPATIAL_VIEWPOINTS = Object.freeze({
   LOCAL_4KM_OVERVIEW: Object.freeze({
-    position: Object.freeze([280.0, 920.0, 520.0]),
-    target: Object.freeze([120.0, -10.0, 80.0]),
+    position: Object.freeze([-420.0, 560.0, 1040.0]),
+    target: Object.freeze([80.0, -8.0, 20.0]),
     near: 0.5,
-    far: 5500.0,
-    description: '성동·한양 4km 로컬 공간 통합 뷰: 지형·수계·도로·대피소·주변 도시 맥락'
+    far: 6500.0,
+    description: '성동·한양 4km 로컬 공간 통합 뷰: 실측 DEM 지형·수계·도로·대피소·6,300+ 도시 건축물 맥락'
   }),
   REGIONAL_APPROACH: Object.freeze({
-    position: Object.freeze([280.0, 920.0, 520.0]),
-    target: Object.freeze([120.0, -10.0, 80.0]),
+    position: Object.freeze([-420.0, 560.0, 1040.0]),
+    target: Object.freeze([80.0, -8.0, 20.0]),
     near: 0.5,
-    far: 5500.0,
+    far: 6500.0,
     description: '성동·한양 4km 로컬 공간 접근 궤도'
+  }),
+  CAMPUS_OVERVIEW: Object.freeze({
+    position: Object.freeze([295.0, 290.0, -210.0]),
+    target: Object.freeze([115.0, -6.0, 65.0]),
+    near: 0.25,
+    far: 6500.0,
+    description: '캠퍼스 전체 조망: 제1공학관, 대피 경로 및 대운동장 (전시 프레이밍)'
   })
 });
 
@@ -127,7 +164,9 @@ export const TERRAIN_AND_HYDROLOGY_ZONES = Object.freeze({
     polygonEN: Object.freeze([
       [-320, -560], [520, -520], [920, -280], [880, -740], [380, -960], [-360, -940], [-320, -560]
     ])
-  })
+  }),
+  waterPolygons: REAL_WATER_POLYGONS,
+  greenPolygons: REAL_GREEN_POLYGONS
 });
 
 /**
@@ -327,48 +366,44 @@ function isExcludedClearanceZone(east_m, north_m) {
  */
 function buildHeightSortedContextBuildings() {
   const raw = [];
+  const realCount = Math.floor(REAL_OSM_BUILDINGS_FLAT.length / OBB_BUILDING_STRIDE);
 
-  // 1. Add all non-target named context buildings
-  for (const b of NAMED_CONTEXT_BUILDINGS) {
-    if (b.isTargetBuilding) continue;
+  // 1. Load real OSM oriented bounding boxes across Seongdong / Hanyang 4km x 4km
+  for (let i = 0; i < realCount; i++) {
+    const base = i * OBB_BUILDING_STRIDE;
+    const east_m = REAL_OSM_BUILDINGS_FLAT[base + 0];
+    const north_m = REAL_OSM_BUILDINGS_FLAT[base + 1];
+    const width_m = REAL_OSM_BUILDINGS_FLAT[base + 2];
+    const depth_m = REAL_OSM_BUILDINGS_FLAT[base + 3];
+    const yaw_rad = REAL_OSM_BUILDINGS_FLAT[base + 4];
+    const height_m = REAL_OSM_BUILDINGS_FLAT[base + 5];
     raw.push({
-      east_m: b.east_m,
-      north_m: b.north_m,
-      width_m: b.width_m,
-      depth_m: b.depth_m,
-      yaw_rad: b.yaw_rad,
-      height_m: b.height_m,
-      groundY_m: b.groundY_m
+      east_m,
+      north_m,
+      width_m,
+      depth_m,
+      yaw_rad,
+      height_m,
+      groundY_m: sampleTerrainHeight(east_m, north_m)
     });
   }
 
-  // 2. Populate deterministic Seongdong/Wangsimni/Haengdang urban blocks up to ~4km envelope
-  const rand = mulberry32(20260401);
-  const rings = [
-    { count: 48, minR: 220, maxR: 580, minH: 14, maxH: 38 },
-    { count: 68, minR: 580, maxR: 1120, minH: 16, maxH: 64 },
-    { count: 60, minR: 1120, maxR: 1680, minH: 18, maxH: 76 }
-  ];
-
-  for (const ring of rings) {
-    let placed = 0;
-    let attempts = 0;
-    while (placed < ring.count && attempts < ring.count * 6) {
-      attempts++;
-      const angle = (placed / ring.count) * Math.PI * 2 + (rand() - 0.5) * 0.35;
-      const radius = ring.minR + rand() * (ring.maxR - ring.minR);
-      const east_m = Number((Math.cos(angle) * radius + 40.0).toFixed(1));
-      const north_m = Number((Math.sin(angle) * radius).toFixed(1));
-
-      if (isExcludedClearanceZone(east_m, north_m)) continue;
-
-      const width_m = Number((22 + rand() * 38).toFixed(1));
-      const depth_m = Number((16 + rand() * 24).toFixed(1));
-      const yaw_rad = Number(((rand() - 0.5) * 1.1).toFixed(3));
-      const height_m = Number((ring.minH + rand() * (ring.maxH - ring.minH)).toFixed(1));
-
-      raw.push({ east_m, north_m, width_m, depth_m, yaw_rad, height_m, groundY_m: -12.0 });
-      placed++;
+  // 2. Fallback for any named non-target context building lacking an OSM footprint nearby
+  for (const b of NAMED_CONTEXT_BUILDINGS) {
+    if (b.isTargetBuilding || b.id === 'CTX_HIT' || b.id === 'CTX_PAIKNAM') continue;
+    const hasOsmNeighbor = raw.some(
+      r => Math.hypot(r.east_m - b.east_m, r.north_m - b.north_m) < 35.0
+    );
+    if (!hasOsmNeighbor) {
+      raw.push({
+        east_m: b.east_m,
+        north_m: b.north_m,
+        width_m: b.width_m,
+        depth_m: b.depth_m,
+        yaw_rad: b.yaw_rad,
+        height_m: b.height_m,
+        groundY_m: sampleTerrainHeight(b.east_m, b.north_m)
+      });
     }
   }
 
@@ -386,10 +421,11 @@ function buildHeightSortedContextBuildings() {
     float32[base + 3] = b.depth_m;
     float32[base + 4] = b.yaw_rad;
     float32[base + 5] = b.height_m;
-    groundOffsets[i] = b.groundY_m ?? -12.0;
+    groundOffsets[i] = b.groundY_m;
   }
 
-  const overviewCount = Math.min(72, Math.max(12, raw.filter(b => b.height_m >= 38.0).length));
+  const tallCount = raw.filter(b => b.height_m >= 25.0).length;
+  const overviewCount = Math.min(raw.length - 1, Math.max(240, tallCount));
 
   return {
     float32,
@@ -415,8 +451,10 @@ export const OBB_LOD_COUNTS = Object.freeze({
 export const HANYANG_LOCAL_4KM_PACKAGE = Object.freeze({
   metadata: HANYANG_LOCAL_SPATIAL_METADATA,
   viewpoints: HANYANG_LOCAL_SPATIAL_VIEWPOINTS,
+  terrainGrid: REAL_TERRAIN_GRID,
   terrainAndHydrology: TERRAIN_AND_HYDROLOGY_ZONES,
   roadNetwork: LOCAL_ROAD_NETWORK,
+  denseRoadNetwork: REAL_DENSE_ROADS,
   sheltersAndFacilities: OFFICIAL_SHELTERS_AND_FACILITIES,
   namedBuildings: NAMED_CONTEXT_BUILDINGS,
   obbBuildingsFloat32: OBB_CONTEXT_BUILDINGS_FLOAT32,
@@ -431,6 +469,11 @@ export function serializeHanyangLocal4kmJSON() {
   return {
     metadata: HANYANG_LOCAL_SPATIAL_METADATA,
     viewpoints: HANYANG_LOCAL_SPATIAL_VIEWPOINTS,
+    terrainGridSummary: {
+      nx: REAL_TERRAIN_GRID.nx,
+      nz: REAL_TERRAIN_GRID.nz,
+      halfExtentMeters: REAL_TERRAIN_GRID.halfExtentMeters
+    },
     terrainAndHydrology: TERRAIN_AND_HYDROLOGY_ZONES,
     roadNetwork: LOCAL_ROAD_NETWORK,
     sheltersAndFacilities: OFFICIAL_SHELTERS_AND_FACILITIES,
