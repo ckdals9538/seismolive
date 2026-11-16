@@ -35,7 +35,7 @@ export const MONOLITH_SURFACE_GLSL = `
     if (hasKorea > 0.5 && latDeg >= 33.0 && latDeg <= 42.0 && lonDeg >= 124.0 && lonDeg <= 132.0) {
       float mLat = min(latDeg - 33.0, 42.0 - latDeg);
       float mLon = min(lonDeg - 124.0, 132.0 - lonDeg);
-      koreaWeight = smoothstep(0.0, 0.60, min(mLat, mLon));
+      koreaWeight = smoothstep(0.0, 0.85, min(mLat, mLon));
       if (koreaWeight > 0.001) {
         vec2 kUv = vec2((lonDeg - 124.0) / 8.0, (42.0 - latDeg) / 9.0);
         float hKorea = -3500.0 + sampleUnorm16Linear(koreaTex, kUv, vec2(960.0, 1080.0)) * 6000.0;
@@ -51,11 +51,11 @@ export const MONOLITH_SURFACE_GLSL = `
     return mix(deepAbyss, vec3(0.038, 0.100, 0.178), shelfT);
   }
   vec3 monolithLandAlbedo(float elev, float slopeRelief) {
-    float elevNorm = clamp((elev - 40.0) / 1500.0, 0.0, 1.0);
-    float valleyCavity = mix(0.86, 1.0, smoothstep(0.0, 0.30, slopeRelief + elevNorm * 0.35));
+    float elevNorm = clamp((elev - 25.0) / 1450.0, 0.0, 1.0);
+    float valleyCavity = mix(0.86, 1.0, smoothstep(0.0, 0.28, slopeRelief + elevNorm * 0.35));
     float relief = max(slopeRelief, elevNorm);
-    vec3 c = mix(vec3(0.074, 0.098, 0.142), vec3(0.208, 0.250, 0.316), relief * 0.88);
-    c = mix(c, vec3(0.285, 0.342, 0.420), pow(relief, 1.85) * 0.80);
+    vec3 c = mix(vec3(0.090, 0.116, 0.162), vec3(0.214, 0.258, 0.326), relief * 0.88);
+    c = mix(c, vec3(0.292, 0.350, 0.430), pow(max(1e-5, relief), 1.80) * 0.82);
     return c * valleyCavity;
   }
   vec3 computeMonolithLighting(vec3 albedo, vec3 N, vec3 V, vec3 L, vec3 ambientCol, vec3 lightCol, float isOcean) {
@@ -122,7 +122,7 @@ export const TIER0_GLOBE_VERTEX_SHADER = `
     if (u_hasKoreaMacro > 0.5 && lat >= 33.0 && lat <= 42.0 && lon >= 124.0 && lon <= 132.0) {
       float mLat = min(lat - 33.0, 42.0 - lat);
       float mLon = min(lon - 124.0, 132.0 - lon);
-      float kWeight = smoothstep(0.0, 0.60, min(mLat, mLon));
+      float kWeight = smoothstep(0.0, 0.85, min(mLat, mLon));
       if (kWeight > 0.001) {
         vec2 kUv = vec2((lon - 124.0) / 8.0, (42.0 - lat) / 9.0);
         float kMeters = -3500.0 + sampleUnorm16LinearV(u_koreaMacro, kUv, vec2(960.0, 1080.0)) * 6000.0;
@@ -184,9 +184,11 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
   uniform float u_faultStrike;
   uniform float u_ruptureVelocity;
   uniform float u_isFiniteFault;
+  uniform float u_depthUnits;
   uniform vec2 u_regionCenter;
   uniform vec2 u_regionHalfSize;
   uniform float u_regionActive;
+  uniform float u_regionFade;
   uniform vec2 u_errorEllipseAxes;
   uniform float u_errorEllipseAngle;
   uniform vec4 u_isoseismalRadii;
@@ -234,11 +236,14 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
     vec3 tangent = normalize(cross(upRef, N));
     vec3 bitangent = normalize(cross(N, tangent));
 
-    vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * 2.15) - bitangent * (dh_dy * 2.15));
+    float normalBoost = mix(3.25, 2.15, kWeightC);
+    vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * normalBoost) - bitangent * (dh_dy * normalBoost));
 
     float isOcean = step(fragElev, 0.0);
     float slopeMag = length(vec2(dh_dx, dh_dy));
-    float slopeRelief = smoothstep(0.005, 0.036, slopeMag);
+    float slopeLow = mix(0.0014, 0.0050, kWeightC);
+    float slopeHigh = mix(0.0155, 0.0360, kWeightC);
+    float slopeRelief = smoothstep(slopeLow, slopeHigh, slopeMag);
 
     vec3 baseColor;
     if (fragElev < 0.0) {
@@ -267,20 +272,26 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
       float sFaultG = dot(dEpiG, uFG);
       float dFaultG = dot(dEpiG, nFG);
       float halfLG = 0.5 * u_faultLength;
+      // Smooth bilateral elliptical strike propagation (eliminates L1 Mach-diamond & chevron corners)
+      float activeHalfLG = min(halfLG, max(0.12, u_ruptureVelocity * u_simTime * 0.72));
+      float strikeStretchG = 1.0 + clamp(activeHalfLG * 0.58, 0.0, 0.92);
+      effDistG = sqrt((sFaultG / strikeStretchG) * (sFaultG / strikeStretchG) + dFaultG * dFaultG);
+
       float sClampedG = clamp(sFaultG, -halfLG, halfLG);
-      tSlipG = abs(sClampedG) / max(0.001, u_ruptureVelocity);
-      effDistG = length(vec2(sFaultG - sClampedG, dFaultG));
-      faultDist = effDistG;
+      faultDist = length(vec2(sFaultG - sClampedG, dFaultG));
       if (u_simTime > 0.0) {
-        float dtRupt = u_simTime - tSlipG;
-        seamLine = exp(-pow(faultDist / 0.0032, 2.0)) * smoothstep(-0.08, 0.16, dtRupt) * exp(-max(0.0, dtRupt) * 0.16);
+        float dtRupt = u_simTime - (abs(sClampedG) / max(0.001, u_ruptureVelocity));
+        float faultEnvG = exp(-pow(sFaultG / max(0.18, 0.30 * u_faultLength), 2.0)) * smoothstep(halfLG, halfLG * 0.42, abs(sFaultG));
+        seamLine = exp(-pow(faultDist / 0.0038, 2.0)) * smoothstep(-0.08, 0.22, dtRupt) * exp(-max(0.0, dtRupt) * 0.14) * faultEnvG;
       }
     }
+    effDistG = sqrt(effDistG * effDistG + u_depthUnits * u_depthUnits);
 
     float angleG = atan(dEpiG.y, dEpiG.x);
+    float lobeG = 0.5 + 0.5 * cos(2.0 * (angleG - u_faultStrike));
     float dirAniso = (u_isFiniteFault > 0.5)
-      ? mix(0.62, 1.0, abs(cos(2.0 * (angleG - u_faultStrike))))
-      : mix(0.80, 1.0, abs(cos(angleG - 0.436)));
+      ? mix(0.66, 1.0, lobeG)
+      : mix(0.84, 1.0, 0.5 + 0.5 * cos(angleG - 0.436));
 
     if (u_simTime > 0.0 && rEpiG < 18.0) {
       float dtG = u_simTime - tSlipG;
@@ -323,38 +334,39 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
     // 0m Coastline Cartographic Hairline: keeps dark nocturnal land & sea crisp without clutter
     float elevStepDiff = length(vec2(hR - hL, hD - hU));
     float shoreNormDist = abs(fragElev) / max(18.0, elevStepDiff * 0.42);
-    float shoreHairline = exp(-pow(shoreNormDist / 1.35, 2.0));
-    lit += vec3(0.42, 0.60, 0.80) * (shoreHairline * mix(0.16, 0.24, kWeightC));
+    float shoreHairline = exp(-pow(shoreNormDist / 1.35, 2.0)) * smoothstep(0.5, 4.0, elevStepDiff);
+    lit += vec3(0.42, 0.60, 0.80) * (shoreHairline * mix(0.19, 0.22, kWeightC));
 
     if (u_simTime > 0.0 && rEpiG < 18.0) {
       float dtGlow = u_simTime - tSlipG;
       float waveRP = (dtGlow > 0.0) ? (u_vP * dtGlow) : -1.0;
       float waveRS = (dtGlow > 0.0) ? (u_vS * dtGlow) : -1.0;
       float attenGlow = 1.0 / sqrt(max(0.16, effDistG * 3.6));
+      float regionAtten = mix(1.0, 0.22, clamp(u_regionFade, 0.0, 1.0));
 
       // Subtle cool P-wave precursor filament
-      float pPulse = exp(-pow(abs(effDistG - waveRP) / 0.011, 2.0)) * smoothstep(0.0, 0.25, u_simTime);
-      lit += vec3(0.46, 0.72, 0.96) * (pPulse * attenGlow * dirAniso * mix(0.07, 0.12, 1.0 - isOcean));
+      float pPulse = exp(-pow(abs(effDistG - waveRP) / 0.014, 2.0)) * smoothstep(0.0, 0.25, u_simTime);
+      lit += vec3(0.46, 0.72, 0.96) * (pPulse * attenGlow * dirAniso * mix(0.06, 0.11, 1.0 - isOcean) * regionAtten);
 
       // Topographic Mountain Spine Resonance coupled to S + Rayleigh surface waves (anti-cartoon-ring)
       float mountainSpine = (1.0 - isOcean) * (0.20 + 0.80 * smoothstep(0.16, 0.75, slopeRelief)) * smoothstep(20.0, 850.0, max(0.0, fragElev));
-      float sPulse = exp(-pow(abs(effDistG - waveRS) / 0.022, 2.0)) * smoothstep(0.0, 0.40, u_simTime);
+      float sPulse = exp(-pow(abs(effDistG - waveRS) / 0.028, 2.0)) * smoothstep(0.0, 0.40, u_simTime);
       float dtR = dtGlow - (effDistG / max(0.001, u_vS * 0.9194));
       float rayleighCrests = (dtR > 0.0 && dtR < 6.5)
         ? (exp(-dtR * 0.36) * smoothstep(0.0, 0.4, dtR) * (0.5 + 0.5 * cos(dtR * 6.2831853 * clamp(u_dominantFreq, 0.5, 1.8) * 0.52 - 0.6)))
         : 0.0;
 
-      float landWeight = mix(0.07, 0.30, mountainSpine);
+      float landWeight = mix(0.07, 0.28, mountainSpine);
       float oceanWeight = mix(0.055, 0.10, smoothstep(-3200.0, -40.0, fragElev));
-      float surfaceRes = (sPulse * 0.85 + rayleighCrests * 0.48) * attenGlow * dirAniso * mix(landWeight, oceanWeight, isOcean);
+      float surfaceRes = (sPulse * 0.80 + rayleighCrests * 0.46) * attenGlow * dirAniso * mix(landWeight, oceanWeight, isOcean) * regionAtten;
       lit += mix(vec3(0.84, 0.90, 0.98), vec3(0.56, 0.78, 0.94), isOcean) * surfaceRes;
 
-      // Epicenter rupture ignition: Finite fault razor trace or serene point pulse
+      // Epicenter rupture ignition: Restrained valley fault trace or serene point pulse
       if (u_isFiniteFault > 0.5) {
-        lit += vec3(1.0, 1.0, 1.0) * (seamLine * 0.55) + vec3(0.22, 0.74, 0.97) * (seamLine * 0.28);
+        lit += vec3(0.75, 0.86, 0.96) * (seamLine * 0.16 * regionAtten);
       } else {
         float coreIgnite = exp(-pow(rEpiG / 0.024, 2.0)) * smoothstep(0.0, 0.35, u_simTime) * exp(-u_simTime * 0.24);
-        lit += vec3(0.80, 0.88, 0.98) * (coreIgnite * 0.24);
+        lit += vec3(0.80, 0.88, 0.98) * (coreIgnite * 0.24 * regionAtten);
       }
 
       // Shallow-water tsunami / historical drawback & coastal shoaling swell (1681, Tohoku)
@@ -503,7 +515,7 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
     if (u_hasKoreaMacro > 0.5 && latG >= 33.0 && latG <= 42.0 && lonG >= 124.0 && lonG <= 132.0) {
       float mLat = min(latG - 33.0, 42.0 - latG);
       float mLon = min(lonG - 124.0, 132.0 - lonG);
-      float kW = smoothstep(0.0, 0.60, min(mLat, mLon));
+      float kW = smoothstep(0.0, 0.85, min(mLat, mLon));
       if (kW > 0.001) {
         vec2 kUv = vec2((lonG - 124.0) / 8.0, (42.0 - latG) / 9.0);
         float hK = -3500.0 + sampleUnorm16LinearR(u_koreaMacro, kUv, vec2(960.0, 1080.0)) * 6000.0;
@@ -511,11 +523,14 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
       }
     }
 
-    float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
-    float edgeTaper = smoothstep(0.008, 0.210, edgeDist);
+    vec2 cUv = (uv - vec2(0.5)) * 2.0;
+    float ax = max(1e-5, abs(cUv.x));
+    float ay = max(1e-5, abs(cUv.y));
+    float rSquircle = pow(max(1e-6, pow(ax, 2.4) + pow(ay, 2.4)), 1.0 / 2.4);
+    float edgeTaper = 1.0 - smoothstep(0.58, 0.96, rSquircle);
     float reconciledElevation = mix(hGlobal, rawMeters, edgeTaper);
     vEdgeTaper = edgeTaper;
-    vRRegion = edgeDist;
+    vRRegion = edgeTaper;
 
     vElevation = reconciledElevation;
     vIsUnderwater = (reconciledElevation < 0.0) ? 1.0 : 0.0;
@@ -574,9 +589,9 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
       float sFault = dot(dEpi, uF);
       float dFault = dot(dEpi, nF);
       float halfL = 0.5 * u_faultLength;
-      float sClamped = clamp(sFault, -halfL, halfL);
-      tSlip = abs(sClamped) / max(0.001, u_ruptureVelocity);
-      effDist = length(vec2(sFault - sClamped, dFault));
+      float activeHalfL = min(halfL, max(0.12, u_ruptureVelocity * u_simTime * 0.72));
+      float strikeStretch = 1.0 + clamp(activeHalfL * 0.58, 0.0, 0.92);
+      effDist = sqrt((sFault / strikeStretch) * (sFault / strikeStretch) + dFault * dFault);
     }
     float effHypoDist = sqrt(effDist * effDist + u_depthUnits * u_depthUnits);
     vDistHypo = effHypoDist;
@@ -585,10 +600,10 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
     vec2 dirTransverse = vec2(-dirRadial.y, dirRadial.x);
 
     float angleEpi = atan(dEpi.y, dEpi.x);
-    float radP = abs(sin(2.0 * (angleEpi - u_faultStrike)));
-    float radS = abs(cos(2.0 * (angleEpi - u_faultStrike)));
-    float fRadP = mix(1.0, radP, u_radiationDirectivity);
-    float fRadS = mix(1.0, radS, u_radiationDirectivity);
+    float radP = 0.5 + 0.5 * cos(2.0 * (angleEpi - u_faultStrike));
+    float radS = 0.5 + 0.5 * sin(2.0 * (angleEpi - u_faultStrike));
+    float fRadP = mix(1.0, mix(0.45, 1.0, radP), u_radiationDirectivity);
+    float fRadS = mix(1.0, mix(0.55, 1.0, radS), u_radiationDirectivity);
 
     float bathyDepth = max(0.0, -rawMeters);
     float shelfFactor = smoothstep(60.0, 380.0, bathyDepth);
@@ -727,7 +742,7 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
   ${MONOLITH_SURFACE_GLSL}
 
   void main() {
-    float regionAlpha = smoothstep(0.008, 0.210, vRRegion) * smoothstep(-28.0, 6.0, vElevation) * clamp(u_regionFade, 0.0, 1.0);
+    float regionAlpha = vRRegion * smoothstep(-28.0, 6.0, vElevation) * clamp(u_regionFade, 0.0, 1.0);
     if (regionAlpha < 0.01) {
       discard;
     }
@@ -785,8 +800,9 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
         float tRuptR = abs(sCR) / max(0.001, u_ruptureVelocity);
         float dSegR = length(vec2(sFR - sCR, dFR));
         float dtR = u_simTime - tRuptR;
-        float seamR = exp(-pow(dSegR / 0.0028, 2.0)) * smoothstep(-0.08, 0.16, dtR) * exp(-max(0.0, dtR) * 0.16) * vEdgeTaper;
-        lit += vec3(1.0, 1.0, 1.0) * (seamR * 0.55) + vec3(0.22, 0.74, 0.97) * (seamR * 0.28);
+        float faultEnvR = exp(-pow(sFR / max(0.18, 0.30 * u_faultLength), 2.0)) * smoothstep(hLR, hLR * 0.42, abs(sFR));
+        float seamR = exp(-pow(dSegR / 0.0036, 2.0)) * smoothstep(-0.08, 0.22, dtR) * exp(-max(0.0, dtR) * 0.14) * faultEnvR * vEdgeTaper;
+        lit += vec3(0.75, 0.86, 0.96) * (seamR * 0.24);
       }
     }
 

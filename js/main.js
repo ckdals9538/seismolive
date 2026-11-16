@@ -586,6 +586,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (terrainUniforms?.u_regionFade) {
           const fadeVal = regionalDemReady ? THREE.MathUtils.smoothstep(ease, 0.28, 0.94) : 0.0;
           terrainUniforms.u_regionFade.value = fadeVal;
+          if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = fadeVal;
           if (terrainMesh) terrainMesh.visible = regionalDemReady && fadeVal > 0.02;
         }
 
@@ -601,6 +602,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
             exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;
             if (terrainMesh) terrainMesh.visible = false;
             if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
+            if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = 0.0;
             document.body.classList.add('in-local-evac-mode');
             exhibitionModeManager.enterLocalResponseMode(req.stage, {
               ...req,
@@ -617,7 +619,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           isPlaying = true;
           exhibitionAppContext.isPlaying = isPlaying;
           performanceCameraLockedByUser = false;
-          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = regionalDemReady ? 1.0 : 0.0;
+          const perfFade = regionalDemReady ? 1.0 : 0.0;
+          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = perfFade;
+          if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = perfFade;
           if (terrainMesh) terrainMesh.visible = regionalDemReady;
           if (orchestrator?.seekToTime) orchestrator.seekToTime(0.0);
           controlSurface?.updatePerformanceTime?.(0.0, currentMaxSimTime);
@@ -663,6 +667,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (terrainUniforms?.u_regionFade) {
           const fadeVal = regionalDemReady ? (1.0 - THREE.MathUtils.smoothstep(ease, 0.0, 0.68)) : 0.0;
           terrainUniforms.u_regionFade.value = fadeVal;
+          if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = fadeVal;
           if (terrainMesh) terrainMesh.visible = regionalDemReady && fadeVal > 0.02;
         }
 
@@ -674,6 +679,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           exhibitionAppContext.flightState = flightState;
           performanceCameraLockedByUser = false;
           if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
+          if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = 0.0;
           if (terrainMesh) terrainMesh.visible = false;
           controls.target.copy(flightEndLookAt);
           controls.minDistance = 18.0;
@@ -864,10 +870,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           u_faultStrike: { value: 0.0 },
           u_ruptureVelocity: { value: 2.8 * 1000.0 * WGS84.METERS_TO_UNITS },
           u_isFiniteFault: { value: 0.0 },
+          u_depthUnits: { value: paramFocalDepthKm * 1000.0 * WGS84.METERS_TO_UNITS },
           // Regional DEM footprint half-extent in scene units
           u_regionCenter: { value: new THREE.Vector2(lat0, lon0) },
           u_regionHalfSize: { value: new THREE.Vector2(PHYSICAL_W_UNITS * 0.5, PHYSICAL_H_UNITS * 0.5) },
           u_regionActive: { value: 0.0 },
+          u_regionFade: { value: 0.0 },
           u_errorEllipseAxes: { value: new THREE.Vector2(0.0, 0.0) },
           u_errorEllipseAngle: { value: 0.0 },
           u_isoseismalRadii: { value: new THREE.Vector4(0.0, 0.0, 0.0, 0.0) },
@@ -1414,13 +1422,16 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           terrainMesh.visible = regionalDemReady && (inCloseStage || Boolean(snapCamera));
           terrainMesh.renderOrder = 2;
         }
-        terrainUniforms.u_regionFade.value = (regionalDemReady && (inCloseStage || snapCamera)) ? 1.0 : 0.0;
+        const initFade = (regionalDemReady && (inCloseStage || snapCamera)) ? 1.0 : 0.0;
+        terrainUniforms.u_regionFade.value = initFade;
+        if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = initFade;
         if (waterMesh) {
           waterMesh.visible = false;
         }
       } else {
         // GLOBAL PLANETARY RELIEF (NOAA ETOPO 2022 + Korea Macro Continuous Globe)
         terrainUniforms.u_regionFade.value = 0.0;
+        if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = 0.0;
         if (terrainMesh) terrainMesh.visible = false;
         if (waterMesh) waterMesh.visible = false;
       }
@@ -1549,6 +1560,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (gu.u_faultStrike) gu.u_faultStrike.value = terrainUniforms.u_faultStrike.value;
         if (gu.u_ruptureVelocity) gu.u_ruptureVelocity.value = terrainUniforms.u_ruptureVelocity.value;
         if (gu.u_isFiniteFault) gu.u_isFiniteFault.value = terrainUniforms.u_isFiniteFault.value;
+        if (gu.u_depthUnits) gu.u_depthUnits.value = terrainUniforms.u_depthUnits.value;
       }
 
       // Update Historical Epicentral Error Ellipse & Isoseismals (Phase D5)
@@ -1648,7 +1660,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (snapCamera) {
           flightState = FLIGHT_STATES.PERFORMANCE;
           performanceCameraLockedByUser = false;
-          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = regionalDemReady ? 1.0 : 0.0;
+          const snapFade = regionalDemReady ? 1.0 : 0.0;
+          if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = snapFade;
+          if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = snapFade;
           if (terrainMesh) terrainMesh.visible = regionalDemReady;
           controls.minDistance = 0.10;
           controls.maxDistance = 5.5;
@@ -2690,6 +2704,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           loadKoreaMacroElevationTexture(THREE),
           loadFusedElevationTexture()
         ]);
+        const actualGW = loadedGlobalTex?.userData?.width || gW;
+        const actualGH = loadedGlobalTex?.userData?.height || gH;
+        globalTexSizeVec.set(actualGW, actualGH);
         globalElevationTexture = loadedGlobalTex;
         koreaMacroTexture = loadedKoreaMacroTex;
         terrainUniforms.u_globalElevation.value = globalElevationTexture;
@@ -3127,6 +3144,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
       performanceCameraLockedByUser = false;
       if (terrainUniforms?.u_regionFade) terrainUniforms.u_regionFade.value = 0.0;
+      if (tier0GlobeMesh?.material?.uniforms?.u_regionFade) tier0GlobeMesh.material.uniforms.u_regionFade.value = 0.0;
       if (terrainMesh) terrainMesh.visible = false;
       flightState = FLIGHT_STATES.ORBIT;
       exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;

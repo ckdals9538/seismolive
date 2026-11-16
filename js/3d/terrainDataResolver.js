@@ -121,7 +121,11 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
       throw new Error(`Failed to load DEM binary from ${binUrl}: ${response.status} ${response.statusText}`);
     }
     const buffer = await response.arrayBuffer();
-    const uint16View = new Uint16Array(buffer);
+    const expectedBytes = width * height * 2;
+    if (buffer.byteLength < expectedBytes) {
+      throw new Error(`Unexpected DEM size from ${binUrl}: ${buffer.byteLength} < ${expectedBytes}`);
+    }
+    const uint16View = new Uint16Array(buffer, 0, width * height);
     const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.ClampToEdgeWrapping);
     demTextureCache.set(binUrl, texture);
     return texture;
@@ -143,24 +147,53 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
   const cacheKey = `${binUrl}|${width}x${height}`;
   if (globalTextureCache.has(cacheKey)) return globalTextureCache.get(cacheKey);
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 9000);
-  try {
-    const fetchUrl = binUrl.includes('?') ? binUrl : `${binUrl}?v=6.0`;
-    const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
-    clearTimeout(timeoutId);
-    if (!response.ok) {
-      throw new Error(`Failed to load global relief binary: ${response.status}`);
+  const attemptFetch = async (url, w, h, timeoutMs) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const fetchUrl = url.includes('?') ? url : `${url}?v=6.0`;
+      const response = await fetch(fetchUrl, { signal: controller.signal, cache: 'no-cache' });
+      clearTimeout(timeoutId);
+      if (!response.ok) {
+        throw new Error(`Failed to load global relief binary (${url}): ${response.status}`);
+      }
+      const buffer = await response.arrayBuffer();
+      const expectedBytes = w * h * 2;
+      if (buffer.byteLength < expectedBytes) {
+        throw new Error(`Invalid global relief byteLength (${url}): ${buffer.byteLength} < ${expectedBytes}`);
+      }
+      const uint16View = new Uint16Array(buffer, 0, w * h);
+      const texture = packUnorm16ToRgbaTexture(T, uint16View, w, h, T.RepeatWrapping);
+      texture.userData = { width: w, height: h, url, isFallback: false };
+      return texture;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      throw err;
     }
-    const buffer = await response.arrayBuffer();
-    const uint16View = new Uint16Array(buffer);
-    const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.RepeatWrapping);
+  };
+
+  try {
+    const texture = await attemptFetch(binUrl, width, height, 9000);
     globalTextureCache.set(cacheKey, texture);
     return texture;
   } catch (err) {
-    clearTimeout(timeoutId);
-    console.warn('[Global Relief] Fallback to procedural planetary texture:', err.message);
-    const texture = packNormalizedValueToRgbaTexture(T, 0.55, width, height, T.RepeatWrapping);
+    console.warn('[Global Relief] Primary global DEM load failed:', err.message);
+    const is4kRequest = binUrl.includes('4096') || width === 4096;
+    if (is4kRequest) {
+      try {
+        const fallback2kUrl = 'assets/terrain/bathymetry/global_etopo_elevation_2048_unorm16.bin';
+        console.warn('[Global Relief] Falling back to 2048x1024 global ETOPO relief tier.');
+        const tex2k = await attemptFetch(fallback2kUrl, 2048, 1024, 9000);
+        tex2k.userData.isFallback = true;
+        globalTextureCache.set(cacheKey, tex2k);
+        return tex2k;
+      } catch (err2k) {
+        console.warn('[Global Relief] 2048 fallback also unavailable:', err2k.message);
+      }
+    }
+    console.warn('[Global Relief] Fallback to deep abyssal planetary baseline texture.');
+    const texture = packNormalizedValueToRgbaTexture(T, 0.34, width, height, T.RepeatWrapping);
+    texture.userData = { width, height, url: 'procedural-abyssal', isFallback: true };
     globalTextureCache.set(cacheKey, texture);
     return texture;
   }
@@ -186,7 +219,11 @@ export async function loadKoreaMacroElevationTexture(THREE, binUrl = 'assets/ter
       throw new Error(`Failed to load Korea macro relief binary: ${response.status}`);
     }
     const buffer = await response.arrayBuffer();
-    const uint16View = new Uint16Array(buffer);
+    const expectedBytes = width * height * 2;
+    if (buffer.byteLength < expectedBytes) {
+      throw new Error(`Invalid Korea macro byteLength: ${buffer.byteLength} < ${expectedBytes}`);
+    }
+    const uint16View = new Uint16Array(buffer, 0, width * height);
     const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.ClampToEdgeWrapping);
     cachedKoreaMacroTexture = texture;
     return texture;
