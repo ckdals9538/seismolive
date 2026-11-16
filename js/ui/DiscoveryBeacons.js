@@ -16,23 +16,24 @@ class DiscoveryBeaconBatch {
   constructor(nodes = [], scene = null) {
     this.nodes = nodes;
     this.count = nodes.length;
+    this.batchVisible = true;
     this.group = new THREE.Group();
     this.group.name = 'DiscoveryBeaconsInstancedBatch';
 
     const maxCount = Math.max(1, this.count);
-    const coreGeo = new THREE.SphereGeometry(0.018, 10, 10);
-    const coreMat = new THREE.MeshBasicMaterial({ depthTest: false, transparent: true });
+    const coreGeo = new THREE.SphereGeometry(0.011, 10, 10);
+    const coreMat = new THREE.MeshBasicMaterial({ depthTest: false, transparent: true, opacity: 0.88 });
     this.coreMesh = new THREE.InstancedMesh(coreGeo, coreMat, maxCount);
     this.coreMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     this.coreMesh.renderOrder = 12;
     this.coreMesh.frustumCulled = false;
 
-    const ringGeo = new THREE.RingGeometry(0.024, 0.040, 20);
+    const ringGeo = new THREE.RingGeometry(0.016, 0.027, 20);
     const ringMat = new THREE.MeshBasicMaterial({
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.65,
-      blending: THREE.AdditiveBlending,
+      opacity: 0.40,
+      blending: THREE.NormalBlending,
       depthTest: false
     });
     this.ringMesh = new THREE.InstancedMesh(ringGeo, ringMat, maxCount);
@@ -58,6 +59,10 @@ class DiscoveryBeaconBatch {
   }
 
   updateMatrices(time = 0) {
+    if (!this.batchVisible) {
+      this.group.visible = false;
+      return;
+    }
     let anyVisible = false;
     for (let i = 0; i < this.count; i++) {
       const nd = this.nodes[i];
@@ -212,6 +217,19 @@ export function getDiscoveryBeaconBatchGroup() {
   return activeBeaconBatch?.group || null;
 }
 
+export function setDiscoveryBeaconsVisible(visible = true) {
+  const show = Boolean(visible);
+  if (activeBeaconBatch) {
+    activeBeaconBatch.batchVisible = show;
+    if (!show) {
+      activeBeaconBatch.group.visible = false;
+    }
+  }
+  if (!show) {
+    hideBeaconTooltip();
+  }
+}
+
 export function initDiscoveryNodes(lat0, lon0, scene = null, discoveryNodesList = null) {
   const s = scene || (typeof window !== 'undefined' ? window.scene : null);
   const list = discoveryNodesList || (typeof window !== 'undefined' ? window.discoveryNodes : null);
@@ -226,11 +244,11 @@ export function initDiscoveryNodes(lat0, lon0, scene = null, discoveryNodesList 
   });
   list.length = 0;
   const allEvents = getAllLocalizedEvents();
-  // Include all baseline historical/instrumental benchmarks plus major global events (M>=5.5)
+  // Include all baseline historical/instrumental benchmarks plus major global events (M>=5.8) so orbit view remains serene
   const beaconEvents = allEvents.filter(ev => {
     if (!ev.id?.includes('usgs')) return true;
     const m = ev.mag?.v ?? ev.mag ?? 0;
-    return m >= 5.5;
+    return m >= 5.8;
   });
   beaconEvents.forEach(ev => {
     const node = new DiscoveryNode(ev, lat0, lon0, { batched: true });

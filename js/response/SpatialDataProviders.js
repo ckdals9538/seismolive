@@ -315,15 +315,21 @@ export class HazardProvider {
       ? new Date(rawTime).toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
       : (rawTime || (scenarioType === SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC ? '교육 훈련 시나리오' : '시각 정보 미상'));
 
+    const toNullableNum = (v) => (v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v))) ? Number(v) : null;
+    const parsedLat = toNullableNum(rawLat);
+    const parsedLon = toNullableNum(rawLon);
+    const parsedMag = toNullableNum(rawMag);
+    const parsedDepth = toNullableNum(rawDepth);
+
     return HazardProvider.createScenario({
       id: rawEv.eventId || rawEv.id || `EV_${Date.now()}`,
       scenarioType,
       title: rawEv.titleKo || rawEv.title || rawEv.place || rawEv.spatial?.placeName || rawEv.id || '지진 사건',
-      epicenterLat: Number.isFinite(Number(rawLat)) ? Number(rawLat) : null,
-      epicenterLon: Number.isFinite(Number(rawLon)) ? Number(rawLon) : null,
-      magnitude: Number.isFinite(Number(rawMag)) ? Number(rawMag) : null,
+      epicenterLat: parsedLat,
+      epicenterLon: parsedLon,
+      magnitude: (parsedMag !== null && parsedMag > 0) ? parsedMag : null,
       magScale: rawEv.magType || rawEv.magnitudeScale || null,
-      depthKm: Number.isFinite(Number(rawDepth)) && Number(rawDepth) >= 0 ? Number(rawDepth) : null,
+      depthKm: (parsedDepth !== null && parsedDepth > 0) ? parsedDepth : null,
       occurredAt,
       isRealtimeLive: rawEv.recordType === 'usgs-live',
       originText: rawEv.spatial?.placeName || rawEv.originText || rawEv.place || '진앙 위치 확인 중',

@@ -16,7 +16,7 @@ import { mergeCatalogWithUncertaintyPreservation } from '../js/data/usgsFeedConn
 import { ExhibitionAppContext } from '../js/ui/ExhibitionAppContext.js';
 import { ResponseUIAdapter } from '../js/response/ResponseUIAdapter.js';
 import { LocalSpatialMapLayer } from '../js/response/LocalSpatialMapLayer.js';
-import { renderEvacuationHudMarkup } from '../js/ui/EvacuationExperienceController.js';
+import { EvacuationExperienceController, renderEvacuationHudMarkup } from '../js/ui/EvacuationExperienceController.js';
 import { SCENARIO_TYPES, IMPACT_ZONE_STATUS, CANDIDATE_STATUS } from '../js/response/ResponseDomainTypes.js';
 import { PRESET_EARTHQUAKE_SCENARIOS, loadRegionalSpatialPackage, compileOsmJsonToSpatialPackage } from '../js/response/NationwideKoreaSpatialEngine.js';
 import { LiveSeismicDataService, LIVE_FEED_STATUS, parseShakeMapStations } from '../js/data/LiveSeismicDataService.js';
@@ -699,6 +699,65 @@ console.log('\n--- 11. Non-Hanyang Urban Block Routing, DEM Ridge Following & Z-
     '11.2: Identical SHORTEST/STEP_FREE routes suppress overlapping tube in ALL mode while toggling cleanly in STEP_FREE mode',
     `hiddenInAll=${hiddenInAllMode}, shownInStepFree=${shownInStepFree}`
   );
+
+  // 11.3: Dynamic building selection re-evaluates candidate distances, re-sorts closest-first,
+  // and automatically selects the true shortest shelter instead of sticking to previous selection
+  const mockScene2 = new THREE.Scene();
+  const mockCam2 = new THREE.PerspectiveCamera(45, 1.6, 0.25, 4000);
+  const ctrl = new EvacuationExperienceController({
+    scene: mockScene2,
+    camera: mockCam2,
+    deferInitialBoot: true,
+    useLegacyCampusBoot: false
+  });
+  ctrl.activeSpatialPkg = {
+    metadata: { anchor: { lat: 37.55, lon: 127.04 } },
+    terrainGrid: { nx: 4, nz: 4, halfExtentMeters: 300, heights: new Array(25).fill(0) },
+    obbBuildingsFloat32: new Float32Array(0),
+    walkGraph: {
+      nodes: [
+        ['N0', 0, 0, 0],
+        ['N1', 120, 0, 0],
+        ['N2', 260, 0, 0],
+        ['N3', -100, 0, 0]
+      ],
+      edges: [
+        [3, 0, 100, 'residential', false, 0, false, false],
+        [0, 1, 120, 'residential', false, 0, false, false],
+        [1, 2, 140, 'residential', false, 0, false, false]
+      ]
+    },
+    sheltersAndFacilities: [
+      { id: 'SH_FAR', name: '먼 대피소', east_m: 260, north_m: 0, candidateStatus: CANDIDATE_STATUS.CONDITIONAL, dimensions: { distanceMeters: 900 } },
+      { id: 'SH_WEST', name: '서쪽 광장', east_m: -100, north_m: 0, candidateStatus: CANDIDATE_STATUS.CONDITIONAL, dimensions: { distanceMeters: 150 } },
+      { id: 'SH_MID', name: '가까운 운동장', east_m: 120, north_m: 0, candidateStatus: CANDIDATE_STATUS.CONDITIONAL, dimensions: { distanceMeters: 400 } }
+    ]
+  };
+  ctrl.activeWalkGraph = ctrl.activeSpatialPkg.walkGraph;
+  ctrl.router.setRealMapRouting({
+    enabled: true,
+    buildingOBBs: ctrl.activeSpatialPkg.obbBuildingsFloat32,
+    customWalkGraph: ctrl.activeWalkGraph,
+    elevationSampler: () => 0
+  });
+  // Simulate user had previously selected SH_MID or SH_WEST, then clicks a building right next to SH_FAR (east=250)
+  ctrl.selectedCandidateIndex = 1;
+  ctrl.selectShortestOriginAndBuildFacility({
+    id: 'BLDG_EAST', name: '동측 신축동', east_m: 245, north_m: 0, width_m: 10, depth_m: 10, yaw_rad: 0, height_m: 12
+  }, { snapStage: false, autoPlay: true, markerMode: 'PICKED_BUILDING' });
+
+  const sortedIds = ctrl.activeSpatialPkg.sheltersAndFacilities.map(c => c.id);
+  const topDist = ctrl.activeSpatialPkg.sheltersAndFacilities[0]?.dimensions?.distanceMeters;
+  assert(
+    ctrl.selectedCandidateIndex === 0 &&
+    sortedIds[0] === 'SH_FAR' &&
+    sortedIds[1] === 'SH_MID' &&
+    sortedIds[2] === 'SH_WEST' &&
+    topDist < 50,
+    '11.3: Selecting a different building dynamically updates pill distances, re-sorts shortest-first, and selects index 0',
+    `idx=${ctrl.selectedCandidateIndex}, order=${sortedIds.join('>')}, topDist=${topDist}m`
+  );
+  ctrl.dispose?.();
 }
 
 console.log('\n====================================================================');

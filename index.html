@@ -308,20 +308,34 @@
         </div>
       </div>
 
-      <!-- Fixed Action Bar -->
+      <!-- Fixed Action Bar: Primary flow guides viewer to experience the 3D earthquake first -->
       <div class="selected-action-row">
-        <label class="auto-play-checkbox">
-          <input type="checkbox" id="chk-auto-continue" />
-          <span>재생 완료 후 다음 사건 자동 연속</span>
-        </label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <button id="btn-launch-performance" class="surface-btn primary large">
-            현장 강하 및 3D 시각화 재생 시작 →
-          </button>
-          <button id="btn-selected-local-response" class="surface-btn large" title="이 지진 사건을 현재 위치 또는 선택한 지역 기준 3D 대응 공간으로 이어서 봅니다">
-            내 위치 · 지역 대응 보기 ▸
+        <div class="selected-secondary-actions">
+          <label class="auto-play-checkbox">
+            <input type="checkbox" id="chk-auto-continue" />
+            <span>재생 완료 후 다음 사건 자동 연속</span>
+          </label>
+          <button id="btn-selected-local-response" class="surface-text-link" title="지구본 파동 감상을 건너뛰고 바로 3D 대피 지도로 이동합니다">
+            대피 지도 바로 열기 ▸
           </button>
         </div>
+        <button id="btn-launch-performance" class="surface-btn primary large">
+          현장 강하 · 3D 지진 파동 감상 →
+        </button>
+      </div>
+    </div>
+
+    <!-- Narrative Transition Invitation (Appears softly after seismic wavefront unfolds) -->
+    <div id="perf-evac-invitation" class="perf-evac-invitation" role="region" aria-label="이어지는 3D 대피 경로 안내" aria-hidden="true">
+      <div class="pei-head">
+        <span class="pei-eyebrow">지진 파동 확인 완료 · 다음 단계</span>
+        <button type="button" class="pei-close" id="btn-perf-inv-dismiss" title="닫고 지구본 계속 감상">&times;</button>
+      </div>
+      <h4 class="pei-title" id="pei-title">이 지진의 영향권과 3D 대피 동선 확인하기</h4>
+      <p class="pei-body" id="pei-body">파동 전파에 이어, 실제 3D 건물·도로망과 보행 경로를 따라 대피소로 이동하는 대응 화면으로 이어집니다.</p>
+      <div class="pei-actions">
+        <button type="button" class="surface-btn primary compact" id="btn-perf-inv-evac">3D 대피 동선 이어서 보기 →</button>
+        <button type="button" class="surface-text-link" id="btn-perf-inv-continue">지구본 계속 감상</button>
       </div>
     </div>
 
@@ -352,8 +366,8 @@
       </div>
 
       <div class="transport-exit">
-        <button id="btn-perf-local-response" class="surface-btn compact" title="이 지진이 현재 위치 또는 진앙 주변 지역에 미치는 영향·대응을 3D 로컬 공간에서 봅니다" style="border-color:rgba(234,230,223,0.34); color:var(--hanji);">
-          지역 대응 ▸
+        <button id="btn-perf-local-response" class="surface-btn compact" title="이 지진의 영향권·실제 3D 건물과 보행 대피 경로를 이어서 확인합니다" style="border-color:rgba(200, 157, 84, 0.45); color:var(--hanji);">
+          대피 경로 보기 ▸
         </button>
         <button id="btn-transport-immersive" class="surface-btn secondary compact" title="컨트롤 바 숨김 및 몰입형 전시 감상 [H]">
           감상 [H]

@@ -883,6 +883,27 @@ export class LocalSpatialMapLayer {
       line.name = c.id;
       group.add(line);
     }
+
+    // In offshore/sparse data voids with zero contours & buildings, draw a faint cartographic graticule so the canvas remains spatially readable
+    if (contours.length === 0 && (!this.pkg.obbBuildingsFloat32 || this.pkg.obbBuildingsFloat32.length === 0)) {
+      const half = this.pkg.terrainGrid?.halfExtentMeters || 1800;
+      const step = 450;
+      const gridMat = this._track(new THREE.LineBasicMaterial({
+        color: palette.contour,
+        transparent: true,
+        opacity: Math.max(0.14, palette.contourOpacity * 0.65)
+      }));
+      const verts = [];
+      for (let v = -half; v <= half; v += step) {
+        verts.push(v, this._sampleTerrainHeight(v, 0) + 0.6, -half, v, this._sampleTerrainHeight(v, 0) + 0.6, half);
+        verts.push(-half, this._sampleTerrainHeight(0, v) + 0.6, -v, half, this._sampleTerrainHeight(0, v) + 0.6, -v);
+      }
+      const gridGeo = this._track(new THREE.BufferGeometry());
+      gridGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+      const gridLines = new THREE.LineSegments(gridGeo, gridMat);
+      gridLines.name = 'SparseCartographicGraticule';
+      group.add(gridLines);
+    }
     this.rootGroup.add(group);
   }
 
@@ -1380,12 +1401,18 @@ export class LocalSpatialMapLayer {
       const ch = this.epicenterGuideGroup.children[0];
       this.epicenterGuideGroup.remove(ch);
       if (ch.geometry) ch.geometry.dispose();
+      if (ch.material && ch.material !== this._epicenterRayMat) ch.material.dispose();
     }
     this._epicenterWaveArcs = [];
+    this._waveUniforms = null;
+    this._facadeRiskMat = null;
+    this._waveLastElapsed = 0;
+    this._waveStartSec = null;
 
     if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) return;
 
     const palette = this._getThemePalette();
+    const isDay = this.state.theme === 'ARCHITECTURAL_DAY';
     const rad = (seismicCtx.bearingDeg * Math.PI) / 180.0;
     // Bearing: 0 deg = North (-Z), 90 deg = East (+X)
     const dirX = Math.sin(rad);
@@ -1393,19 +1420,18 @@ export class LocalSpatialMapLayer {
     const ox = this._activeOriginMeta?.east_m ?? 0;
     const oz = -(this._activeOriginMeta?.north_m ?? 0);
 
+    // 1. Subdivided sightline along outer approach zone (r = 480m -> 2210m) so campus stays uncluttered
     if (!this._epicenterRayMat) {
       this._epicenterRayMat = this._track(new THREE.LineDashedMaterial({
         color: palette.epicenterRay,
         dashSize: 28.0,
         gapSize: 18.0,
         transparent: true,
-        opacity: 0.72
+        opacity: 0.65
       }));
     } else {
       this._epicenterRayMat.color.setHex(palette.epicenterRay);
     }
-
-    // Subdivided sightline along outer approach zone (r = 480m -> 2210m) so campus stays uncluttered
     const rayPts = [];
     for (let step = 0; step <= 16; step++) {
       const r = 480.0 + (step / 16) * (2210.0 - 480.0);
@@ -1422,7 +1448,7 @@ export class LocalSpatialMapLayer {
       this.epicenterGuideGroup.add(rayLine);
     }
 
-    // Subtle concentric wavefront horizon arcs centered toward incoming azimuth
+    // 2. Outer directional horizon arcs
     for (let k = 0; k < 2; k++) {
       const baseRadius = 1150.0 + k * 520.0;
       const arcPts = [];
@@ -1447,6 +1473,127 @@ export class LocalSpatialMapLayer {
         this.epicenterGuideGroup.add(arcLine);
         this._epicenterWaveArcs.push(arcLine);
       }
+    }
+
+    // 3. Monochromatic terrain-hugging seismic wavefront sweep (strictly non-VFX P/S crest over DEM hills)
+    const distKm = Number.isFinite(seismicCtx.distanceKm) ? seismicCtx.distanceKm : 12.0;
+    const isRadialLocal = distKm <= 2.4;
+    const epiM = isRadialLocal ? distKm * 1000.0 : 0;
+    const epiX = isRadialLocal ? ox + dirX * epiM : ox + dirX * 2600.0;
+    const epiZ = isRadialLocal ? oz + dirZ * epiM : oz + dirZ * 2600.0;
+
+    const waveGeo = new THREE.PlaneGeometry(4200, 4200, 56, 56);
+    waveGeo.rotateX(-Math.PI / 2);
+    const posAttr = waveGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      const vx = posAttr.getX(i);
+      const vz = posAttr.getZ(i);
+      posAttr.setY(i, this._sampleTerrainHeight(vx, -vz) + 0.58);
+    }
+    posAttr.needsUpdate = true;
+
+    this._waveUniforms = {
+      u_age: { value: 0.0 },
+      u_isRadial: { value: isRadialLocal ? 1.0 : 0.0 },
+      u_epiXZ: { value: new THREE.Vector2(epiX, epiZ) },
+      u_dirXZ: { value: new THREE.Vector2(-dirX, -dirZ) },
+      u_originXZ: { value: new THREE.Vector2(ox, oz) },
+      u_pColor: { value: new THREE.Color(isDay ? 0x0284c7 : 0x38bdf8) },
+      u_sColor: { value: new THREE.Color(isDay ? 0x0f172a : 0xf8fafc) },
+      u_alphaScale: { value: isDay ? 0.34 : 0.42 }
+    };
+    const waveMat = new THREE.ShaderMaterial({
+      uniforms: this._waveUniforms,
+      vertexShader: `
+        varying vec3 vWorldPos;
+        void main() {
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vWorldPos = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        uniform float u_age;
+        uniform float u_isRadial;
+        uniform vec2 u_epiXZ;
+        uniform vec2 u_dirXZ;
+        uniform vec2 u_originXZ;
+        uniform vec3 u_pColor;
+        uniform vec3 u_sColor;
+        uniform float u_alphaScale;
+        varying vec3 vWorldPos;
+        void main() {
+          float cycle = mod(u_age, 7.5);
+          float initialBoost = u_age < 4.5 ? 1.0 : 0.24;
+          float tWave = u_age < 4.5 ? (u_age / 4.2) : ((cycle) / 6.8);
+          float distFromStart = u_isRadial > 0.5
+            ? length(vWorldPos.xz - u_epiXZ)
+            : dot(vWorldPos.xz - u_epiXZ, u_dirXZ);
+          float sweepFrontP = tWave * 3600.0;
+          float sweepFrontS = tWave * 2450.0;
+          float bandP = exp(-pow((distFromStart - sweepFrontP) / 48.0, 2.0));
+          float bandS = exp(-pow((distFromStart - sweepFrontS) / 34.0, 2.0));
+          float fadeOut = smoothstep(1.0, 0.82, tWave) * smoothstep(0.0, 0.08, tWave);
+          float edgeMask = smoothstep(2150.0, 1400.0, length(vWorldPos.xz - u_originXZ));
+          vec3 col = mix(u_pColor, u_sColor, clamp(bandS * 1.25, 0.0, 1.0));
+          float alpha = (bandP * 0.42 + bandS * 0.92) * fadeOut * edgeMask * u_alphaScale * initialBoost;
+          if (alpha < 0.012) discard;
+          gl_FragColor = vec4(col, alpha);
+        }
+      `,
+      transparent: true,
+      depthWrite: false,
+      blending: isDay ? THREE.NormalBlending : THREE.AdditiveBlending
+    });
+    const waveMesh = new THREE.Mesh(waveGeo, waveMat);
+    waveMesh.name = 'SeismicTerrainWavefrontSweep';
+    waveMesh.renderOrder = 2;
+    this.epicenterGuideGroup.add(waveMesh);
+
+    // 4. Subtle tall-building architectural facade setback base hairlines (height >= 20m, no rainbow heatmap)
+    const obbList = this.pkg?.obbRawList || [];
+    const segVerts = [];
+    for (let i = 0; i < obbList.length; i++) {
+      const ob = obbList[i];
+      if ((ob.height_m || 0) < 20.0) continue;
+      if (Math.hypot(ob.east_m - ox, -ob.north_m - oz) > 1550) continue;
+      const hw = ob.width_m * 0.5 + 1.8;
+      const hd = ob.depth_m * 0.5 + 1.8;
+      const ca = Math.cos(ob.yaw_rad || 0);
+      const sa = Math.sin(ob.yaw_rad || 0);
+      const cx = ob.east_m;
+      const cz = -ob.north_m;
+      const baseY = this._sampleTerrainHeight(cx, -cz) + 0.48;
+      const cPts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([lx, lz]) => [
+        cx + ca * lx + sa * lz,
+        baseY,
+        cz - sa * lx + ca * lz
+      ]);
+      for (let k = 0; k < 4; k++) {
+        const a = cPts[k];
+        const b = cPts[(k + 1) % 4];
+        segVerts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+      }
+      if (segVerts.length >= 24000) break;
+    }
+    if (segVerts.length >= 6) {
+      const facadeGeo = new THREE.BufferGeometry();
+      facadeGeo.setAttribute('position', new THREE.Float32BufferAttribute(segVerts, 3));
+      this._facadeRiskMat = new THREE.LineBasicMaterial({
+        color: isDay ? 0xb45309 : 0xd4a359,
+        transparent: true,
+        opacity: 0.24
+      });
+      const facadeLines = new THREE.LineSegments(facadeGeo, this._facadeRiskMat);
+      facadeLines.name = 'FacadeRiskBaseHairlines';
+      this.epicenterGuideGroup.add(facadeLines);
+    }
+  }
+
+  replaySeismicWavefront() {
+    this._waveStartSec = this._waveLastElapsed;
+    if (this._waveUniforms) {
+      this._waveUniforms.u_age.value = 0.0;
     }
   }
 
@@ -1983,6 +2130,17 @@ export class LocalSpatialMapLayer {
    * Subtle non-VFX outer horizon seismic arrival opacity breathing.
    */
   updateAtmosphericPulse(elapsedSec = 0) {
+    this._waveLastElapsed = elapsedSec;
+    if (this._waveStartSec === null) this._waveStartSec = elapsedSec;
+    const sweepAge = Math.max(0, elapsedSec - this._waveStartSec);
+    if (this._waveUniforms) {
+      this._waveUniforms.u_age.value = sweepAge;
+    }
+    if (this._facadeRiskMat) {
+      this._facadeRiskMat.opacity = sweepAge < 4.5
+        ? 0.22 + 0.34 * Math.sin(Math.min(1, sweepAge / 4.2) * Math.PI)
+        : 0.16;
+    }
     if (!this._epicenterWaveArcs || this._epicenterWaveArcs.length === 0) return;
     for (const arc of this._epicenterWaveArcs) {
       if (!arc?.material) continue;

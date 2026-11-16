@@ -89,7 +89,7 @@
     // =========================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from './data/eventCatalogHelpers.js?v=5.0';
-import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=5.0';
+import { DiscoveryNode, initDiscoveryNodes, updateDiscoveryNodePositions, setDiscoveryBeaconsVisible, showBeaconTooltip, hideBeaconTooltip } from './ui/DiscoveryBeacons.js?v=5.0';
 import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
     let flightState = FLIGHT_STATES.ORBIT;
@@ -1542,6 +1542,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           controls.maxDistance = 6.0;
           controls.maxPolarAngle = Math.PI * 0.465;
           discoveryNodes.forEach(n => { n.group.visible = false; });
+          setDiscoveryBeaconsVisible(false);
           camera.position.set(cx, cy, cz);
           controls.target.set(tx, ty, tz);
           controls.update();
@@ -2207,6 +2208,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       if (curLabel) {
         curLabel.textContent = simTime.toFixed(1) + 's';
       }
+      if (controlSurface && controlSurface.currentState === 'PERFORMANCE') {
+        controlSurface.updatePerformanceTime(simTime, currentMaxSimTime);
+      }
 
       if (renderer && scene && camera) {
         renderer.render(scene, camera);
@@ -2711,9 +2715,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         return;
       }
 
-      // Flight State Machine & Discovery update
+      // Flight State Machine & Discovery update (hide sibling event beacons when focused on a single quake)
       updateFlight(delta);
-      const isOrbitView = (flightState === FLIGHT_STATES.ORBIT);
+      const isOrbitView = (flightState === FLIGHT_STATES.ORBIT) &&
+        controlSurface?.currentState !== 'SELECTED' &&
+        controlSurface?.currentState !== 'PERFORMANCE';
+      setDiscoveryBeaconsVisible(isOrbitView);
       discoveryNodes.forEach(n => {
         n.group.visible = isOrbitView;
         if (isOrbitView) n.update(now * 0.001);

@@ -40,6 +40,8 @@ export class UnifiedControlSurface {
         this.autoContinue = false;
         this.isScrubbing = false;
         this.activeDossierTab = 'hist_corpus';
+        this._invDismissedEventIds = new Set();
+        this._invShownEventId = null;
 
         this.appContext.controlSurface = this;
         if (typeof window !== 'undefined') window.controlSurface = this;
@@ -209,7 +211,18 @@ export class UnifiedControlSurface {
           }
         }
 
-        return this.appContext.handoffEventToLocalResponse(enriched, { withFlight: false });
+        const isOffshore1681 = evId.startsWith('hist_1681');
+        const handoffOpts = { withFlight: false };
+        if (isOffshore1681) {
+          handoffOpts.lat = 38.0754;
+          handoffOpts.lon = 128.6189;
+          handoffOpts.regionId = 'yangyang';
+          handoffOpts.name = '강원 양양 · 낙산·읍내 지구';
+          handoffOpts.shortName = '양양 역사권';
+          handoffOpts.locationSource = 'FREE_MODE';
+        }
+
+        return this.appContext.handoffEventToLocalResponse(enriched, handoffOpts);
       }
 
       async selectEvent(eventData) {
@@ -276,6 +289,11 @@ export class UnifiedControlSurface {
           this.container.classList.add('state-performance');
           if (subContainer) subContainer.style.opacity = '1.0';
           this.updatePerformanceHeader(this.selectedEvent);
+          this._syncPerformanceInvitationContent(this.selectedEvent);
+        }
+
+        if (state !== 'PERFORMANCE') {
+          this._hidePerformanceInvitation();
         }
 
         this.updateGlobalDevLabVisibility();
@@ -434,7 +452,7 @@ export class UnifiedControlSurface {
             if (!this.selectedEvent) return;
             const sound = this.appContext.livingSoundfield;
             if (sound && typeof sound.ensureAudioContext === 'function') {
-              try { await sound.ensureAudioContext(); } catch (_) {}
+              Promise.resolve(sound.ensureAudioContext()).catch(() => {});
             }
             await this.selectEvent(this.selectedEvent);
           });
@@ -488,6 +506,24 @@ export class UnifiedControlSurface {
             await this._handoffToLocalResponse(targetEv);
           });
         }
+        const btnInvEvac = document.getElementById('btn-perf-inv-evac');
+        if (btnInvEvac) {
+          btnInvEvac.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            this._hidePerformanceInvitation();
+            const targetEv = this.selectedEvent || this.appContext.currentParsedEvent;
+            if (!targetEv) return;
+            await this._handoffToLocalResponse(targetEv);
+          });
+        }
+        const dismissInv = (e) => {
+          e.stopPropagation();
+          const curId = String(this.selectedEvent?.id || this.selectedEvent?.eventId || this.appContext.currentParsedEvent?.eventId || 'default');
+          this._invDismissedEventIds.add(curId);
+          this._hidePerformanceInvitation();
+        };
+        document.getElementById('btn-perf-inv-dismiss')?.addEventListener('click', dismissInv);
+        document.getElementById('btn-perf-inv-continue')?.addEventListener('click', dismissInv);
         const btnPlayPause = document.getElementById('btn-transport-play-pause');
         if (btnPlayPause) {
           btnPlayPause.addEventListener('click', (e) => {
@@ -967,9 +1003,9 @@ export class UnifiedControlSurface {
         // Launch & Back Buttons
         if (btnLaunch) {
           if (hasCoords) {
-            btnLaunch.textContent = isHist ? "3D 사료 현장 조망 시작 →" : "3D 현장 강하 및 시각화 재생 시작 →";
+            btnLaunch.textContent = isHist ? "현장 강하 · 3D 사료 파동 감상 →" : "현장 강하 · 3D 지진 파동 감상 →";
           } else {
-            btnLaunch.textContent = "사료 궤도 조망 시작 →";
+            btnLaunch.textContent = "사료 궤도 파동 감상 →";
           }
         }
 
@@ -1856,5 +1892,51 @@ export class UnifiedControlSurface {
             badgeEl.textContent = "CODA (여운·고요)";
           }
         }
+
+        // Gently present the post-wave narrative transition invitation once the main seismic wavefront spreads
+        const curEv = this.selectedEvent || this.appContext.currentParsedEvent;
+        const curId = String(curEv?.id || curEv?.eventId || '');
+        if (
+          this.currentState === 'PERFORMANCE' &&
+          curId &&
+          !this._invDismissedEventIds.has(curId) &&
+          this._invShownEventId !== curId &&
+          (time >= 6.5 || (maxTime > 0 && time / maxTime >= 0.19))
+        ) {
+          this._invShownEventId = curId;
+          this._showPerformanceInvitation();
+        }
+      }
+
+      _syncPerformanceInvitationContent(ev) {
+        const evId = String(ev?.id || ev?.eventId || '');
+        const titleEl = document.getElementById('pei-title');
+        const bodyEl = document.getElementById('pei-body');
+        if (!titleEl || !bodyEl) return;
+        this._invShownEventId = null;
+        if (evId.startsWith('hist_1681')) {
+          titleEl.textContent = '양양 연안 3D 지형에서 대피 동선 확인하기';
+          bodyEl.textContent = '동해 해역에서 전파된 1681년 파동을 확인한 뒤, 양양 도심의 실제 건물과 보행로 대피 동선을 이어서 살펴봅니다.';
+        } else if (ev?.country === 'KOREA' || evId.includes('gyeongju') || evId.includes('pohang') || evId.includes('kma')) {
+          titleEl.textContent = '이 지진의 영향권과 3D 대피 동선 확인하기';
+          bodyEl.textContent = '내 현재 위치(GPS) 또는 진앙 주변 실제 건물과 도로망을 따라 가장 가까운 대피소까지의 동선을 안내합니다.';
+        } else {
+          titleEl.textContent = '실제 3D 지형·건물 기반 대피 대응 이어보기';
+          bodyEl.textContent = '지진 파동 관측에 이어, 내 위치나 국내 지역 기준의 3D 보행 대피 경로 화면으로 자연스럽게 전환합니다.';
+        }
+      }
+
+      _showPerformanceInvitation() {
+        const el = document.getElementById('perf-evac-invitation');
+        if (!el) return;
+        el.classList.add('is-visible');
+        el.setAttribute('aria-hidden', 'false');
+      }
+
+      _hidePerformanceInvitation() {
+        const el = document.getElementById('perf-evac-invitation');
+        if (!el) return;
+        el.classList.remove('is-visible');
+        el.setAttribute('aria-hidden', 'true');
       }
     }

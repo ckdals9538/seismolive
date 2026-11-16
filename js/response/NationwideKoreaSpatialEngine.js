@@ -941,19 +941,44 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
       justification: HANYANG_SHELTER_JUSTIFICATION[s.id] || s.justification || null
     }));
 
+    const defaultOriginMeta = {
+      id: opts.usePilotBuildingOrigin ? 'BLDG_212_ENG1' : 'OUTDOOR_ANALYSIS_ORIGIN',
+      name: opts.usePilotBuildingOrigin ? '제1공학관 (212동)' : '서울 성동 분석 기준 위치',
+      east_m: opts.usePilotBuildingOrigin ? 44.36 : 52.0,
+      north_m: opts.usePilotBuildingOrigin ? 112.16 : 74.0,
+      height_m: opts.usePilotBuildingOrigin ? 26.0 : 0,
+      hasIndoorData: Boolean(opts.usePilotBuildingOrigin),
+      originHasBuilding: Boolean(opts.usePilotBuildingOrigin),
+      indoorScope: opts.usePilotBuildingOrigin ? INDOOR_SPATIAL_SCOPE.VERIFIED_FLOORPLAN : INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY
+    };
+
+    const hanyangInitialFacility = hanyangCandidates[0]
+      ? buildDynamicFacilityFromPoint({
+          buildingId: defaultOriginMeta.id,
+          name: defaultOriginMeta.name,
+          east_m: defaultOriginMeta.east_m,
+          north_m: defaultOriginMeta.north_m,
+          width_m: defaultOriginMeta.originHasBuilding ? 24.0 : 12.0,
+          depth_m: defaultOriginMeta.originHasBuilding ? 20.0 : 12.0,
+          yaw_rad: 0,
+          height_m: defaultOriginMeta.height_m,
+          hasIndoorData: defaultOriginMeta.hasIndoorData,
+          anchor: HANYANG_LOCAL_SPATIAL_METADATA.anchor,
+          walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
+          buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32,
+          waterPolygons: HANYANG_LOCAL_4KM_PACKAGE.terrainAndHydrology?.waterPolygons || [],
+          waterways: HANYANG_LOCAL_4KM_PACKAGE.terrainAndHydrology?.waterways || [],
+          shelter: hanyangCandidates[0],
+          destinationStatus: hanyangCandidates[0].candidateStatus || CANDIDATE_STATUS.CONFIRMED,
+          elevationSampler: sampleHanyangTerrainHeight
+        })
+      : null;
+
     return {
       ...HANYANG_LOCAL_4KM_PACKAGE,
       walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
-      defaultOriginMeta: {
-        id: opts.usePilotBuildingOrigin ? 'BLDG_212_ENG1' : 'OUTDOOR_ANALYSIS_ORIGIN',
-        name: opts.usePilotBuildingOrigin ? '제1공학관 (212동)' : '서울 성동 분석 기준 위치',
-        east_m: opts.usePilotBuildingOrigin ? 44.36 : 52.0,
-        north_m: opts.usePilotBuildingOrigin ? 112.16 : 74.0,
-        height_m: opts.usePilotBuildingOrigin ? 26.0 : 0,
-        hasIndoorData: Boolean(opts.usePilotBuildingOrigin),
-        originHasBuilding: Boolean(opts.usePilotBuildingOrigin),
-        indoorScope: opts.usePilotBuildingOrigin ? INDOOR_SPATIAL_SCOPE.VERIFIED_FLOORPLAN : INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY
-      },
+      defaultOriginMeta,
+      initialFacilityPackage: hanyangInitialFacility?.outdoorGraph?.edges?.length ? hanyangInitialFacility : null,
       shelterJustifications: HANYANG_SHELTER_JUSTIFICATION,
       destinationAssessment: {
         candidates: hanyangCandidates,

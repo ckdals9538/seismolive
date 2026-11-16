@@ -159,6 +159,7 @@
       min-width: 0;
       max-width: calc(100vw - 32px);
       height: 48px;
+      overflow: visible;
     }
 
     /* Contextual Views Switching */
@@ -1313,10 +1314,110 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 12px;
       border-top: 1px solid var(--hairline);
       background: rgba(10, 14, 22, 0.98);
       padding: 12px 24px;
       flex-shrink: 0;
+    }
+    .selected-secondary-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .surface-text-link {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--mist);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 4px 2px;
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: rgba(255, 255, 255, 0.22);
+      text-underline-offset: 3px;
+      transition: color 0.16s ease, text-decoration-color 0.16s ease;
+    }
+    .surface-text-link:hover {
+      color: var(--hanji);
+      text-decoration-color: var(--brass);
+    }
+
+    /* Post-Wave Narrative Invitation Card floating cleanly above Performance Bar & Chronicle Subtitle */
+    .perf-evac-invitation {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 44px);
+      right: 0;
+      width: min(370px, calc(100vw - 32px));
+      padding: 13px 15px;
+      border-radius: 10px;
+      background: rgba(9, 14, 24, 0.92);
+      border: 1px solid rgba(200, 157, 84, 0.42);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65);
+      pointer-events: auto;
+      z-index: 42;
+      animation: perfInvRise 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes perfInvRise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #unified-control-surface.state-performance .perf-evac-invitation.is-visible {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .pei-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .pei-eyebrow {
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--brass);
+      text-transform: uppercase;
+    }
+    .pei-close {
+      appearance: none;
+      border: none;
+      background: transparent;
+      color: var(--mist);
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 2px 4px;
+    }
+    .pei-close:hover {
+      color: var(--hanji);
+    }
+    .pei-title {
+      margin: 0;
+      font-family: var(--font-serif);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--hanji);
+      line-height: 1.32;
+    }
+    .pei-body {
+      margin: 0;
+      font-size: 11px;
+      line-height: 1.46;
+      color: var(--mist);
+    }
+    .pei-actions {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     }
     .auto-play-checkbox {
       display: flex;
@@ -2078,6 +2179,12 @@
         padding: 5px 8px;
         flex: 1 1 auto;
         justify-content: center;
+      }
+      .perf-evac-invitation {
+        left: 0;
+        right: 0;
+        width: 100%;
+        padding: 11px 12px;
       }
     }
 
