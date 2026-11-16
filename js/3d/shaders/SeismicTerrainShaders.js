@@ -8,30 +8,44 @@
 // ============================================================================
 
 export const MONOLITH_SURFACE_GLSL = `
+  float decodeUnorm16Rgba(vec4 c) {
+    return (c.r * 65280.0 + c.g * 255.0) / 65535.0;
+  }
+  float sampleUnorm16Linear(sampler2D tex, vec2 uv, vec2 texSize) {
+    vec2 texelPos = uv * texSize - 0.5;
+    vec2 f = fract(texelPos);
+    vec2 baseUv = (floor(texelPos) + 0.5) / texSize;
+    vec2 stepUv = 1.0 / texSize;
+    float h00 = decodeUnorm16Rgba(texture2D(tex, baseUv));
+    float h10 = decodeUnorm16Rgba(texture2D(tex, baseUv + vec2(stepUv.x, 0.0)));
+    float h01 = decodeUnorm16Rgba(texture2D(tex, baseUv + vec2(0.0, stepUv.y)));
+    float h11 = decodeUnorm16Rgba(texture2D(tex, baseUv + vec2(stepUv.x, stepUv.y)));
+    return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+  }
   vec3 monolithOceanAlbedo(float elev) {
-    float depthAbsorption = exp(elev * 0.00045);
+    float depthAbsorption = exp(elev * 0.00042);
     float shelfT = clamp((elev + 3200.0) / 3200.0, 0.0, 1.0);
-    vec3 deepAbyss = mix(vec3(0.002, 0.005, 0.010), vec3(0.012, 0.024, 0.048), depthAbsorption);
-    return mix(deepAbyss, vec3(0.028, 0.075, 0.135), shelfT);
+    vec3 deepAbyss = mix(vec3(0.004, 0.010, 0.020), vec3(0.016, 0.034, 0.068), depthAbsorption);
+    return mix(deepAbyss, vec3(0.036, 0.095, 0.172), shelfT);
   }
   vec3 monolithLandAlbedo(float elev, float slopeRelief) {
-    float elevNorm = clamp((elev - 80.0) / 1600.0, 0.0, 1.0);
-    float valleyCavity = mix(0.84, 1.0, smoothstep(0.0, 0.30, slopeRelief + elevNorm * 0.35));
+    float elevNorm = clamp((elev - 40.0) / 1500.0, 0.0, 1.0);
+    float valleyCavity = mix(0.86, 1.0, smoothstep(0.0, 0.30, slopeRelief + elevNorm * 0.35));
     float relief = max(slopeRelief, elevNorm);
-    vec3 c = mix(vec3(0.055, 0.075, 0.110), vec3(0.165, 0.200, 0.255), relief * 0.85);
-    c = mix(c, vec3(0.240, 0.290, 0.360), pow(relief, 2.0) * 0.75);
+    vec3 c = mix(vec3(0.072, 0.096, 0.140), vec3(0.200, 0.242, 0.308), relief * 0.88);
+    c = mix(c, vec3(0.275, 0.330, 0.405), pow(relief, 1.85) * 0.78);
     return c * valleyCavity;
   }
   vec3 computeMonolithLighting(vec3 albedo, vec3 N, vec3 V, vec3 L, vec3 ambientCol, vec3 lightCol, float isOcean) {
     float NdotL = dot(N, L);
-    float wrapDiffuse = pow(max(0.0, (NdotL + 0.35) / 1.35), 1.45);
+    float wrapDiffuse = pow(max(0.0, (NdotL + 0.40) / 1.40), 1.38);
     vec3 H = normalize(L + V);
     float NdotH = max(0.0, dot(N, H));
-    float spec = pow(NdotH, 42.0) * isOcean * 0.52;
+    float spec = pow(NdotH, 42.0) * isOcean * 0.48;
     float rim = pow(1.0 - max(0.0, dot(N, V)), 2.8) * max(0.0, dot(L, -V) + 0.35);
-    vec3 lit = albedo * (ambientCol + lightCol * (wrapDiffuse * 1.45)) + lightCol * spec;
-    vec3 atmosphereColor = vec3(0.24, 0.44, 0.76);
-    lit += atmosphereColor * (rim * 0.32);
+    vec3 lit = albedo * (ambientCol + lightCol * (wrapDiffuse * 1.55)) + lightCol * spec;
+    vec3 atmosphereColor = vec3(0.26, 0.48, 0.82);
+    lit += atmosphereColor * (rim * 0.35);
     return lit;
   }
 `;
@@ -52,10 +66,25 @@ export const TIER0_GLOBE_VERTEX_SHADER = `
   varying float vElevation;
   varying vec3 vLocalPos;
 
+  float decodeUnorm16RgbaV(vec4 c) {
+    return (c.r * 65280.0 + c.g * 255.0) / 65535.0;
+  }
+  float sampleUnorm16LinearV(sampler2D tex, vec2 uv, vec2 texSize) {
+    vec2 texelPos = uv * texSize - 0.5;
+    vec2 f = fract(texelPos);
+    vec2 baseUv = (floor(texelPos) + 0.5) / texSize;
+    vec2 stepUv = 1.0 / texSize;
+    float h00 = decodeUnorm16RgbaV(texture2D(tex, baseUv));
+    float h10 = decodeUnorm16RgbaV(texture2D(tex, baseUv + vec2(stepUv.x, 0.0)));
+    float h01 = decodeUnorm16RgbaV(texture2D(tex, baseUv + vec2(0.0, stepUv.y)));
+    float h11 = decodeUnorm16RgbaV(texture2D(tex, baseUv + vec2(stepUv.x, stepUv.y)));
+    return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+  }
+
   void main() {
     vUv = uv;
     vLocalPos = position;
-    float normElev = texture2D(u_globalElevation, uv).r;
+    float normElev = sampleUnorm16LinearV(u_globalElevation, uv, vec2(2048.0, 1024.0));
     float rawMeters = u_globalHMin + normElev * (u_globalHMax - u_globalHMin);
 
     vElevation = rawMeters;
@@ -107,11 +136,12 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
     vec3 V = normalize(vViewPos);
     vec3 L_view = normalize((viewMatrix * vec4(u_lightDir, 0.0)).xyz);
 
+    vec2 gTexSize = vec2(2048.0, 1024.0);
     vec2 texel = vec2(1.0 / 2048.0, 1.0 / 1024.0);
-    float hL = u_globalHMin + texture2D(u_globalElevation, vUv - vec2(texel.x, 0.0)).r * (u_globalHMax - u_globalHMin);
-    float hR = u_globalHMin + texture2D(u_globalElevation, vUv + vec2(texel.x, 0.0)).r * (u_globalHMax - u_globalHMin);
-    float hD = u_globalHMin + texture2D(u_globalElevation, vUv - vec2(0.0, texel.y)).r * (u_globalHMax - u_globalHMin);
-    float hU = u_globalHMin + texture2D(u_globalElevation, vUv + vec2(0.0, texel.y)).r * (u_globalHMax - u_globalHMin);
+    float hL = u_globalHMin + sampleUnorm16Linear(u_globalElevation, vUv - vec2(texel.x, 0.0), gTexSize) * (u_globalHMax - u_globalHMin);
+    float hR = u_globalHMin + sampleUnorm16Linear(u_globalElevation, vUv + vec2(texel.x, 0.0), gTexSize) * (u_globalHMax - u_globalHMin);
+    float hD = u_globalHMin + sampleUnorm16Linear(u_globalElevation, vUv - vec2(0.0, texel.y), gTexSize) * (u_globalHMax - u_globalHMin);
+    float hU = u_globalHMin + sampleUnorm16Linear(u_globalElevation, vUv + vec2(0.0, texel.y), gTexSize) * (u_globalHMax - u_globalHMin);
 
     float dh_dx = (hR - hL) / 38000.0;
     float dh_dy = (hD - hU) / 38000.0;
@@ -122,7 +152,7 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
 
     vec3 perturbedWorldN = normalize(N - tangent * (dh_dx * 2.2) - bitangent * (dh_dy * 2.2));
 
-    float normCenter = texture2D(u_globalElevation, vUv).r;
+    float normCenter = sampleUnorm16Linear(u_globalElevation, vUv, gTexSize);
     float fragElev = u_globalHMin + normCenter * (u_globalHMax - u_globalHMin);
 
     vec3 baseColor;
@@ -299,14 +329,31 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
   varying float vDtP;
   varying vec2 vDh;
 
+  float decodeUnorm16RgbaR(vec4 c) {
+    return (c.r * 65280.0 + c.g * 255.0) / 65535.0;
+  }
+  float sampleUnorm16LinearR(sampler2D tex, vec2 uv, vec2 texSize) {
+    vec2 texelPos = uv * texSize - 0.5;
+    vec2 f = fract(texelPos);
+    vec2 baseUv = (floor(texelPos) + 0.5) / texSize;
+    vec2 stepUv = 1.0 / texSize;
+    float h00 = decodeUnorm16RgbaR(texture2D(tex, baseUv));
+    float h10 = decodeUnorm16RgbaR(texture2D(tex, baseUv + vec2(stepUv.x, 0.0)));
+    float h01 = decodeUnorm16RgbaR(texture2D(tex, baseUv + vec2(0.0, stepUv.y)));
+    float h11 = decodeUnorm16RgbaR(texture2D(tex, baseUv + vec2(stepUv.x, stepUv.y)));
+    return mix(mix(h00, h10, f.x), mix(h01, h11, f.x), f.y);
+  }
+
   void main() {
     vUv = uv;
     vec2 demUv = uv;
+    vec2 demSize = 1.0 / max(u_texelSize, vec2(1e-6));
+    vec2 gTexSize = vec2(2048.0, 1024.0);
 
-    float normH = texture2D(u_demTexture, demUv).r;
+    float normH = sampleUnorm16LinearR(u_demTexture, demUv, demSize);
     float rawMeters = u_hMin + normH * (u_hMax - u_hMin);
 
-    float normGlobal = texture2D(u_globalElevation, a_uvGlobal).r;
+    float normGlobal = sampleUnorm16LinearR(u_globalElevation, a_uvGlobal, gTexSize);
     float hGlobal = u_globalHMin + normGlobal * (u_globalHMax - u_globalHMin);
 
     float edgeDist = min(min(uv.x, 1.0 - uv.x), min(uv.y, 1.0 - uv.y));
@@ -319,14 +366,14 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
     vIsUnderwater = (reconciledElevation < 0.0) ? 1.0 : 0.0;
 
     vec2 tDem = u_texelSize;
-    float z00 = texture2D(u_demTexture, demUv + vec2(-tDem.x, -tDem.y)).r;
-    float z01 = texture2D(u_demTexture, demUv + vec2(-tDem.x, 0.0)).r;
-    float z02 = texture2D(u_demTexture, demUv + vec2(-tDem.x, +tDem.y)).r;
-    float z10 = texture2D(u_demTexture, demUv + vec2(0.0, -tDem.y)).r;
-    float z12 = texture2D(u_demTexture, demUv + vec2(0.0, +tDem.y)).r;
-    float z20 = texture2D(u_demTexture, demUv + vec2(+tDem.x, -tDem.y)).r;
-    float z21 = texture2D(u_demTexture, demUv + vec2(+tDem.x, 0.0)).r;
-    float z22 = texture2D(u_demTexture, demUv + vec2(+tDem.x, +tDem.y)).r;
+    float z00 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(-tDem.x, -tDem.y), demSize);
+    float z01 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(-tDem.x, 0.0), demSize);
+    float z02 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(-tDem.x, +tDem.y), demSize);
+    float z10 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(0.0, -tDem.y), demSize);
+    float z12 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(0.0, +tDem.y), demSize);
+    float z20 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(+tDem.x, -tDem.y), demSize);
+    float z21 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(+tDem.x, 0.0), demSize);
+    float z22 = sampleUnorm16LinearR(u_demTexture, demUv + vec2(+tDem.x, +tDem.y), demSize);
 
     float dH_dx_raw = ((z20 + 2.0 * z21 + z22) - (z00 + 2.0 * z01 + z02)) * (u_hMax - u_hMin) * 0.125;
     float dH_dy_raw = ((z00 + 2.0 * z10 + z20) - (z02 + 2.0 * z12 + z22)) * (u_hMax - u_hMin) * 0.125;
@@ -335,10 +382,10 @@ export const REGIONAL_TERRAIN_VERTEX_SHADER = `
     float dh_dy_dem = (dH_dy_raw * u_verticalExag) / u_metricSpacing.y;
 
     vec2 gTexel = vec2(1.0 / 2048.0, 1.0 / 1024.0);
-    float hL_g = (u_globalHMin + texture2D(u_globalElevation, a_uvGlobal - vec2(gTexel.x, 0.0)).r * (u_globalHMax - u_globalHMin)) * u_verticalExag;
-    float hR_g = (u_globalHMin + texture2D(u_globalElevation, a_uvGlobal + vec2(gTexel.x, 0.0)).r * (u_globalHMax - u_globalHMin)) * u_verticalExag;
-    float hD_g = (u_globalHMin + texture2D(u_globalElevation, a_uvGlobal - vec2(0.0, gTexel.y)).r * (u_globalHMax - u_globalHMin)) * u_verticalExag;
-    float hU_g = (u_globalHMin + texture2D(u_globalElevation, a_uvGlobal + vec2(0.0, gTexel.y)).r * (u_globalHMax - u_globalHMin)) * u_verticalExag;
+    float hL_g = (u_globalHMin + sampleUnorm16LinearR(u_globalElevation, a_uvGlobal - vec2(gTexel.x, 0.0), gTexSize) * (u_globalHMax - u_globalHMin)) * u_verticalExag;
+    float hR_g = (u_globalHMin + sampleUnorm16LinearR(u_globalElevation, a_uvGlobal + vec2(gTexel.x, 0.0), gTexSize) * (u_globalHMax - u_globalHMin)) * u_verticalExag;
+    float hD_g = (u_globalHMin + sampleUnorm16LinearR(u_globalElevation, a_uvGlobal - vec2(0.0, gTexel.y), gTexSize) * (u_globalHMax - u_globalHMin)) * u_verticalExag;
+    float hU_g = (u_globalHMin + sampleUnorm16LinearR(u_globalElevation, a_uvGlobal + vec2(0.0, gTexel.y), gTexSize) * (u_globalHMax - u_globalHMin)) * u_verticalExag;
 
     float dh_dx_global = (hR_g - hL_g) / 38000.0;
     float dh_dy_global = (hD_g - hU_g) / 38000.0;
@@ -639,6 +686,7 @@ export const OCEAN_WATER_VERTEX_SHADER = `
   uniform float u_vP;
   uniform float u_vS;
   uniform sampler2D u_demTexture;
+  uniform vec2 u_texelSize;
   uniform float u_hMin;
   uniform float u_hMax;
 
@@ -651,13 +699,17 @@ export const OCEAN_WATER_VERTEX_SHADER = `
   varying float vBathyDepth;
   varying float vWaterEdgeTaper;
 
+  float decodeUnorm16RgbaW(vec4 c) {
+    return (c.r * 65280.0 + c.g * 255.0) / 65535.0;
+  }
+
   void main() {
     float x_units = (uv.x - 0.5) * u_physicalSize.x;
     float z_units = (0.5 - uv.y) * u_physicalSize.y;
     vWorldPos = vec2(x_units, z_units);
 
     vec2 demUv = clamp(vec2(x_units / 0.80 + 0.5, 0.5 - z_units / 0.4038), 0.001, 0.999);
-    float normH = texture2D(u_demTexture, demUv).r;
+    float normH = decodeUnorm16RgbaW(texture2D(u_demTexture, demUv));
     float rawMeters = u_hMin + normH * (u_hMax - u_hMin);
     float bathyDepth = max(0.0, -rawMeters);
     vBathyDepth = bathyDepth;

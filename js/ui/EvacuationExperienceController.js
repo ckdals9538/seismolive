@@ -2473,13 +2473,22 @@ export class EvacuationExperienceController {
     if (!bar || !hdr) return;
 
     const isMobileLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 520;
-    if (window.innerWidth <= 960 && !isMobileLandscape) {
+    if (window.innerWidth > 640 && window.innerWidth <= 960 && !isMobileLandscape) {
       const rect = hdr.getBoundingClientRect();
       if (rect.height > 20) {
         bar.style.top = `${Math.round(rect.bottom + 8)}px`;
       }
     } else {
       bar.style.top = '';
+    }
+
+    if (this.localWorldGroup?.visible && this.camera?.isPerspectiveCamera) {
+      const isPortraitPhone = window.innerWidth <= 640 && window.innerHeight > window.innerWidth;
+      const targetFov = isPortraitPhone ? 56 : 45;
+      if (Math.abs(this.camera.fov - targetFov) > 0.5) {
+        this.camera.fov = targetFov;
+        this.camera.updateProjectionMatrix();
+      }
     }
 
     if (mapCtrl && stack) {

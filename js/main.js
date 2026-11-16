@@ -27,7 +27,9 @@
       UNIVERSAL_EVENT_METADATA,
       getUniversalEventMetadata,
       loadRegionalDEMTexture,
-      loadGlobalElevationTexture
+      loadGlobalElevationTexture,
+      packUnorm16ToRgbaTexture,
+      packNormalizedValueToRgbaTexture
     } from './3d/terrainDataResolver.js?v=5.5';
     import {
       SeismicSourceModel,
@@ -735,8 +737,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     window.MONOLITH_SURFACE_GLSL = MONOLITH_SURFACE_GLSL;
     function createTier0WGS84Ellipsoid(lat0, lon0) {
       const globeParams = computeGlobeCenterAndPolarAxis(lat0, lon0);
-      const widthSegs = (qualityMode === 'CLASSROOM') ? 540 : 1080;
-      const heightSegs = (qualityMode === 'CLASSROOM') ? 270 : 540;
+      const isPhoneViewport = (typeof window !== 'undefined' && window.innerWidth <= 640);
+      const widthSegs = (qualityMode === 'CLASSROOM') ? 540 : (isPhoneViewport ? 720 : 1080);
+      const heightSegs = (qualityMode === 'CLASSROOM') ? 270 : (isPhoneViewport ? 360 : 540);
 
       const geo = new THREE.BufferGeometry();
       const positions = [];
@@ -829,35 +832,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         }
         const buffer = await response.arrayBuffer();
         const uint16View = new Uint16Array(buffer);
-
-        const floatArray = new Float32Array(BIN_WIDTH * BIN_HEIGHT);
-        for (let i = 0; i < uint16View.length; i++) {
-          floatArray[i] = uint16View[i] / 65535.0;
-        }
-
-        const texture = new THREE.DataTexture(
-          floatArray,
-          BIN_WIDTH,
-          BIN_HEIGHT,
-          THREE.RedFormat,
-          THREE.FloatType
-        );
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.wrapS = THREE.ClampToEdgeWrapping;
-        texture.wrapT = THREE.ClampToEdgeWrapping;
-        texture.needsUpdate = true;
+        const texture = packUnorm16ToRgbaTexture(THREE, uint16View, BIN_WIDTH, BIN_HEIGHT, THREE.ClampToEdgeWrapping);
         cachedFusedTexture = texture;
         return texture;
       } catch (err) {
         clearTimeout(timeoutId);
         console.warn("[Fused Elevation] Fallback to procedural terrain texture:", err.message);
-        const floatArray = new Float32Array(BIN_WIDTH * BIN_HEIGHT);
-        floatArray.fill(0.5);
-        const texture = new THREE.DataTexture(floatArray, BIN_WIDTH, BIN_HEIGHT, THREE.RedFormat, THREE.FloatType);
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.needsUpdate = true;
+        const texture = packNormalizedValueToRgbaTexture(THREE, 0.5, BIN_WIDTH, BIN_HEIGHT, THREE.ClampToEdgeWrapping);
         cachedFusedTexture = texture;
         return texture;
       }
@@ -961,6 +942,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         u_enableStratum2: { value: 1.0 },
         u_purePhysicalMode: { value: 0.0 },
         u_demTexture: { value: null },
+        u_texelSize: { value: new THREE.Vector2(1.0 / BIN_WIDTH, 1.0 / BIN_HEIGHT) },
         u_hMin: { value: -2000.0 },
         u_hMax: { value: 1708.0 },
         u_oceanBloomMode: { value: 2.0 } // 1.0 = Mode A (Surface-Coupled), 2.0 = Mode B (Hybrid Dual-Layer)
@@ -1330,6 +1312,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
         terrainUniforms.u_physicalSize.value.set(curW, curH);
         terrainUniforms.u_texelSize.value.set(1.0 / eventMeta.width, 1.0 / eventMeta.height);
+        waterMat.uniforms.u_texelSize.value.set(1.0 / eventMeta.width, 1.0 / eventMeta.height);
         terrainUniforms.u_metricSpacing.value.set(
           (curW * WGS84.METERS_PER_UNIT) / eventMeta.width,
           (curH * WGS84.METERS_PER_UNIT) / eventMeta.height

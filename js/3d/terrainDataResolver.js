@@ -54,6 +54,56 @@ function resolveThree(explicitThree = null) {
 const demTextureCache = new Map();
 
 /**
+ * Pack UNORM16 elevation array into WebGL-universal RGBA8 (hi byte -> R, lo byte -> G)
+ * with NearestFilter for lossless 16-bit decoding via bilinear GLSL in vertex & fragment
+ * shaders (completely immune to iOS Safari/Metal FloatType + LinearFilter black-texture failures).
+ */
+export function packUnorm16ToRgbaTexture(THREE, uint16View, width, height, wrapS = null) {
+  const T = resolveThree(THREE);
+  const rgba = new Uint8Array(width * height * 4);
+  const count = Math.min(uint16View.length, width * height);
+  for (let i = 0; i < count; i++) {
+    const v = uint16View[i];
+    const o = i * 4;
+    rgba[o] = (v >> 8) & 0xff;
+    rgba[o + 1] = v & 0xff;
+    rgba[o + 2] = 0;
+    rgba[o + 3] = 255;
+  }
+  const texture = new T.DataTexture(rgba, width, height, T.RGBAFormat, T.UnsignedByteType);
+  texture.minFilter = T.NearestFilter;
+  texture.magFilter = T.NearestFilter;
+  texture.wrapS = wrapS || T.ClampToEdgeWrapping;
+  texture.wrapT = T.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+export function packNormalizedValueToRgbaTexture(THREE, normalized01, width, height, wrapS = null) {
+  const T = resolveThree(THREE);
+  const u16Val = Math.max(0, Math.min(65535, Math.round(normalized01 * 65535)));
+  const hi = (u16Val >> 8) & 0xff;
+  const lo = u16Val & 0xff;
+  const rgba = new Uint8Array(width * height * 4);
+  for (let i = 0; i < width * height; i++) {
+    const o = i * 4;
+    rgba[o] = hi;
+    rgba[o + 1] = lo;
+    rgba[o + 2] = 0;
+    rgba[o + 3] = 255;
+  }
+  const texture = new T.DataTexture(rgba, width, height, T.RGBAFormat, T.UnsignedByteType);
+  texture.minFilter = T.NearestFilter;
+  texture.magFilter = T.NearestFilter;
+  texture.wrapS = wrapS || T.ClampToEdgeWrapping;
+  texture.wrapT = T.ClampToEdgeWrapping;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+/**
  * Robustly load a regional UNORM16 DEM texture with in-memory caching and timeout
  */
 export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
@@ -72,24 +122,7 @@ export async function loadRegionalDEMTexture(THREE, binUrl, width, height) {
     }
     const buffer = await response.arrayBuffer();
     const uint16View = new Uint16Array(buffer);
-
-    const floatArray = new Float32Array(width * height);
-    for (let i = 0; i < uint16View.length; i++) {
-      floatArray[i] = uint16View[i] / 65535.0;
-    }
-
-    const texture = new T.DataTexture(
-      floatArray,
-      width,
-      height,
-      T.RedFormat,
-      T.FloatType
-    );
-    texture.minFilter = T.LinearFilter;
-    texture.magFilter = T.LinearFilter;
-    texture.wrapS = T.ClampToEdgeWrapping;
-    texture.wrapT = T.ClampToEdgeWrapping;
-    texture.needsUpdate = true;
+    const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.ClampToEdgeWrapping);
     demTextureCache.set(binUrl, texture);
     return texture;
   } catch (err) {
@@ -120,37 +153,13 @@ export async function loadGlobalElevationTexture(THREE, binUrl = 'assets/terrain
     }
     const buffer = await response.arrayBuffer();
     const uint16View = new Uint16Array(buffer);
-
-    const floatArray = new Float32Array(width * height);
-    for (let i = 0; i < uint16View.length; i++) {
-      floatArray[i] = uint16View[i] / 65535.0;
-    }
-
-    const texture = new T.DataTexture(
-      floatArray,
-      width,
-      height,
-      T.RedFormat,
-      T.FloatType
-    );
-    texture.minFilter = T.LinearFilter;
-    texture.magFilter = T.LinearFilter;
-    texture.wrapS = T.RepeatWrapping;
-    texture.wrapT = T.ClampToEdgeWrapping;
-    texture.needsUpdate = true;
+    const texture = packUnorm16ToRgbaTexture(T, uint16View, width, height, T.RepeatWrapping);
     cachedGlobalTexture = texture;
     return texture;
   } catch (err) {
     clearTimeout(timeoutId);
     console.warn('[Global Relief] Fallback to procedural planetary texture:', err.message);
-    const fallbackArray = new Float32Array(width * height);
-    fallbackArray.fill(0.55); // Neutral ocean/sea level
-    const texture = new T.DataTexture(fallbackArray, width, height, T.RedFormat, T.FloatType);
-    texture.minFilter = T.LinearFilter;
-    texture.magFilter = T.LinearFilter;
-    texture.wrapS = T.RepeatWrapping;
-    texture.wrapT = T.ClampToEdgeWrapping;
-    texture.needsUpdate = true;
+    const texture = packNormalizedValueToRgbaTexture(T, 0.55, width, height, T.RepeatWrapping);
     cachedGlobalTexture = texture;
     return texture;
   }
