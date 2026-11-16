@@ -1,9 +1,11 @@
 .DS_Store
 */.DS_Store
 *.bak
+*.log
 *.tif
 *.tiff
 archive/
 captures/
 scratch/
 .dev.vars
+.wrangler/
