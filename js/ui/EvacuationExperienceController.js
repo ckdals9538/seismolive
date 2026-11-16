@@ -1225,7 +1225,7 @@ export class EvacuationExperienceController {
         const hasValidDepth = depthVal !== null && depthVal !== undefined && Number.isFinite(Number(depthVal)) && Number(depthVal) > 0;
         const depthStr = hasValidDepth ? `깊이 ${Number(depthVal).toFixed(1)} km` : '깊이 미상';
         const smMmi = handed.officialProducts?.shakemap?.maxMmi;
-        const smStr = Number.isFinite(smMmi) ? `USGS ShakeMap MMI ${smMmi}` : 'ShakeMap 미수신 (null)';
+        const smStr = Number.isFinite(smMmi) ? `USGS ShakeMap MMI ${smMmi}` : 'ShakeMap 미수신';
         const hasOaf = Boolean(handed.officialProducts?.aftershockForecast || handed.officialProducts?.oaf);
         const oafNote = hasOaf ? ' · OAF(여진 예측≠현재 흔들림)' : '';
         metaEl.innerHTML = `지구본 연동 사건: <strong>${escapeHtml(handed.title || '선택 지진')}</strong> (${escapeHtml(magStr)} · ${escapeHtml(depthStr)} · ${escapeHtml(handed.provenance?.source || handed.sourceName || '출처 확인')}) · ${escapeHtml(smStr)}${escapeHtml(oafNote)}`;
@@ -1876,7 +1876,7 @@ export class EvacuationExperienceController {
     const impEl = this._el('quake-impact-line');
     if (impEl) {
       const op = this.activeSeismicCtx.officialProducts;
-      const smText = Number.isFinite(op?.shakemap?.maxMmi) ? `ShakeMap MMI ${op.shakemap.maxMmi}` : 'ShakeMap 미제공(null)';
+      const smText = Number.isFinite(op?.shakemap?.maxMmi) ? `ShakeMap MMI ${op.shakemap.maxMmi}` : 'ShakeMap 미제공';
       const oafText = op?.oaf ? ' · OAF 여진 통계 존재(현재 PGA 아님)' : '';
       const stationMissing = !this.uiAdapter?.context?.sources?.station;
       const stationCaveat = stationMissing ? ' · 관측소 실측 파형 미수신' : '';
@@ -2653,6 +2653,7 @@ export class EvacuationExperienceController {
       drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
       btn?.classList.toggle('active', open);
       btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
+      this._el('handoff-context-strip')?.classList.toggle('is-mobile-expanded', open);
       this._syncResponsiveTopBarOffset();
     });
 

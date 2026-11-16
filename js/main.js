@@ -183,14 +183,35 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     scene.background = new THREE.Color(0x020408);
     scene.fog = new THREE.FogExp2(0x020408, 0.0001); // Sublime cosmic depth: no black wall clipping
 
-    const camera = new THREE.PerspectiveCamera(36, window.innerWidth / window.innerHeight, 0.02, 600.0);
-    const isLowSpec = (typeof navigator !== 'undefined' && ((navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) || /Mobi|Android/i.test(navigator.userAgent)));
-    const maxDpr = isLowSpec ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
+    const initAspect = (typeof window !== 'undefined' && window.innerHeight > 0) ? (window.innerWidth / window.innerHeight) : 1.777;
+    const isPortraitNarrowViewport = (typeof window !== 'undefined' && window.innerWidth <= 640 && initAspect < 0.78);
+    const camera = new THREE.PerspectiveCamera(isPortraitNarrowViewport ? 48 : 36, initAspect, 0.02, 600.0);
+    const isLowSpec = (typeof navigator !== 'undefined' && typeof navigator.hardwareConcurrency === 'number' && navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 2);
+    const maxDpr = isLowSpec ? 1.0 : Math.min((typeof window !== 'undefined' ? window.devicePixelRatio : 1) || 1, 2.0);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(maxDpr);
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.18;
+
+    const syncPortraitOrbitFovAndDpr = () => {
+      if (!renderer || !camera) return;
+      const w = window.innerWidth;
+      const h = Math.max(1, window.innerHeight);
+      const portraitNarrow = (w <= 640 && (w / h) < 0.78);
+      if (typeof flightState !== 'undefined' && flightState === FLIGHT_STATES.ORBIT) {
+        const targetFov = portraitNarrow ? 48 : 36;
+        if (Math.abs(camera.fov - targetFov) > 0.1) {
+          camera.fov = targetFov;
+          camera.updateProjectionMatrix();
+        }
+      }
+      if (typeof qualityMode !== 'undefined') {
+        const dprCap = (qualityMode === 'CLASSROOM') ? 1.0 : Math.min(window.devicePixelRatio || 1, 2.0);
+        renderer.setPixelRatio(dprCap);
+      }
+    };
+    window.addEventListener('resize', syncPortraitOrbitFovAndDpr);
     container.appendChild(renderer.domElement);
 
     // Low-spec and mobile WebGL Context Loss Recovery
@@ -1802,7 +1823,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       exhibitionAppContext.currentShotKey = key;
       camera.position.copy(shot.pos);
       controls.target.copy(shot.lookAt);
-      camera.fov = shot.fov;
+      const isPortraitMobile = (typeof window !== 'undefined' && window.innerWidth <= 640 && (window.innerWidth / Math.max(1, window.innerHeight)) < 0.78);
+      camera.fov = isPortraitMobile ? Math.min(54, shot.fov + 10) : shot.fov;
       camera.updateProjectionMatrix();
       controls.update();
       const viewLabel = document.getElementById('view-preset-label');
@@ -1872,7 +1894,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     window.setQualityMode = async function(mode) {
       qualityMode = (mode === 'CLASSROOM') ? 'CLASSROOM' : 'HIGH';
       window.qualityMode = qualityMode;
-      const dpr = (qualityMode === 'CLASSROOM') ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
+      const dpr = (qualityMode === 'CLASSROOM') ? 1.0 : Math.min(window.devicePixelRatio || 1, 2.0);
       renderer.setPixelRatio(dpr);
 
       const pill = document.getElementById('quality-mode-pill');
@@ -2653,10 +2675,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
         // Setup Orbit camera (only if user has not already entered in-scene 4km local mode)
         if (!exhibitionModeManager || !exhibitionModeManager.isLocalModeActive()) {
-          camera.position.set(10.0, 140.0, 40.0);
+          const isPortraitMobile = (typeof window !== 'undefined' && window.innerWidth <= 640 && (window.innerWidth / Math.max(1, window.innerHeight)) < 0.78);
+          camera.position.set(isPortraitMobile ? 12.0 : 10.0, isPortraitMobile ? 152.0 : 140.0, isPortraitMobile ? 46.0 : 40.0);
           controls.target.set(0.0, 0.0, 0.0);
           controls.minDistance = 20.0;
           controls.maxDistance = 400.0;
+          camera.fov = isPortraitMobile ? 48 : 36;
           camera.near = 0.02;
           camera.far = 600.0;
           camera.updateProjectionMatrix();

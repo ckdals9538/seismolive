@@ -938,7 +938,7 @@ export class UnifiedControlSurface {
               </div>
               <div class="meta-block">
                 <span class="meta-lbl">물리 제원</span>
-                <span class="meta-val" style="color:#7A8999;">진원심도 미상(null) · 단층 미상(null)</span>
+                <span class="meta-val" style="color:#7A8999;">진원심도 · 단층 정보 미상</span>
               </div>
             `;
           } else {
