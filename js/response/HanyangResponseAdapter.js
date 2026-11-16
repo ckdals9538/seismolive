@@ -63,10 +63,14 @@ export class HanyangResponseAdapter {
     this.anchor = new LocalTangentAnchor(this.facility.anchor || HANYANG_BLDG212_ANCHOR);
     this.useRealMapRouting = Boolean(options.useRealMapRouting);
     this.buildingOBBs = options.buildingOBBs || null;
+    this.customWalkGraph = options.customWalkGraph || null;
+    this.elevationSampler = options.elevationSampler || null;
     this.router = options.router || new PedestrianRoutingEngine({
       facilityPackage: this.facility,
       useRealMapRouting: this.useRealMapRouting,
-      buildingOBBs: this.buildingOBBs
+      buildingOBBs: this.buildingOBBs,
+      customWalkGraph: this.customWalkGraph,
+      elevationSampler: this.elevationSampler
     });
 
     const bldgMeta = this.facility.buildingMetadata || {};
@@ -890,7 +894,12 @@ export class HanyangResponseAdapter {
     if (typeof this.router?.loadFacilityPackage === 'function') {
       this.router.loadFacilityPackage(this.facility);
       if (this.useRealMapRouting && typeof this.router?.setRealMapRouting === 'function') {
-        this.router.setRealMapRouting({ enabled: true, buildingOBBs: this.buildingOBBs });
+        this.router.setRealMapRouting({
+          enabled: true,
+          buildingOBBs: this.buildingOBBs,
+          customWalkGraph: this.customWalkGraph,
+          elevationSampler: this.elevationSampler
+        });
       }
     }
 

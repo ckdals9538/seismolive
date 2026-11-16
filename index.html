@@ -7,6 +7,7 @@
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/theme.css?v=5.5">
   <link rel="stylesheet" href="css/surface.css?v=5.5">
+  <link rel="stylesheet" href="css/evacuation.css?v=6.0">
 </head>
 <body>
   <div id="canvas-container"></div>
@@ -17,10 +18,35 @@
     <div class="gallery-sub" id="gallery-event-title">한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)</div>
   </div>
 
-  <!-- Adaptive Quality & Classroom PC Optimization Toggle (Top-Right) -->
-  <button id="quality-mode-pill" title="고화질 전시 모드와 강의실/저사양 PC 60FPS 최적화 모드를 전환합니다">
-    품질: 고화질 전시 (High)
-  </button>
+  <!-- Top-Right Restrained Earth Dock: Main-Globe-Only 3D Evacuation Lab + Quality Toggle -->
+  <div id="top-right-earth-dock">
+    <div id="dev-lab-global-wrap">
+      <button id="btn-dev-lab-global" class="global-evac-trigger-btn" title="지구 궤도에서 한반도 3D 지진·대피 공간으로 연속 비행 전환 (메인 지구본 전용)" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
+        <span class="evac-dot"></span>
+        <span>3D 지진 대피 · 실험실 ▾</span>
+      </button>
+      <div id="global-dev-lab-menu">
+        <span class="global-menu-eyebrow">Earth-to-City · 전국 3D 대피</span>
+        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="우주 궤도에서 한양대 진원·대피 동선으로 연속 비행 진입" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'seoul_hanyang', withFlight: true })">
+          <strong>서울 한양대 · 3D 지진대피 비행 ▸</strong>
+          <small>역사지진 진원 → 흔들림 확인 → 보행 대피</small>
+        </button>
+        <div class="global-menu-subrow">
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 진앙권', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'pohang', lat: 36.1086, lon: 129.3490, name: '경북 포항 · 흥해·중앙 지구', shortName: '포항 흥해권', eventId: 'hist_2017_pohang', withFlight: true })">포항 M5.4</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'yangyang', lat: 38.0754, lon: 128.6189, name: '강원 양양 · 낙산·읍내 지구', shortName: '양양 역사권', eventId: 'hist_1681_0626', withFlight: true })">양양 1681</button>
+        </div>
+        <button id="btn-lab-open-campus" class="global-menu-item" title="독립 3D 대피 안내 페이지로 열기" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
+          <span>독립 3D 대피 뷰어 ↗</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Adaptive Quality & Classroom PC Optimization Toggle -->
+    <button id="quality-mode-pill" title="고화질 전시 모드와 강의실/저사양 PC 60FPS 최적화 모드를 전환합니다">
+      품질: 고화질 전시 (High)
+    </button>
+  </div>
 
   <!-- Immersive Exhibition Mode Restore Pill (Bottom-Right when UI hidden) -->
   <button id="immersive-restore-pill" title="컨트롤 서피스 다시 표시 [H]">
@@ -88,23 +114,6 @@
         <button id="btn-open-discover" class="surface-btn primary" title="전체 사료 및 관측 아카이브 목록 열기">
           <span id="discover-btn-label">아카이브 탐색</span>
         </button>
-        <div id="dev-lab-global-wrap" style="position:relative; display:inline-flex; align-items:center;">
-          <button id="btn-dev-lab-global" class="surface-btn secondary" title="4km 국지 대피 공간 및 단일 캔버스 실험실 (메인 지구본 전용)" onclick="const d=document.getElementById('global-dev-lab-menu'); if(d){const show=d.style.display!=='flex'; d.style.display=show?'flex':'none';}">
-            <span>개발자 실험실 ▾</span>
-          </button>
-          <div id="global-dev-lab-menu" style="display:none; position:absolute; bottom:46px; right:0; flex-direction:column; gap:6px; padding:10px 12px; background:rgba(6,10,18,0.94); border:1px solid rgba(255,255,255,0.14); border-radius:8px; min-width:220px; z-index:40; backdrop-filter:blur(16px);">
-            <span style="font-size:9.5px; letter-spacing:0.1em; color:#94a3b8; text-transform:uppercase;">Developer Lab · 4km Local</span>
-            <button id="btn-lab-open-campus" class="surface-btn secondary compact" title="성동·한양 4km 실시간 보행 대피 안내 뷰어 열기" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
-              4km 국지 대피 안내 ↗
-            </button>
-            <button id="btn-lab-open-tile" class="surface-btn secondary compact" title="성동구 4km 권역 지형·건물 타일 조망" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.openLocalSpatialResponse && window.openLocalSpatialResponse('local4km')">
-              4km 광역 타일 뷰어 ↗
-            </button>
-            <button id="btn-inscene-local-mode" class="surface-btn secondary compact" title="단일 WebGL 캔버스 내에서 성동·한양 4km 로컬 공간으로 무전환 이동" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse()">
-              단일캔버스 4km 무전환 테스트
-            </button>
-          </div>
-        </div>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
           <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
         </button>
@@ -350,6 +359,8 @@
   </div>
 
 
-  <script type="module" src="js/main.js?v=5.9"></script>
+  <div id="local-evac-hud" aria-label="국지 3D 지진 대피 인터페이스"></div>
+
+  <script type="module" src="js/main.js?v=6.0"></script>
 </body>
 </html>

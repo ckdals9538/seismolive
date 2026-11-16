@@ -253,10 +253,35 @@ function buildingHash(east_m, north_m) {
 }
 
 /**
+ * Sample terrain elevation (meters) from an arbitrary spatial package's bilinear grid,
+ * falling back seamlessly to Hanyang baseline sampler if no custom grid is provided.
+ */
+export function sampleGridHeightAt(grid, east_m = 0, north_m = 0) {
+  if (!grid || !Array.isArray(grid.heights) || grid.heights.length === 0) {
+    return sampleTerrainHeight(east_m, north_m);
+  }
+  const { nx, nz, halfExtentMeters, heights } = grid;
+  const span = (halfExtentMeters || 1100) * 2.0;
+  const gx = Math.max(0, Math.min(nx - 1e-6, ((east_m + (halfExtentMeters || 1100)) / span) * nx));
+  const gn = Math.max(0, Math.min(nz - 1e-6, ((north_m + (halfExtentMeters || 1100)) / span) * nz));
+  const ix = Math.floor(gx);
+  const inIdx = Math.floor(gn);
+  const fx = gx - ix;
+  const fn = gn - inIdx;
+  const row = nx + 1;
+  const idx0 = inIdx * row + ix;
+  const h00 = heights[idx0] ?? 0;
+  const h10 = heights[idx0 + 1] ?? h00;
+  const h01 = heights[idx0 + row] ?? h00;
+  const h11 = heights[idx0 + row + 1] ?? h00;
+  return (h00 * (1.0 - fx) + h10 * fx) * (1.0 - fn) + (h01 * (1.0 - fx) + h11 * fx) * fn;
+}
+
+/**
  * Convert an array of [east_m, north_m] pairs into a terrain-draped Three.js BufferGeometry ribbon
  * oriented in the X=East, Y=elevation, Z=-North horizontal plane.
  */
-function createRibbonGeometry(pointsEN, widthMeters, fixedElevationY = null, elevationOffset = 0.22) {
+function createRibbonGeometry(pointsEN, widthMeters, fixedElevationY = null, elevationOffset = 0.22, terrainGrid = null) {
   if (!pointsEN || pointsEN.length < 2) return new THREE.BufferGeometry();
 
   const halfW = widthMeters * 0.5;
@@ -281,7 +306,7 @@ function createRibbonGeometry(pointsEN, widthMeters, fixedElevationY = null, ele
     const cz = -pCur[1];
     const cy = fixedElevationY !== null
       ? fixedElevationY
-      : sampleTerrainHeight(pCur[0], pCur[1]) + elevationOffset;
+      : sampleGridHeightAt(terrainGrid, pCur[0], pCur[1]) + elevationOffset;
 
     positions.push(
       cx + nx * halfW, cy, cz + nz * halfW,
@@ -324,7 +349,7 @@ function subdividePolylineEN(pointsEN, maxStepMeters = 45.0) {
 /**
  * Merge many [cls, bridge, pointsEN] chains into a single BufferGeometry for minimal draw calls.
  */
-function createMergedRoadGeometry(segments, widthResolver) {
+function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null) {
   const positions = [];
   const indices = [];
 
@@ -351,7 +376,7 @@ function createMergedRoadGeometry(segments, widthResolver) {
 
       const nx = -dz;
       const nz = dx;
-      const h = sampleTerrainHeight(pCur[0], pCur[1]);
+      const h = sampleGridHeightAt(terrainGrid, pCur[0], pCur[1]);
       const elev = bridge
         ? Math.max(h, -15.6) + 3.6
         : h + (cls === 'motorway' || cls === 'trunk' ? 0.52 : cls === 'primary' ? 0.42 : 0.30);
@@ -379,7 +404,7 @@ function createMergedRoadGeometry(segments, widthResolver) {
 /**
  * Triangulate polygon features in ENU coords ([east_m, north_m]) into a single BufferGeometry.
  */
-function createTriangulatedPolygonsGeometry(polyItems, isWater = false) {
+function createTriangulatedPolygonsGeometry(polyItems, isWater = false, terrainGrid = null) {
   const positions = [];
   for (const item of polyItems) {
     const outerPts = isWater ? item.outer : item;
@@ -413,19 +438,21 @@ function createTriangulatedPolygonsGeometry(polyItems, isWater = false) {
 
     const faces = THREE.ShapeUtils.triangulateShape(outer2D, hole2Ds);
     const flatPts = [outer2D, ...hole2Ds].flat();
-    const fixedY = isWater ? item.y : null;
+    const fixedY = (isWater && Number.isFinite(item.y)) ? item.y : null;
 
     for (const face of faces) {
       const a = flatPts[face[0]];
       const b = flatPts[face[1]];
       const c = flatPts[face[2]];
+      if (!a || !b || !c) continue;
       const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
       if (Math.abs(cross) < 1e-6) continue;
       // Ensure +Y upward winding in Three.js XZ plane
       const order = cross > 0 ? [face[0], face[2], face[1]] : face;
       for (const k of order) {
         const p = flatPts[k];
-        const yVal = fixedY !== null ? fixedY : sampleTerrainHeight(p.x, -p.y) + 0.14;
+        const rawY = fixedY !== null ? fixedY : sampleGridHeightAt(terrainGrid, p.x, -p.y) + 0.14;
+        const yVal = Number.isFinite(rawY) ? rawY : -12.0;
         positions.push(p.x, yVal, p.y);
       }
     }
@@ -534,6 +561,115 @@ export class LocalSpatialMapLayer {
 
   _getThemePalette() {
     return LOCAL_VISUAL_THEMES[this.state.theme] || LOCAL_VISUAL_THEMES.MONOLITH_NIGHT;
+  }
+
+  _sampleTerrainHeight(east_m = 0, north_m = 0) {
+    return sampleGridHeightAt(this.pkg?.terrainGrid, east_m, north_m);
+  }
+
+  /**
+   * Pick a rendered building OBB via Three.js Raycaster for direct 3D origin selection.
+   */
+  pickBuildingOBBAtRaycast(raycaster) {
+    if (!raycaster || !this.instancedBuildings) return null;
+    const hits = raycaster.intersectObject(this.instancedBuildings, false);
+    if (!hits || hits.length === 0) return null;
+    const idx = hits[0].instanceId;
+    const data = this._buildingDataRef;
+    if (typeof idx !== 'number' || !data || idx * OBB_BUILDING_STRIDE + 5 >= data.length) {
+      return null;
+    }
+    const base = idx * OBB_BUILDING_STRIDE;
+    const east_m = data[base + 0];
+    const north_m = data[base + 1];
+    const width_m = data[base + 2];
+    const depth_m = data[base + 3];
+    const yaw_rad = data[base + 4];
+    const height_m = data[base + 5];
+    const named = (this.pkg?.namedBuildings || []).find(b =>
+      Math.hypot(b.east_m - east_m, b.north_m - north_m) < Math.max(width_m, depth_m, 35)
+    );
+    return {
+      instanceId: idx,
+      buildingId: named ? named.id : `OSM_OBB_${idx}`,
+      name: named ? named.name : `도시 건축물 #${idx}`,
+      east_m,
+      north_m,
+      width_m,
+      depth_m,
+      yaw_rad,
+      height_m,
+      hitPoint: hits[0].point
+    };
+  }
+
+  /**
+   * Swap out the rendered 3D urban spatial package dynamically (enables nationwide Korea
+   * regions such as Gyeongju, Pohang, Yangyang, Busan, or live coordinates without page reload).
+   */
+  setSpatialPackage(newSpatialPackage) {
+    if (!newSpatialPackage) return;
+    this.setEpicenterContext(null);
+    this.setHazardAvoidPolygons([]);
+    this.chunkMeshes.clear();
+    this.chunkManager.clear();
+    while (this.rootGroup.children.length > 0) {
+      this.rootGroup.remove(this.rootGroup.children[0]);
+    }
+    for (const d of this.disposables) {
+      if (d && typeof d.dispose === 'function') d.dispose();
+    }
+    this.disposables = [];
+    for (const el of this._labelDomMap.values()) {
+      el.remove();
+    }
+    this._labelDomMap.clear();
+
+    this.pkg = newSpatialPackage;
+    this.instancedBuildings = null;
+    this._buildingDataRef = null;
+    this.terrainMesh = null;
+    this.terrainBaseFloor = null;
+    this.terrainSkirtMesh = null;
+    this.coniferTreesMesh = null;
+    this.broadleafTreesMesh = null;
+    this.nightWindowsPoints = null;
+    this.epicenterGuideGroup = new THREE.Group();
+    this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
+    this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
+    this.chunkGroup = new THREE.Group();
+    this.chunkGroup.name = 'StreamedSpatialChunks3km';
+    this.hazardPolygonGroup = new THREE.Group();
+    this.hazardPolygonGroup.name = 'HazardAvoidPolygonsGroup';
+
+    const origMeta = newSpatialPackage.defaultOriginMeta || newSpatialPackage.namedBuildings?.[0];
+    if (origMeta) {
+      this._activeOriginMeta = {
+        id: origMeta.id || 'DYNAMIC_ORIGIN',
+        title: `내 위치 · ${origMeta.name || '출발 건물'}`,
+        east_m: origMeta.east_m ?? 0,
+        north_m: origMeta.north_m ?? 0,
+        height_m: origMeta.height_m ?? 18
+      };
+    } else {
+      this._activeOriginMeta = { id: 'BLDG_212_ENG1', title: '내 위치 · 제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 };
+    }
+
+    this._buildLocalLighting();
+    this._buildTerrainMesh();
+    this._buildTerrainContours();
+    this._buildWaterwaysAndAlluvialCaution();
+    this._buildRoadNetwork();
+    this._buildContextBuildingsInstancedMesh();
+    this._buildTrees();
+    this._buildNightWindows();
+    this._buildHorizonCompassAndEpicenterGuide();
+    this._buildSheltersAndFacilities();
+    this._buildLabelAnchors();
+    this.rootGroup.add(this.epicenterGuideGroup);
+    this.rootGroup.add(this.chunkGroup);
+    this.rootGroup.add(this.hazardPolygonGroup);
+    this.setVisualTheme(this.state.theme);
   }
 
   _track(resource) {
@@ -668,8 +804,8 @@ export class LocalSpatialMapLayer {
     const baseBottom = -24.2;
     const skirtPos = [];
     const pushQuad = (e0, n0, e1, n1) => {
-      const h0 = sampleTerrainHeight(e0, n0);
-      const h1 = sampleTerrainHeight(e1, n1);
+      const h0 = this._sampleTerrainHeight(e0, n0);
+      const h1 = this._sampleTerrainHeight(e1, n1);
       const z0 = -n0;
       const z1 = -n1;
       skirtPos.push(
@@ -716,7 +852,7 @@ export class LocalSpatialMapLayer {
 
     const contours = this.pkg.terrainAndHydrology?.hillslopeContours || [];
     for (const c of contours) {
-      const pts = c.pointsENU.map(([e, n]) => new THREE.Vector3(e, sampleTerrainHeight(e, n) + 0.45, -n));
+      const pts = c.pointsENU.map(([e, n]) => new THREE.Vector3(e, this._sampleTerrainHeight(e, n) + 0.45, -n));
       const geo = this._track(new THREE.BufferGeometry().setFromPoints(pts));
       const line = new THREE.Line(geo, this.contourMat);
       line.name = c.id;
@@ -759,7 +895,7 @@ export class LocalSpatialMapLayer {
     // 1. Real Triangulated Green/Park Polygons (Seoul Forest, Salgoji, Eungbongsan)
     const greenPolys = this.pkg.terrainAndHydrology?.greenPolygons || [];
     if (greenPolys.length > 0) {
-      const greenGeo = this._track(createTriangulatedPolygonsGeometry(greenPolys, false));
+      const greenGeo = this._track(createTriangulatedPolygonsGeometry(greenPolys, false, this.pkg.terrainGrid));
       const greenMesh = new THREE.Mesh(greenGeo, this.greenOverlayMat);
       greenMesh.name = 'RealGreenParkPolygons4km';
       greenMesh.receiveShadow = true;
@@ -769,7 +905,7 @@ export class LocalSpatialMapLayer {
     // 2. Real Triangulated Water Polygons (Han River, Jungnangcheon, Cheonggyecheon)
     const waterPolys = this.pkg.terrainAndHydrology?.waterPolygons || [];
     if (waterPolys.length > 0) {
-      const waterGeo = this._track(createTriangulatedPolygonsGeometry(waterPolys, true));
+      const waterGeo = this._track(createTriangulatedPolygonsGeometry(waterPolys, true, this.pkg.terrainGrid));
       const waterMesh = new THREE.Mesh(waterGeo, this.waterPolygonMat);
       waterMesh.name = 'RealWaterwayPolygons4km';
       waterMesh.receiveShadow = true;
@@ -780,7 +916,7 @@ export class LocalSpatialMapLayer {
     const waterways = this.pkg.terrainAndHydrology?.waterways || [];
     for (const w of waterways) {
       if (waterPolys.length === 0) {
-        const ribbonGeo = this._track(createRibbonGeometry(w.pointsEN, w.widthMeters, w.elevationY));
+        const ribbonGeo = this._track(createRibbonGeometry(w.pointsEN, w.widthMeters, w.elevationY, 0.22, this.pkg.terrainGrid));
         const ribbonMesh = new THREE.Mesh(ribbonGeo, this.waterRibbonMat);
         ribbonMesh.name = w.id;
         group.add(ribbonMesh);
@@ -796,7 +932,7 @@ export class LocalSpatialMapLayer {
     // 4. PROVISIONAL Alluvial Basin Caution Zone (strictly dashed subtle slate — zero rainbow heatmap)
     const caution = this.pkg.terrainAndHydrology?.alluvialCautionZone;
     if (caution && Array.isArray(caution.polygonEN)) {
-      const pts = caution.polygonEN.map(([e, n]) => new THREE.Vector3(e, Math.max(caution.elevationY, sampleTerrainHeight(e, n) + 0.55), -n));
+      const pts = caution.polygonEN.map(([e, n]) => new THREE.Vector3(e, Math.max(caution.elevationY, this._sampleTerrainHeight(e, n) + 0.55), -n));
       const lineGeo = this._track(new THREE.BufferGeometry().setFromPoints(pts));
       const dashMat = this._track(new THREE.LineDashedMaterial({
         color: 0x64748b,
@@ -865,7 +1001,7 @@ export class LocalSpatialMapLayer {
 
       for (const tier of tiers) {
         if (tier.segs.length === 0) continue;
-        const geo = this._track(createMergedRoadGeometry(tier.segs, tier.widthFn));
+        const geo = this._track(createMergedRoadGeometry(tier.segs, tier.widthFn, this.pkg.terrainGrid));
         const mesh = new THREE.Mesh(geo, tier.mat);
         mesh.name = tier.name;
         mesh.receiveShadow = true;
@@ -875,7 +1011,7 @@ export class LocalSpatialMapLayer {
       const roads = this.pkg.roadNetwork || [];
       for (const r of roads) {
         const mat = r.hierarchy === 'ARTERIAL' ? this.roadMats.primary : this.roadMats.minor;
-        const geo = this._track(createRibbonGeometry(r.pointsEN, r.widthMeters, null, 0.35));
+        const geo = this._track(createRibbonGeometry(r.pointsEN, r.widthMeters, null, 0.35, this.pkg.terrainGrid));
         const mesh = new THREE.Mesh(geo, mat);
         mesh.name = r.id;
         mesh.receiveShadow = true;
@@ -934,7 +1070,7 @@ export class LocalSpatialMapLayer {
       const height_m = data[base + 5];
       const groundY = (grounds && i < grounds.length)
         ? grounds[i]
-        : sampleTerrainHeight(east_m, north_m);
+        : this._sampleTerrainHeight(east_m, north_m);
 
       dummy.position.set(east_m, groundY + height_m * 0.5, -north_m);
       dummy.rotation.set(0, yaw_rad, 0);
@@ -989,7 +1125,7 @@ export class LocalSpatialMapLayer {
       const isPrimary = s.category === 'PRIMARY_SHELTER';
       const isMedical = s.category === 'MEDICAL_CENTER';
       const color = isPrimary ? 0xe2e8f0 : (isMedical ? 0x94a3b8 : 0x64748b);
-      const groundY = isPrimary ? s.positionThree[1] : sampleTerrainHeight(s.east_m, s.north_m);
+      const groundY = isPrimary ? s.positionThree[1] : this._sampleTerrainHeight(s.east_m, s.north_m);
 
       const sGroup = new THREE.Group();
       sGroup.name = `FacilityPin_${s.id}`;
@@ -1054,7 +1190,7 @@ export class LocalSpatialMapLayer {
         for (let s = 0; s < samples; s++) {
           const e = baseE + (rand() - 0.5) * 28.0;
           const n = baseN + (rand() - 0.5) * 28.0;
-          const h = sampleTerrainHeight(e, n);
+          const h = this._sampleTerrainHeight(e, n);
           if (h < -15.2) continue;
           const sc = 4.5 + rand() * 5.2;
           const yaw = rand() * Math.PI * 2;
@@ -1068,43 +1204,47 @@ export class LocalSpatialMapLayer {
     }
 
     const dummy = new THREE.Object3D();
-    const conGeo = this._track(new THREE.ConeGeometry(0.65, 1.85, 5));
-    const conMat = this._track(new THREE.MeshStandardMaterial({
-      color: palette.treeConifer,
-      roughness: 0.92,
-      metalness: 0.0
-    }));
-    this.coniferTreesMesh = new THREE.InstancedMesh(conGeo, conMat, conifers.length);
-    this.coniferTreesMesh.name = 'LocalConiferTrees4km';
-    conifers.forEach(([x, y, z, s, yaw], idx) => {
-      dummy.position.set(x, y + s * 0.88, z);
-      dummy.rotation.set(0, yaw, 0);
-      dummy.scale.set(s, s, s);
-      dummy.updateMatrix();
-      this.coniferTreesMesh.setMatrixAt(idx, dummy.matrix);
-    });
-    this.coniferTreesMesh.instanceMatrix.needsUpdate = true;
-    this.coniferTreesMesh.castShadow = true;
-    this.rootGroup.add(this.coniferTreesMesh);
+    if (conifers.length > 0) {
+      const conGeo = this._track(new THREE.ConeGeometry(0.65, 1.85, 5));
+      const conMat = this._track(new THREE.MeshStandardMaterial({
+        color: palette.treeConifer,
+        roughness: 0.92,
+        metalness: 0.0
+      }));
+      this.coniferTreesMesh = new THREE.InstancedMesh(conGeo, conMat, conifers.length);
+      this.coniferTreesMesh.name = 'LocalConiferTrees4km';
+      conifers.forEach(([x, y, z, s, yaw], idx) => {
+        dummy.position.set(x, y + s * 0.88, z);
+        dummy.rotation.set(0, yaw, 0);
+        dummy.scale.set(s, s, s);
+        dummy.updateMatrix();
+        this.coniferTreesMesh.setMatrixAt(idx, dummy.matrix);
+      });
+      this.coniferTreesMesh.instanceMatrix.needsUpdate = true;
+      this.coniferTreesMesh.castShadow = true;
+      this.rootGroup.add(this.coniferTreesMesh);
+    }
 
-    const broadGeo = this._track(new THREE.IcosahedronGeometry(0.85, 0));
-    const broadMat = this._track(new THREE.MeshStandardMaterial({
-      color: palette.treeBroadleaf,
-      roughness: 0.92,
-      metalness: 0.0
-    }));
-    this.broadleafTreesMesh = new THREE.InstancedMesh(broadGeo, broadMat, broadleaf.length);
-    this.broadleafTreesMesh.name = 'LocalBroadleafTrees4km';
-    broadleaf.forEach(([x, y, z, s, yaw], idx) => {
-      dummy.position.set(x, y + s * 0.65, z);
-      dummy.rotation.set(0, yaw, 0);
-      dummy.scale.set(s * 1.15, s * 0.85, s * 1.05);
-      dummy.updateMatrix();
-      this.broadleafTreesMesh.setMatrixAt(idx, dummy.matrix);
-    });
-    this.broadleafTreesMesh.instanceMatrix.needsUpdate = true;
-    this.broadleafTreesMesh.castShadow = true;
-    this.rootGroup.add(this.broadleafTreesMesh);
+    if (broadleaf.length > 0) {
+      const broadGeo = this._track(new THREE.IcosahedronGeometry(0.85, 0));
+      const broadMat = this._track(new THREE.MeshStandardMaterial({
+        color: palette.treeBroadleaf,
+        roughness: 0.92,
+        metalness: 0.0
+      }));
+      this.broadleafTreesMesh = new THREE.InstancedMesh(broadGeo, broadMat, broadleaf.length);
+      this.broadleafTreesMesh.name = 'LocalBroadleafTrees4km';
+      broadleaf.forEach(([x, y, z, s, yaw], idx) => {
+        dummy.position.set(x, y + s * 0.65, z);
+        dummy.rotation.set(0, yaw, 0);
+        dummy.scale.set(s * 1.15, s * 0.85, s * 1.05);
+        dummy.updateMatrix();
+        this.broadleafTreesMesh.setMatrixAt(idx, dummy.matrix);
+      });
+      this.broadleafTreesMesh.instanceMatrix.needsUpdate = true;
+      this.broadleafTreesMesh.castShadow = true;
+      this.rootGroup.add(this.broadleafTreesMesh);
+    }
   }
 
   _buildNightWindows() {
@@ -1134,7 +1274,7 @@ export class LocalSpatialMapLayer {
       const h = data[base + 5];
       if (h < 24.0 || rand() < 0.35) continue;
 
-      const groundY = grounds && i < grounds.length ? grounds[i] : sampleTerrainHeight(e, n);
+      const groundY = grounds && i < grounds.length ? grounds[i] : this._sampleTerrainHeight(e, n);
       const dots = Math.min(5, Math.ceil(h / 28));
       const cosY = Math.cos(yaw);
       const sinY = Math.sin(yaw);
@@ -1238,7 +1378,7 @@ export class LocalSpatialMapLayer {
       const px = ox + dirX * r;
       const pz = oz + dirZ * r;
       if (Math.abs(px) > 2200 || Math.abs(pz) > 2200) continue;
-      rayPts.push(new THREE.Vector3(px, sampleTerrainHeight(px, -pz) + 3.5, pz));
+      rayPts.push(new THREE.Vector3(px, this._sampleTerrainHeight(px, -pz) + 3.5, pz));
     }
     if (rayPts.length >= 2) {
       const rayGeo = new THREE.BufferGeometry().setFromPoints(rayPts);
@@ -1257,7 +1397,7 @@ export class LocalSpatialMapLayer {
         const px = Math.sin(theta) * baseRadius;
         const pz = -Math.cos(theta) * baseRadius;
         if (Math.abs(px) <= 2190 && Math.abs(pz) <= 2190) {
-          arcPts.push(new THREE.Vector3(px, sampleTerrainHeight(px, -pz) + 2.8, pz));
+          arcPts.push(new THREE.Vector3(px, this._sampleTerrainHeight(px, -pz) + 2.8, pz));
         }
       }
       if (arcPts.length >= 2) {
@@ -1306,7 +1446,7 @@ export class LocalSpatialMapLayer {
         const d = data[base + 3];
         const yaw = data[base + 4];
         const h = data[base + 5];
-        const groundY = (grounds && i < grounds.length) ? grounds[i] : sampleTerrainHeight(e, n);
+        const groundY = (grounds && i < grounds.length) ? grounds[i] : this._sampleTerrainHeight(e, n);
         const overlapsOrigin = !isDefault212 && Math.hypot(e - maskCenterE, n - maskCenterN) < 42.0;
 
         dummy.position.set(e, overlapsOrigin ? -500 : groundY + h * 0.5, -n);
@@ -1400,7 +1540,7 @@ export class LocalSpatialMapLayer {
     const orig = this._activeOriginMeta;
 
     // 1. User Origin Facility ("내 위치 · 출발지")
-    const origGroundY = sampleTerrainHeight(orig.east_m, orig.north_m);
+    const origGroundY = this._sampleTerrainHeight(orig.east_m, orig.north_m);
     this.labelAnchors.push({
       id: orig.id,
       title: orig.title,
@@ -1414,7 +1554,7 @@ export class LocalSpatialMapLayer {
     // 2. Primary Shelter Destination & Key Regional Hubs
     for (const s of (this.pkg.sheltersAndFacilities || [])) {
       const isPrimary = s.category === 'PRIMARY_SHELTER';
-      const baseY = isPrimary ? s.positionThree[1] : sampleTerrainHeight(s.east_m, s.north_m);
+      const baseY = isPrimary ? s.positionThree[1] : this._sampleTerrainHeight(s.east_m, s.north_m);
       this.labelAnchors.push({
         id: s.id,
         title: isPrimary ? `대피소 · ${s.name}` : s.name,
@@ -1461,7 +1601,7 @@ export class LocalSpatialMapLayer {
         category: b.category,
         provisional: false,
         priority: Math.min(62, b.priority || 52),
-        worldPos: new THREE.Vector3(b.east_m, sampleTerrainHeight(b.east_m, b.north_m) + b.height_m + 5.0, -b.north_m)
+        worldPos: new THREE.Vector3(b.east_m, this._sampleTerrainHeight(b.east_m, b.north_m) + b.height_m + 5.0, -b.north_m)
       });
     }
   }
@@ -1534,8 +1674,8 @@ export class LocalSpatialMapLayer {
     this.activeHazardPolygons = Array.isArray(polygons) ? [...polygons] : [];
     for (const poly of this.activeHazardPolygons) {
       if (!Array.isArray(poly.polygonXZ) || poly.polygonXZ.length < 3) continue;
-      const pts = poly.polygonXZ.map(([x, z]) => new THREE.Vector3(x, sampleTerrainHeight(x, -z) + 1.4, z));
-      pts.push(new THREE.Vector3(poly.polygonXZ[0][0], sampleTerrainHeight(poly.polygonXZ[0][0], -poly.polygonXZ[0][1]) + 1.4, poly.polygonXZ[0][1]));
+      const pts = poly.polygonXZ.map(([x, z]) => new THREE.Vector3(x, this._sampleTerrainHeight(x, -z) + 1.4, z));
+      pts.push(new THREE.Vector3(poly.polygonXZ[0][0], this._sampleTerrainHeight(poly.polygonXZ[0][0], -poly.polygonXZ[0][1]) + 1.4, poly.polygonXZ[0][1]));
 
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
       const mat = new THREE.LineDashedMaterial({

@@ -98,21 +98,22 @@ export function renderEditorialTypography(ctx, canvas, text, formationProg, visu
   // PASS 1: Soft Ambient Dark Cushion (Zero harsh black outlines, no boxes)
   if (enableDarkCushion && visualOpts.enableDarkCushion !== false) {
     ctx.save();
-    ctx.shadowColor = 'rgba(2, 6, 14, 0.65)';
-    ctx.shadowBlur = Math.round(fontSize * 0.40);
+    ctx.shadowColor = 'rgba(2, 5, 12, 0.78)';
+    ctx.shadowBlur = Math.round(fontSize * 0.46);
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 1;
-    ctx.fillStyle = 'rgba(2, 6, 14, 0.55)';
+    ctx.fillStyle = 'rgba(2, 5, 12, 0.62)';
     ctx.fillText(cleanText, cX + strokeJitterPx, cY);
     ctx.restore();
   }
 
-  // PASS 2: Crystalline Editorial Serif with moonlight gradient
+  // PASS 2: Crystalline Editorial Serif with subtle Hanji Ivory luminous taper
   ctx.save();
   ctx.shadowColor = haloColor;
-  ctx.shadowBlur = Math.round(fontSize * 0.16);
-  const grad = ctx.createLinearGradient(0, cY - fontSize * 0.45, 0, cY + fontSize * 0.45);
+  ctx.shadowBlur = Math.round(fontSize * 0.18);
+  const grad = ctx.createLinearGradient(0, cY - fontSize * 0.46, 0, cY + fontSize * 0.46);
   grad.addColorStop(0.0, '#ffffff');
+  grad.addColorStop(0.55, '#eae4d5');
   grad.addColorStop(1.0, colorSecondary);
   ctx.fillStyle = grad;
   ctx.fillText(cleanText, cX + strokeJitterPx, cY);

@@ -1,74 +1,309 @@
 // ============================================================================
-// SEISMOLIVE v4.0 — Stage R4 Single-Canvas Seamless Exhibition Mode Manager
+// SEISMOLIVE v4.0 — Single-Canvas Global Exhibition <-> Local Response Mode Manager
 // File: js/ui/ExhibitionModeManager.js
 //
-// Manages seamless in-place WebGL scene switching on index.html between:
-//   - MODE_GLOBAL_EXHIBITION (Global Earth WGS84/100km scale wavefield & memory)
-//   - MODE_LOCAL_4KM_RESPONSE (Local Tangent ENU 1m scale 4km spatial map + egress)
+// Bridges Global Spherical Earth Orbit (Stage 1) <-> Nationwide 3D Local
+// Topography/Evacuation Mode (Stage 4/5) on ONE WebGLRenderer without
+// WebGL context duplication or near/far frustum Z-fighting.
 //
-// Zero page reloads, clean visibility isolation, zero unit-scale crosstalk.
+// In browser runtime (when hudMountRoot + renderer are supplied), mounts the
+// shared EvacuationExperienceController for full Korea 3D & interactive UX.
+// In headless Deno tests, mounts pure LocalSpatialMapLayer + adapters cleanly.
 // ============================================================================
 
 import * as THREE from '../lib/three.module.js';
-import { HanyangResponseAdapter } from '../response/HanyangResponseAdapter.js';
-import { LocalSpatialMapLayer } from '../response/LocalSpatialMapLayer.js';
 import { HANYANG_LOCAL_4KM_PACKAGE, HANYANG_LOCAL_SPATIAL_VIEWPOINTS } from '../response/HanyangLocalSpatialData.js';
+import { DEFAULT_HANYANG_FACILITY_PACKAGE } from '../response/HanyangBuildingData.js';
+import { LocalSpatialMapLayer, LOCAL_VISUAL_THEMES } from '../response/LocalSpatialMapLayer.js';
+import { HanyangResponseAdapter } from '../response/HanyangResponseAdapter.js';
+import { PedestrianRoutingEngine } from '../response/PedestrianRoutingEngine.js';
 import { ResponseUIAdapter } from '../response/ResponseUIAdapter.js';
-import { GlobalLocalCameraTransition, CAMERA_STAGES, TRANSITION_STATUS } from '../response/GlobalLocalCameraTransition.js';
-import { DEFAULT_HANYANG_FACILITY_PACKAGE, DATA_PROVENANCE_SOURCE } from '../response/HanyangBuildingData.js';
+import { GlobalLocalCameraTransition, CAMERA_STAGES } from '../response/GlobalLocalCameraTransition.js';
+import { EvacuationExperienceController } from './EvacuationExperienceController.js';
 
 export const EXHIBITION_MODES = Object.freeze({
   GLOBAL_EXHIBITION: 'MODE_GLOBAL_EXHIBITION',
   LOCAL_4KM_RESPONSE: 'MODE_LOCAL_4KM_RESPONSE'
 });
 
-function withExtendedFar(viewpoints) {
-  const out = {};
-  for (const [k, vp] of Object.entries(viewpoints || {})) {
-    out[k] = { ...vp, far: Math.max(vp?.far || 6000, 6000) };
-  }
-  return out;
-}
-
 export class ExhibitionModeManager {
   constructor(options = {}) {
     if (!options.scene || !options.camera) {
-      throw new Error('[ExhibitionModeManager] scene and camera are required.');
+      throw new Error('[ExhibitionModeManager] requires existing `scene` and `camera`.');
     }
+
     this.scene = options.scene;
     this.camera = options.camera;
+    this.renderer = options.renderer || null;
     this.controls = options.controls || null;
-    this.getGlobalSceneObjects = options.getGlobalSceneObjects || (() => []);
-    this.onModeChange = options.onModeChange || null;
+    this.hudMountRoot = options.hudMountRoot || null;
+    this.onReturnToGlobe = typeof options.onReturnToGlobe === 'function' ? options.onReturnToGlobe : null;
+    this.getGlobalSceneObjects = typeof options.getGlobalSceneObjects === 'function'
+      ? options.getGlobalSceneObjects
+      : () => [];
 
     this.activeMode = EXHIBITION_MODES.GLOBAL_EXHIBITION;
-    this.localStage = CAMERA_STAGES.REGIONAL_APPROACH;
-    this.localTheme = options.theme === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
-    this.isLocalInitialized = false;
+    this.activeLocalStage = CAMERA_STAGES.REGIONAL_APPROACH;
+    this._hiddenGlobalVisibility = new Map();
+    this._savedGlobalState = null;
 
+    // Isolated 3D Group inside the single scene for local metric city coordinates
     this.localWorldGroup = new THREE.Group();
-    this.localWorldGroup.name = 'InSceneLocal4kmWorldGroup';
+    this.localWorldGroup.name = 'UnifiedSingleCanvasLocal4kmGroup';
     this.localWorldGroup.visible = false;
     this.scene.add(this.localWorldGroup);
 
-    this.localSpatialLayer = null;
-    this.hanyangAdapter = null;
-    this.uiAdapter = null;
-    this.camTransition = null;
-    this.localGrid = null;
+    const hasBrowserDom =
+      typeof document !== 'undefined' &&
+      Boolean(this.hudMountRoot) &&
+      Boolean(this.renderer?.domElement);
 
-    this._savedGlobalSnapshot = null;
-    this._savedVisibilityMap = new Map();
-    this._overlayEl = null;
+    if (hasBrowserDom) {
+      this.controller = new EvacuationExperienceController({
+        scene: this.scene,
+        localWorldGroup: this.localWorldGroup,
+        camera: this.camera,
+        renderer: this.renderer,
+        controls: this.controls,
+        mountRoot: this.hudMountRoot,
+        domElement: this.renderer.domElement,
+        initialTheme: options.initialTheme || 'MONOLITH_NIGHT',
+        autoPlay: false,
+        onReturnToGlobe: () => {
+          if (this.onReturnToGlobe) this.onReturnToGlobe();
+          else this.exitToGlobalExhibition();
+        }
+      });
+      this.localSpatialLayer = this.controller.localSpatialLayer;
+      this.router = this.controller.router;
+      this.hanyangAdapter = this.controller.hanyangAdapter;
+      this.uiAdapter = this.controller.uiAdapter;
+      this.camTransition = this.controller.camTransition;
+    } else {
+      // Headless Deno unit-test lightweight mode
+      this.controller = null;
+      this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
+        spatialPackage: options.spatialPackage || HANYANG_LOCAL_4KM_PACKAGE,
+        theme: options.theme || 'MONOLITH_NIGHT'
+      });
+      this.router = new PedestrianRoutingEngine({
+        useRealMapRouting: true,
+        buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32
+      });
+      this.hanyangAdapter = new HanyangResponseAdapter(this.localWorldGroup, {
+        scale: 1.0,
+        visualScaleFactor: 4.5,
+        useRealMapRouting: true,
+        buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32,
+        router: this.router
+      });
+      this.uiAdapter = new ResponseUIAdapter({
+        router: this.router,
+        hanyangAdapter: this.hanyangAdapter
+      });
+      this.camTransition = new GlobalLocalCameraTransition({
+        camera: this.camera,
+        viewpoints: {
+          ...HANYANG_LOCAL_SPATIAL_VIEWPOINTS,
+          ...(this.hanyangAdapter.facility?.cameraViewpoints || DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints)
+        }
+      });
+    }
   }
 
-  _isolateGlobalSceneChildren() {
-    for (const child of this.scene.children) {
-      if (child === this.localWorldGroup || child.isLight) continue;
-      if (!this._savedVisibilityMap.has(child)) {
-        this._savedVisibilityMap.set(child, child.visible);
+  _captureGlobalState() {
+    this._savedGlobalState = {
+      position: this.camera.position.clone ? this.camera.position.clone() : { ...this.camera.position },
+      quaternion: this.camera.quaternion?.clone ? this.camera.quaternion.clone() : null,
+      fov: this.camera.fov,
+      near: this.camera.near,
+      far: this.camera.far,
+      controlTarget: this.controls?.target?.clone ? this.controls.target.clone() : null,
+      minDistance: this.controls?.minDistance,
+      maxDistance: this.controls?.maxDistance,
+      minPolarAngle: this.controls?.minPolarAngle,
+      maxPolarAngle: this.controls?.maxPolarAngle,
+      controlsEnabled: this.controls?.enabled,
+      backgroundHex: this.scene.background?.getHex ? this.scene.background.getHex() : null,
+      fogColorHex: this.scene.fog?.color?.getHex ? this.scene.fog.color.getHex() : null,
+      fogDensity: this.scene.fog?.density,
+      shadowEnabled: this.renderer?.shadowMap?.enabled,
+      toneMappingExposure: this.renderer?.toneMappingExposure
+    };
+  }
+
+  _restoreGlobalState() {
+    const s = this._savedGlobalState;
+    if (!s) return;
+    if (typeof s.fov === 'number') this.camera.fov = s.fov;
+    if (typeof s.near === 'number') this.camera.near = s.near;
+    if (typeof s.far === 'number') this.camera.far = s.far;
+    if (typeof this.camera.updateProjectionMatrix === 'function') {
+      this.camera.updateProjectionMatrix();
+    }
+    if (s.position && this.camera.position) {
+      if (this.camera.position.copy) this.camera.position.copy(s.position);
+      else Object.assign(this.camera.position, s.position);
+    }
+    if (s.quaternion && this.camera.quaternion?.copy) {
+      this.camera.quaternion.copy(s.quaternion);
+    }
+    if (this.controls) {
+      if (s.controlTarget && this.controls.target?.copy) this.controls.target.copy(s.controlTarget);
+      if (typeof s.minDistance === 'number') this.controls.minDistance = s.minDistance;
+      if (typeof s.maxDistance === 'number') this.controls.maxDistance = s.maxDistance;
+      if (typeof s.minPolarAngle === 'number') this.controls.minPolarAngle = s.minPolarAngle;
+      if (typeof s.maxPolarAngle === 'number') this.controls.maxPolarAngle = s.maxPolarAngle;
+      if (typeof s.controlsEnabled === 'boolean') this.controls.enabled = s.controlsEnabled;
+      this.controls.update?.();
+    }
+    if (typeof s.backgroundHex === 'number' && this.scene.background?.setHex) {
+      this.scene.background.setHex(s.backgroundHex);
+    }
+    if (typeof s.fogColorHex === 'number' && this.scene.fog?.color?.setHex) {
+      this.scene.fog.color.setHex(s.fogColorHex);
+      if (typeof s.fogDensity === 'number') this.scene.fog.density = s.fogDensity;
+    }
+    if (this.renderer) {
+      if (typeof s.shadowEnabled === 'boolean' && this.renderer.shadowMap) {
+        this.renderer.shadowMap.enabled = s.shadowEnabled;
       }
-      child.visible = false;
+      if (typeof s.toneMappingExposure === 'number') {
+        this.renderer.toneMappingExposure = s.toneMappingExposure;
+      }
+    }
+    if (typeof document !== 'undefined') {
+      document.body.classList.remove('theme-day');
+    }
+  }
+
+  _isolateGlobalSceneChildren(hideGlobal) {
+    const globalObjs = this.getGlobalSceneObjects();
+    if (hideGlobal) {
+      this._hiddenGlobalVisibility.clear();
+      for (const obj of globalObjs) {
+        if (!obj || obj === this.localWorldGroup) continue;
+        this._hiddenGlobalVisibility.set(obj, obj.visible);
+        obj.visible = false;
+      }
+    } else {
+      for (const [obj, prevVisible] of this._hiddenGlobalVisibility.entries()) {
+        if (obj) obj.visible = prevVisible;
+      }
+      this._hiddenGlobalVisibility.clear();
+    }
+  }
+
+  enterLocalResponseMode(stageKey = CAMERA_STAGES.REGIONAL_APPROACH, opts = {}) {
+    if (this.activeMode !== EXHIBITION_MODES.LOCAL_4KM_RESPONSE) {
+      this._captureGlobalState();
+    }
+
+    this._isolateGlobalSceneChildren(true);
+    this.localWorldGroup.visible = true;
+    this.activeMode = EXHIBITION_MODES.LOCAL_4KM_RESPONSE;
+
+    // Switch frustum & orbit constraints seamlessly to metric 4km city space
+    this.camera.fov = 42;
+    this.camera.near = 0.25;
+    this.camera.far = 6500.0;
+    if (typeof this.camera.updateProjectionMatrix === 'function') {
+      this.camera.updateProjectionMatrix();
+    }
+    if (this.controls) {
+      this.controls.minDistance = 8.0;
+      this.controls.maxDistance = 4200.0;
+      this.controls.minPolarAngle = 0.02;
+      this.controls.maxPolarAngle = Math.PI * 0.475;
+      this.controls.enabled = true;
+    }
+    if (this.renderer?.shadowMap) {
+      this.renderer.shadowMap.enabled = true;
+    }
+
+    if (this.hudMountRoot) {
+      this.hudMountRoot.classList.add('is-visible');
+    }
+
+    if (this.controller) {
+      const palette = LOCAL_VISUAL_THEMES[this.controller.activeVisualTheme] || LOCAL_VISUAL_THEMES.MONOLITH_NIGHT;
+      if (this.scene.background?.setHex) this.scene.background.setHex(palette.background);
+      if (this.scene.fog?.color?.setHex) {
+        this.scene.fog.color.setHex(palette.fogColor);
+        this.scene.fog.density = palette.fogDensity;
+      }
+      if (this.renderer) {
+        this.renderer.toneMappingExposure = 1.06;
+      }
+
+      if (opts.lat && opts.lon && opts.regionId !== this.controller.activeRegionId) {
+        this.controller.switchToRegion(opts.lat, opts.lon, {
+          regionId: opts.regionId,
+          name: opts.name,
+          shortName: opts.shortName
+        });
+      } else {
+        this.controller.applyVisualTheme(this.controller.activeVisualTheme);
+        if (opts.eventId) {
+          this.controller.loadAndBindSeismicEvent(opts.eventId);
+        }
+        this.setLocalStage(stageKey || CAMERA_STAGES.CAMPUS_OVERVIEW);
+        if (opts.withSeismicBrief !== false) {
+          this.controller.enterWithSeismicBrief({ durationMs: opts.briefDurationMs || 2200 });
+        } else {
+          this.controller.beginActiveEvacuation();
+        }
+      }
+    } else {
+      this.setLocalStage(stageKey);
+    }
+
+    return this.getDiagnostics();
+  }
+
+  setLocalStage(stageKey = CAMERA_STAGES.REGIONAL_APPROACH) {
+    this.activeLocalStage = stageKey;
+    if (this.controller) {
+      this.controller.setCameraStage(stageKey);
+    } else {
+      this.localSpatialLayer.syncWithCameraStage(stageKey);
+      this.camTransition.snapTo(stageKey);
+      if (stageKey === CAMERA_STAGES.BUILDING_INSPECTION || stageKey === CAMERA_STAGES.PERSONAL_LOCATION) {
+        this.hanyangAdapter.highlightFloor(this.uiAdapter.context?.user?.floor ?? 3);
+      } else {
+        this.hanyangAdapter.highlightFloor(null);
+      }
+    }
+    return this.getDiagnostics();
+  }
+
+  exitToGlobalExhibition() {
+    if (this.hudMountRoot) {
+      this.hudMountRoot.classList.remove('is-visible');
+    }
+    if (this.controller) {
+      if (this.controller.briefTimerId) {
+        clearTimeout(this.controller.briefTimerId);
+        this.controller.briefTimerId = null;
+      }
+      this.controller.walkPlaying = false;
+      this.controller._el('seismic-brief-banner')?.classList.remove('is-active');
+    }
+
+    this.localWorldGroup.visible = false;
+    this.activeMode = EXHIBITION_MODES.GLOBAL_EXHIBITION;
+    this._isolateGlobalSceneChildren(false);
+    this._restoreGlobalState();
+
+    return this.getDiagnostics();
+  }
+
+  update(dt = 0.016, elapsed = 0) {
+    if (!this.isLocalModeActive()) return;
+    if (this.controller) {
+      this.controller.update(dt, elapsed);
+    } else {
+      this.camTransition.update();
     }
   }
 
@@ -76,281 +311,22 @@ export class ExhibitionModeManager {
     return this.activeMode === EXHIBITION_MODES.LOCAL_4KM_RESPONSE;
   }
 
-  _ensureLocalSceneInitialized() {
-    if (this.isLocalInitialized) return;
-
-    this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
-      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE,
-      theme: this.localTheme
-    });
-
-    this.hanyangAdapter = new HanyangResponseAdapter(this.localWorldGroup, {
-      scale: 1.0,
-      visualScaleFactor: 4.5,
-      useRealMapRouting: true,
-      buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32
-    });
-
-    this.uiAdapter = new ResponseUIAdapter({
-      hanyangAdapter: this.hanyangAdapter
-    });
-    this.uiAdapter.setUserFloor(3);
-    this.uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
-
-    this.camTransition = new GlobalLocalCameraTransition({
-      camera: this.camera,
-      controls: this.controls,
-      viewpoints: withExtendedFar({
-        ...DEFAULT_HANYANG_FACILITY_PACKAGE.cameraViewpoints,
-        REGIONAL_APPROACH: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.REGIONAL_APPROACH,
-        CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
-      })
-    });
-
-    this.isLocalInitialized = true;
-  }
-
-  _applyLocalSceneAtmosphere() {
-    if (!this.localSpatialLayer) return;
-    const palette = this.localSpatialLayer.setVisualTheme(this.localTheme);
-    if (this.scene) {
-      if (this.scene.background && this.scene.background.isColor) {
-        this.scene.background.setHex(palette.background);
-      } else {
-        this.scene.background = new THREE.Color(palette.background);
-      }
-      this.scene.fog = new THREE.FogExp2(palette.fogColor, palette.fogDensity);
-    }
-    const themeBtn = this._overlayEl?.querySelector('#inscene-btn-theme');
-    if (themeBtn) {
-      themeBtn.textContent = this.localTheme === 'ARCHITECTURAL_DAY' ? '테마: 주간 레퍼런스' : '테마: 야간 모놀리스';
-    }
-  }
-
-  toggleLocalTheme() {
-    this.localTheme = this.localTheme === 'ARCHITECTURAL_DAY' ? 'MONOLITH_NIGHT' : 'ARCHITECTURAL_DAY';
-    this._applyLocalSceneAtmosphere();
-    return this.localTheme;
-  }
-
-  _ensureOverlayDOM() {
-    if (typeof document === 'undefined') return;
-    if (this._overlayEl) return;
-
-    const bar = document.createElement('div');
-    bar.id = 'inscene-local-response-bar';
-    bar.style.cssText = [
-      'position:fixed',
-      'top:22px',
-      'right:28px',
-      'z-index:1200',
-      'display:none',
-      'gap:6px',
-      'align-items:center',
-      'background:rgba(2,4,8,0.88)',
-      'border:1px solid rgba(255,255,255,0.16)',
-      'padding:6px 10px',
-      'font-size:11px',
-      'color:#e2e8f0'
-    ].join(';');
-
-    const stages = [
-      { id: 'inscene-btn-local4km', stage: CAMERA_STAGES.REGIONAL_APPROACH, label: '4km 로컬맵' },
-      { id: 'inscene-btn-campus', stage: CAMERA_STAGES.CAMPUS_OVERVIEW, label: '캠퍼스' },
-      { id: 'inscene-btn-bldg', stage: CAMERA_STAGES.BUILDING_INSPECTION, label: '제1공학관' },
-      { id: 'inscene-btn-personal', stage: CAMERA_STAGES.PERSONAL_LOCATION, label: '3F 301호' }
-    ];
-
-    for (const s of stages) {
-      const btn = document.createElement('button');
-      btn.id = s.id;
-      btn.type = 'button';
-      btn.className = 'surface-btn secondary compact';
-      btn.textContent = s.label;
-      btn.addEventListener('click', () => this.setLocalStage(s.stage));
-      bar.appendChild(btn);
-    }
-
-    const themeBtn = document.createElement('button');
-    themeBtn.id = 'inscene-btn-theme';
-    themeBtn.type = 'button';
-    themeBtn.className = 'surface-btn secondary compact';
-    themeBtn.textContent = this.localTheme === 'ARCHITECTURAL_DAY' ? '테마: 주간 레퍼런스' : '테마: 야간 모놀리스';
-    themeBtn.addEventListener('click', () => this.toggleLocalTheme());
-    bar.appendChild(themeBtn);
-
-    const exitBtn = document.createElement('button');
-    exitBtn.id = 'inscene-btn-exit-global';
-    exitBtn.type = 'button';
-    exitBtn.className = 'surface-btn primary compact';
-    exitBtn.textContent = '← 글로벌 궤도 복귀';
-    exitBtn.addEventListener('click', () => this.exitToGlobalExhibition());
-    bar.appendChild(exitBtn);
-
-    document.body.appendChild(bar);
-    this._overlayEl = bar;
-  }
-
-  enterLocalResponseMode(stageKey = CAMERA_STAGES.REGIONAL_APPROACH) {
-    this._ensureLocalSceneInitialized();
-    this._ensureOverlayDOM();
-
-    if (this.activeMode !== EXHIBITION_MODES.LOCAL_4KM_RESPONSE) {
-      this._savedVisibilityMap.clear();
-      this._isolateGlobalSceneChildren();
-      // Preserve explicit callback list items too if caller passed detached objects
-      for (const obj of (this.getGlobalSceneObjects() || [])) {
-        if (!obj || obj === this.localWorldGroup) continue;
-        if (!this._savedVisibilityMap.has(obj)) {
-          this._savedVisibilityMap.set(obj, obj.visible);
-        }
-        obj.visible = false;
-      }
-
-      const hiddenDomStates = [];
-      if (typeof document !== 'undefined') {
-        for (const domId of ['unified-control-surface', 'quality-mode-pill', 'chronicle-subtitle-container', 'immersive-restore-pill']) {
-          const el = document.getElementById(domId);
-          if (el) {
-            hiddenDomStates.push({ el, prevDisplay: el.style.display });
-            el.style.display = 'none';
-          }
-        }
-      }
-      this._savedGlobalSnapshot = {
-        hiddenDomStates,
-        sceneBackground: this.scene.background ? (this.scene.background.clone ? this.scene.background.clone() : this.scene.background) : null,
-        sceneFog: this.scene.fog || null,
-        camPos: this.camera.position.clone(),
-        camNear: this.camera.near,
-        camFar: this.camera.far,
-        controlsTarget: this.controls ? this.controls.target.clone() : null,
-        controlsMinDist: this.controls ? this.controls.minDistance : null,
-        controlsMaxDist: this.controls ? this.controls.maxDistance : null,
-        controlsMaxPolar: this.controls ? this.controls.maxPolarAngle : null,
-        controlsEnabled: this.controls ? this.controls.enabled : null
-      };
-    }
-
-    this.activeMode = EXHIBITION_MODES.LOCAL_4KM_RESPONSE;
-    this.localWorldGroup.visible = true;
-    this._applyLocalSceneAtmosphere();
-
-    if (this.controls) {
-      this.controls.minDistance = 8.0;
-      this.controls.maxDistance = 4200.0;
-      this.controls.maxPolarAngle = Math.PI * 0.48;
-      this.controls.enabled = true;
-    }
-
-    if (this._overlayEl) {
-      this._overlayEl.style.display = 'flex';
-    }
-
-    this.setLocalStage(stageKey);
-    if (typeof this.onModeChange === 'function') {
-      this.onModeChange(this.activeMode, this.localStage);
-    }
-    return this.getDiagnostics();
-  }
-
-  setLocalStage(stageKey = CAMERA_STAGES.REGIONAL_APPROACH) {
-    this._ensureLocalSceneInitialized();
-    this.localStage = stageKey;
-    this.camTransition.snapTo(stageKey);
-    this.localSpatialLayer.syncWithCameraStage(stageKey);
-    this.hanyangAdapter.highlightFloor(this.hanyangAdapter.facility.defaultFloor ?? 3);
-    this.hanyangAdapter.setRouteDisplay('ALL');
-
-    if (this._overlayEl) {
-      const mapIds = {
-        [CAMERA_STAGES.REGIONAL_APPROACH]: 'inscene-btn-local4km',
-        [CAMERA_STAGES.CAMPUS_OVERVIEW]: 'inscene-btn-campus',
-        [CAMERA_STAGES.BUILDING_INSPECTION]: 'inscene-btn-bldg',
-        [CAMERA_STAGES.PERSONAL_LOCATION]: 'inscene-btn-personal'
-      };
-      this._overlayEl.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-      const activeEl = this._overlayEl.querySelector(`#${mapIds[stageKey]}`);
-      if (activeEl) activeEl.classList.add('active');
-    }
-    return this.localStage;
-  }
-
-  exitToGlobalExhibition() {
-    if (this.activeMode !== EXHIBITION_MODES.LOCAL_4KM_RESPONSE) {
-      return this.getDiagnostics();
-    }
-
-    this.localWorldGroup.visible = false;
-    if (this._overlayEl) {
-      this._overlayEl.style.display = 'none';
-    }
-
-    const snap = this._savedGlobalSnapshot;
-    for (const [obj, wasVisible] of this._savedVisibilityMap.entries()) {
-      if (obj) obj.visible = wasVisible;
-    }
-    this._savedVisibilityMap.clear();
-
-    if (snap) {
-      if (this.scene) {
-        this.scene.background = snap.sceneBackground || null;
-        this.scene.fog = snap.sceneFog || null;
-      }
-      this.camera.position.copy(snap.camPos);
-      this.camera.near = snap.camNear;
-      this.camera.far = snap.camFar;
-      this.camera.updateProjectionMatrix();
-
-      if (this.controls) {
-        if (snap.controlsTarget) this.controls.target.copy(snap.controlsTarget);
-        if (snap.controlsMinDist !== null) this.controls.minDistance = snap.controlsMinDist;
-        if (snap.controlsMaxDist !== null) this.controls.maxDistance = snap.controlsMaxDist;
-        if (snap.controlsMaxPolar !== null) this.controls.maxPolarAngle = snap.controlsMaxPolar;
-        if (snap.controlsEnabled !== null) this.controls.enabled = snap.controlsEnabled;
-        this.controls.update();
-      }
-
-      (snap.hiddenDomStates || []).forEach(({ el, prevDisplay }) => {
-        if (el) el.style.display = prevDisplay || '';
-      });
-      this._savedGlobalSnapshot = null;
-    }
-
-    this.activeMode = EXHIBITION_MODES.GLOBAL_EXHIBITION;
-    if (typeof this.onModeChange === 'function') {
-      this.onModeChange(this.activeMode, null);
-    }
-    return this.getDiagnostics();
-  }
-
-  update() {
-    if (!this.isLocalModeActive() || !this.isLocalInitialized) return;
-    this._isolateGlobalSceneChildren();
-    if (this.camTransition && this.camTransition.status === TRANSITION_STATUS.TRANSITIONING) {
-      this.camTransition.update();
-    }
-    this.localSpatialLayer?.updateSpatialChunks(this.camera);
-  }
-
   getDiagnostics() {
     return {
       activeMode: this.activeMode,
-      localStage: this.localStage,
-      isLocalInitialized: this.isLocalInitialized,
       localWorldVisible: this.localWorldGroup.visible,
-      localDiagnostics: this.localSpatialLayer ? this.localSpatialLayer.getLayerDiagnostics() : null
+      localStage: this.activeLocalStage,
+      localDiagnostics: this.localSpatialLayer.getLayerDiagnostics(),
+      guidanceSummary: this.uiAdapter.lastGuidance?.phaseHeadline || null,
+      controllerDiagnostics: this.controller ? this.controller.getDiagnostics() : null
     };
   }
 
   dispose() {
-    this.exitToGlobalExhibition();
-    this.localSpatialLayer?.dispose();
-    this.hanyangAdapter?.dispose();
-    if (this.localGrid) this.localGrid.dispose?.();
-    if (this._overlayEl) {
-      this._overlayEl.remove();
-      this._overlayEl = null;
+    if (this.controller) {
+      this.controller.dispose();
+    } else {
+      this.localSpatialLayer.dispose();
     }
     this.scene.remove(this.localWorldGroup);
   }

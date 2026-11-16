@@ -18,9 +18,15 @@ import {
 } from './HanyangLocalSpatialData.js';
 import { REAL_OSM_BUILDINGS_FLAT } from './HanyangRealSpatialPayload.js';
 
-const CAMPUS_GRAPH_ADJ = (() => {
-  const nodes = HANYANG_CAMPUS_WALK_GRAPH.nodes || [];
-  const edges = HANYANG_CAMPUS_WALK_GRAPH.edges || [];
+const GRAPH_ADJ_CACHE = new WeakMap();
+
+function getOrCompileWalkAdjacency(walkGraph) {
+  const source = walkGraph || HANYANG_CAMPUS_WALK_GRAPH;
+  if (GRAPH_ADJ_CACHE.has(source)) {
+    return GRAPH_ADJ_CACHE.get(source);
+  }
+  const nodes = source.nodes || [];
+  const edges = source.edges || [];
   const adj = Array.from({ length: nodes.length }, () => []);
   for (let idx = 0; idx < edges.length; idx++) {
     const [u, v, dist, hw, hasStairs, debrisRisk] = edges[idx];
@@ -31,8 +37,12 @@ const CAMPUS_GRAPH_ADJ = (() => {
     adj[u].push({ to: v, dist, dy, hw, hasStairs: !!hasStairs, debrisRisk: debrisRisk ?? 0, edgeKey: `${nu[0]}->${nv[0]}` });
     adj[v].push({ to: u, dist, dy: -dy, hw, hasStairs: !!hasStairs, debrisRisk: debrisRisk ?? 0, edgeKey: `${nv[0]}->${nu[0]}` });
   }
-  return { nodes, edges, adj };
-})();
+  const compiled = { nodes, edges, adj };
+  GRAPH_ADJ_CACHE.set(source, compiled);
+  return compiled;
+}
+
+const CAMPUS_GRAPH_ADJ = getOrCompileWalkAdjacency(HANYANG_CAMPUS_WALK_GRAPH);
 
 /**
  * Normalize OBB sources (Float32Array stride-6 or Array of 6-tuples) into lightweight objects.
@@ -307,6 +317,9 @@ export function solveCampusWalkGraph(options = {}) {
     goalXZ = [222.89, 196.71],
     excludeStairs = false,
     buildingOBBs = REAL_OSM_BUILDINGS_FLAT,
+    customWalkGraph = null,
+    elevationSampler = sampleTerrainHeight,
+    targetShelterId = 'SHELTER_HANYANG_STADIUM',
     originExclusionRadius = 26.0,
     originCentroidXZ = startXZ,
     seismicDebrisAware = true,
@@ -338,7 +351,7 @@ export function solveCampusWalkGraph(options = {}) {
     return false;
   };
 
-  const { nodes, adj } = CAMPUS_GRAPH_ADJ;
+  const { nodes, adj } = customWalkGraph ? getOrCompileWalkAdjacency(customWalkGraph) : CAMPUS_GRAPH_ADJ;
   if (nodes.length === 0) {
     return { found: false, totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
   }
@@ -469,7 +482,7 @@ export function solveCampusWalkGraph(options = {}) {
 
   const elevateXZ = ([x, z]) => [
     Number(x.toFixed(2)),
-    Number((sampleTerrainHeight(x, -z) + 0.35).toFixed(2)),
+    Number(((typeof elevationSampler === 'function' ? elevationSampler(x, -z) : sampleTerrainHeight(x, -z)) + 0.35).toFixed(2)),
     Number(z.toFixed(2))
   ];
 
@@ -536,7 +549,7 @@ export function solveCampusWalkGraph(options = {}) {
     outEdges.push({
       edgeId: `OSM_${nodes[goalIdx][0]}->SHELTER_INGRESS`,
       from: `OSM_NODE_${nodes[goalIdx][0]}`,
-      to: 'SHELTER_HANYANG_STADIUM',
+      to: targetShelterId,
       distance: Number(goalIngressLen.toFixed(1)),
       hasStairs: false,
       isWheelchairPassable: true,
@@ -570,4 +583,336 @@ export function solveCampusWalkGraph(options = {}) {
     startNodeId: `OSM_NODE_${nodes[bestSolution.portalIdx][0]}`,
     targetNodeId: `OSM_NODE_${nodes[goalIdx][0]}`
   };
+}
+
+function pointInPoly2D(x, y, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1];
+    const xj = poly[j][0], yj = poly[j][1];
+    if (((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / ((yj - yi) || 1e-12) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+export function polygonArea2D(pts) {
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i + 1) % pts.length;
+    s += pts[i][0] * pts[j][1] - pts[j][0] * pts[i][1];
+  }
+  return Math.abs(s) * 0.5;
+}
+
+/**
+ * Pure JS port of multi-wing concave OBB decomposition for live nationwide OSM buildings.
+ * Converts L/U/courtyard shapes into crisp rectangular OBB wings so walkways stay unobstructed.
+ */
+export function decomposePolygonToOBBs(ptsEN, heightMeters = 12.0) {
+  if (!Array.isArray(ptsEN) || ptsEN.length < 3) return [];
+  const first = ptsEN[0];
+  const last = ptsEN[ptsEN.length - 1];
+  const ring = (ptsEN.length > 3 && Math.hypot(first[0] - last[0], first[1] - last[1]) < 1e-3)
+    ? ptsEN.slice(0, -1)
+    : ptsEN;
+  if (ring.length < 3) return [];
+
+  let best = null;
+  for (let i = 0; i < ring.length; i++) {
+    const p1 = ring[i];
+    const p2 = ring[(i + 1) % ring.length];
+    const ang = Math.atan2(p2[1] - p1[1], p2[0] - p1[0]);
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (let k = 0; k < ring.length; k++) {
+      const u = ring[k][0] * ca + ring[k][1] * sa;
+      const v = -ring[k][0] * sa + ring[k][1] * ca;
+      if (u < u0) u0 = u;
+      if (u > u1) u1 = u;
+      if (v < v0) v0 = v;
+      if (v > v1) v1 = v;
+    }
+    const areaBox = (u1 - u0) * (v1 - v0);
+    if (!best || areaBox < best.areaBox) {
+      best = { areaBox, ang, ca, sa, u0, u1, v0, v1 };
+    }
+  }
+  if (!best) return [];
+
+  const { areaBox, ang, ca, sa, u0, u1, v0, v1 } = best;
+  const polyA = polygonArea2D(ring);
+  const fill = polyA / Math.max(1.0, areaBox);
+  if (fill >= 0.74 || (u1 - u0) < 15.0 || (v1 - v0) < 15.0) {
+    const uc = (u0 + u1) * 0.5;
+    const vc = (v0 + v1) * 0.5;
+    return [[uc * ca - vc * sa, uc * sa + vc * ca, u1 - u0, v1 - v0, ang, heightMeters]];
+  }
+
+  const nu = Math.max(2, Math.min(12, Math.round((u1 - u0) / 6.0)));
+  const nv = Math.max(2, Math.min(12, Math.round((v1 - v0) / 6.0)));
+  const du = (u1 - u0) / nu;
+  const dv = (v1 - v0) / nv;
+  const grid = Array.from({ length: nv }, (_, iv) =>
+    Array.from({ length: nu }, (_, iu) => {
+      const uc = u0 + (iu + 0.5) * du;
+      const vc = v0 + (iv + 0.5) * dv;
+      return pointInPoly2D(uc * ca - vc * sa, uc * sa + vc * ca, ring);
+    })
+  );
+  const covered = Array.from({ length: nv }, () => Array(nu).fill(false));
+  const obbs = [];
+  for (let iv = 0; iv < nv; iv++) {
+    for (let iu = 0; iu < nu; iu++) {
+      if (!grid[iv][iu] || covered[iv][iu]) continue;
+      let eu = iu;
+      while (eu + 1 < nu && grid[iv][eu + 1] && !covered[iv][eu + 1]) eu++;
+      let ev = iv;
+      outer: while (ev + 1 < nv) {
+        for (let k = iu; k <= eu; k++) {
+          if (!grid[ev + 1][k] || covered[ev + 1][k]) break outer;
+        }
+        ev++;
+      }
+      for (let kv = iv; kv <= ev; kv++) {
+        for (let ku = iu; ku <= eu; ku++) covered[kv][ku] = true;
+      }
+      const uc = (u0 + iu * du + u0 + (eu + 1) * du) * 0.5;
+      const vc = (v0 + iv * dv + v0 + (ev + 1) * dv) * 0.5;
+      obbs.push([uc * ca - vc * sa, uc * sa + vc * ca, (eu - iu + 1) * du, (ev - iv + 1) * dv, ang, heightMeters]);
+    }
+  }
+  return obbs;
+}
+
+/**
+ * Construct a dynamic provenance-tagged FacilityPackage from ANY selected 3D building
+ * OBB (supports arbitrary clicked buildings in Hanyang or nationwide OSM regions).
+ */
+export function buildDynamicFacilityFromPoint({
+  buildingId = 'DYNAMIC_BLDG',
+  name = '선택 건축물',
+  unitNumber = '',
+  east_m = 0,
+  north_m = 0,
+  width_m = 28,
+  depth_m = 20,
+  yaw_rad = 0,
+  height_m = 18,
+  anchor = { lat: 37.555815, lon: 127.045053, h: 42.0 },
+  walkGraph = null,
+  buildingOBBs = REAL_OSM_BUILDINGS_FLAT,
+  shelter = null,
+  elevationSampler = sampleTerrainHeight
+} = {}) {
+  const groundY = Number(((typeof elevationSampler === 'function' ? elevationSampler(east_m, north_m) : 0) || 0).toFixed(2));
+  const totalLevels = Math.max(2, Math.min(20, Math.round(height_m / 3.6)));
+  const floorHeightMeters = 3.6;
+  const defaultFloor = Math.min(totalLevels, Math.max(2, Math.round(totalLevels * 0.5)));
+  const targetY = groundY + (defaultFloor - 1) * floorHeightMeters;
+
+  const centerX = east_m;
+  const centerZ = -north_m;
+  const obbObj = { east_m, north_m, width_m, depth_m, yaw_rad, height_m, boundR: Math.hypot(width_m, depth_m) * 0.5 };
+  const corners = getExpandedOBBCornersXZ(obbObj, 0.0);
+  const footprint = [...corners, corners[0]].map(p => Object.freeze([Number(p[0].toFixed(2)), Number(p[1].toFixed(2))]));
+
+  const shelterXZ = shelter?.localCenter
+    ? [shelter.localCenter[0], shelter.localCenter[2]]
+    : (shelter?.positionThree
+      ? [shelter.positionThree[0], shelter.positionThree[2]]
+      : (typeof shelter?.east_m === 'number' && typeof shelter?.north_m === 'number'
+        ? [shelter.east_m, -shelter.north_m]
+        : [222.89, 196.71]));
+  const shelterY = Number(
+    (shelter?.localCenter?.[1] ??
+      shelter?.positionThree?.[1] ??
+      (typeof elevationSampler === 'function' ? elevationSampler(shelterXZ[0], -shelterXZ[1]) : -13.5) ??
+      -13.5).toFixed(2)
+  );
+
+  // Choose perimeter side closest to the shelter / nearest unobstructed walk node
+  const sideMids = [0, 1, 2, 3].map(i => {
+    const a = corners[i];
+    const b = corners[(i + 1) % 4];
+    const mx = (a[0] + b[0]) * 0.5;
+    const mz = (a[1] + b[1]) * 0.5;
+    const outDist = Math.hypot(mx - shelterXZ[0], mz - shelterXZ[1]);
+    return { mx, mz, outDist };
+  }).sort((a, b) => a.outDist - b.outDist);
+  const doorXZ = [sideMids[0].mx, sideMids[0].mz];
+  const vecOutX = doorXZ[0] - centerX;
+  const vecOutZ = doorXZ[1] - centerZ;
+  const normOut = Math.max(1e-6, Math.hypot(vecOutX, vecOutZ));
+  const footwayXZ = [doorXZ[0] + (vecOutX / normOut) * 3.5, doorXZ[1] + (vecOutZ / normOut) * 3.5];
+  const footwayY = Number(((typeof elevationSampler === 'function' ? elevationSampler(footwayXZ[0], -footwayXZ[1]) : groundY) + 0.25).toFixed(2));
+
+  const targetShelterId = shelter?.shelterId || shelter?.id || 'SHELTER_HANYANG_STADIUM';
+  const shortestSol = solveCampusWalkGraph({
+    startXZ: footwayXZ,
+    goalXZ: shelterXZ,
+    excludeStairs: false,
+    buildingOBBs,
+    customWalkGraph: walkGraph,
+    elevationSampler,
+    targetShelterId,
+    originCentroidXZ: [centerX, centerZ],
+    originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
+  });
+  const stepFreeSol = solveCampusWalkGraph({
+    startXZ: footwayXZ,
+    goalXZ: shelterXZ,
+    excludeStairs: true,
+    buildingOBBs,
+    customWalkGraph: walkGraph,
+    elevationSampler,
+    targetShelterId,
+    originCentroidXZ: [centerX, centerZ],
+    originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
+  });
+
+  const roomId = `ROOM_${defaultFloor}01`;
+  const roomNodeId = `NODE_${roomId}`;
+  const stairTopId = `NODE_STAIR_${defaultFloor}F_SE`;
+  const stairBotId = 'NODE_STAIR_1F_SE';
+  const exitNodeId = 'NODE_EXIT_1F_SE';
+  const outdoorEgressId = `${buildingId}_OUTDOOR_EGRESS`;
+  const targetNodeId = shortestSol.targetNodeId || stepFreeSol.targetNodeId || 'OSM_TARGET_INGRESS';
+
+  const nodesMap = new Map();
+  nodesMap.set(outdoorEgressId, { id: outdoorEgressId, name: `${name} 출구 접속점`, localPos: Object.freeze([footwayXZ[0], footwayY, footwayXZ[1]]) });
+  nodesMap.set(targetNodeId, { id: targetNodeId, name: shelter?.officialName || shelter?.name || '대피소 진입점', localPos: Object.freeze([shelterXZ[0], shelterY, shelterXZ[1]]) });
+
+  const edges = [];
+  const ingest = (sol, tag) => {
+    if (!sol || !sol.found || sol.edges.length === 0) return;
+    sol.edges.forEach((e, idx) => {
+      const src = idx === 0 ? outdoorEgressId : `${buildingId}_${tag}_${idx}`;
+      const dst = idx === sol.edges.length - 1 ? targetNodeId : `${buildingId}_${tag}_${idx + 1}`;
+      if (!nodesMap.has(src) && e.waypoints?.[0]) nodesMap.set(src, { id: src, name: `${tag}_${idx}`, localPos: Object.freeze([...e.waypoints[0]]) });
+      if (!nodesMap.has(dst) && e.waypoints?.[e.waypoints.length - 1]) nodesMap.set(dst, { id: dst, name: `${tag}_${idx + 1}`, localPos: Object.freeze([...e.waypoints[e.waypoints.length - 1]]) });
+      edges.push({
+        edgeId: `${src}->${dst}`,
+        source: src,
+        target: dst,
+        distance: e.distance,
+        hasStairs: !!e.hasStairs,
+        isWheelchairPassable: !e.hasStairs,
+        highway: e.highway || 'footway',
+        hazardRisk: e.hazardRisk || (e.hasStairs ? 'HIGH' : 'LOW'),
+        branch: tag === 'S' ? 'SHORTEST' : 'STEP_FREE',
+        waypoints: Object.freeze((e.waypoints || []).map(wp => Object.freeze([...wp])))
+      });
+    });
+  };
+  ingest(shortestSol, 'S');
+  ingest(stepFreeSol, 'F');
+
+  const hwHalf = Math.max(8.0, Math.min(width_m, depth_m) * 0.35);
+  return Object.freeze({
+    packageId: `FACILITY_${buildingId}`,
+    anchor: Object.freeze({ lat: anchor.lat, lon: anchor.lon, h: anchor.h ?? 42.0 }),
+    buildingMetadata: Object.freeze({
+      id: buildingId,
+      name,
+      unitNumber: unitNumber || '',
+      structureType: 'OSM 건물 동적 선택 (PROVISIONAL 실내)',
+      levels: Object.freeze({ aboveGround: totalLevels, underground: 0 }),
+      anchorCoordinates: Object.freeze({ lat: anchor.lat, lon: anchor.lon, ellipsoidalHeightMeters: anchor.h ?? 42.0 }),
+      provenance: 'PARTIALLY_VERIFIED'
+    }),
+    groundElevationY: groundY,
+    footprintMeters: Object.freeze(footprint),
+    floorHeightMeters,
+    totalLevels,
+    defaultFloor,
+    defaultRoomId: roomId,
+    defaultRoomNodeId: roomNodeId,
+    defaultExitNodeId: exitNodeId,
+    defaultOutdoorEgressNodeId: outdoorEgressId,
+    defaultOutdoorTargetNodeId: targetNodeId,
+    indoorGraphs: Object.freeze({
+      [defaultFloor]: Object.freeze({
+        floorId: `FLOOR_${defaultFloor}F`,
+        levelIndex: defaultFloor,
+        elevationOffsetMeters: targetY,
+        provenance: 'PROVISIONAL',
+        rooms: Object.freeze([{ roomId, name: `${defaultFloor}층 실내 공간 (잠정)`, type: 'ROOM', centerLocalPos: Object.freeze([centerX, targetY, centerZ]), nodeId: roomNodeId, provenance: 'PROVISIONAL' }]),
+        stairwells: Object.freeze([{ stairwellId: `STAIR_${defaultFloor}F`, name: '주 피난계단 (PROVISIONAL)', landingNodeId: stairTopId, localPos: Object.freeze([doorXZ[0] - (vecOutX / normOut) * 2.5, targetY, doorXZ[1] - (vecOutZ / normOut) * 2.5]), provenance: 'PROVISIONAL' }])
+      }),
+      1: Object.freeze({
+        floorId: 'FLOOR_1F',
+        levelIndex: 1,
+        elevationOffsetMeters: groundY,
+        provenance: 'PROVISIONAL',
+        stairwells: Object.freeze([{ stairwellId: 'STAIR_1F', landingNodeId: stairBotId, localPos: Object.freeze([doorXZ[0] - (vecOutX / normOut) * 2.5, groundY, doorXZ[1] - (vecOutZ / normOut) * 2.5]), provenance: 'PROVISIONAL' }]),
+        exits: Object.freeze([{ exitId: 'EXIT_1F', name: '1층 출구 (잠정)', portalNodeId: exitNodeId, localPos: Object.freeze([doorXZ[0], groundY, doorXZ[1]]), provenance: 'PROVISIONAL' }])
+      })
+    }),
+    indoorEdges: Object.freeze([
+      { source: roomNodeId, target: stairTopId, distance: Number(hwHalf.toFixed(1)), hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_PROVISIONAL' },
+      { source: stairTopId, target: stairBotId, distance: Number(((defaultFloor - 1) * 8.4).toFixed(1)), hasStairs: true, isWheelchairPassable: false, edgeType: 'VERTICAL_STAIR_DESCENT' },
+      { source: stairBotId, target: exitNodeId, distance: 4.5, hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_TO_EXIT' }
+    ]),
+    connector: Object.freeze({
+      connectorId: `CONN_${buildingId}`,
+      source: exitNodeId,
+      target: outdoorEgressId,
+      distance: 4.0,
+      hasStairs: false,
+      isWheelchairPassable: false,
+      doorPos: Object.freeze([doorXZ[0], groundY, doorXZ[1]]),
+      footwayPos: Object.freeze([footwayXZ[0], footwayY, footwayXZ[1]]),
+      stairCoreCorner: Object.freeze([doorXZ[0] - 2.0, doorXZ[1] - 2.0]),
+      stairCoreSize: Object.freeze({ width: 4.0, depth: 5.0 })
+    }),
+    outdoorGraph: Object.freeze({
+      egressNodeId: outdoorEgressId,
+      targetNodeId,
+      nodes: Object.freeze([...nodesMap.values()]),
+      edges: Object.freeze(edges)
+    }),
+    shelter: Object.freeze({
+      shelterId: targetShelterId,
+      officialId: shelter?.officialId || shelter?.id || 'OA-21060',
+      officialCode: shelter?.officialCode || shelter?.id || 'OA-21060',
+      officialName: shelter?.officialName || shelter?.name || '한양대학교 대운동장',
+      ingressDistanceMeters: shelter?.ingressDistanceMeters ?? 15.0,
+      localCenter: Object.freeze([shelterXZ[0], shelterY, shelterXZ[1]]),
+      trackRadiusX: shelter?.trackRadiusX ?? 34.0,
+      trackRadiusZ: shelter?.trackRadiusZ ?? 52.0,
+      pitchHalfWidth: shelter?.pitchHalfWidth ?? 18.0,
+      pitchHalfLength: shelter?.pitchHalfLength ?? 30.0,
+      geometry: shelter?.geometry || Object.freeze({
+        areaSqMeters: shelter?.justification?.areaSqMeters || 14850,
+        capacityPeople: shelter?.justification?.capacityEstimate || 7425
+      })
+    }),
+    routeBaselines: Object.freeze({
+      PATH_SHORTEST_RAPID: Object.freeze({ name: `${name} 최단 경로`, targetLengthMeters: shortestSol.found ? shortestSol.totalDistanceMeters : 0, hasStairs: shortestSol.hasStairs, isWheelchairPassable: !shortestSol.hasStairs, provenance: 'PARTIALLY_VERIFIED' }),
+      PATH_STEP_FREE_DETOUR: Object.freeze({ name: `${name} 무단차 우회 경로`, targetLengthMeters: stepFreeSol.found ? stepFreeSol.totalDistanceMeters : 0, hasStairs: false, isWheelchairPassable: true, provenance: 'PARTIALLY_VERIFIED' })
+    }),
+    routeDisplayNames: Object.freeze({
+      shortestLineName: `Path_Shortest_${buildingId}`,
+      stepFreeLineName: `Path_StepFree_${buildingId}`,
+      stairHazardsName: `Stairs_Hazard_${buildingId}`,
+      connectorLineName: `Connector_${buildingId}`,
+      shelterTrackName: 'Stadium_Track_Outline',
+      shelterPitchName: 'Stadium_Pitch_Safe_Zone',
+      interiorGroupName: `Interior_${defaultFloor}F_Provisional`
+    }),
+    cameraViewpoints: Object.freeze({
+      REGIONAL_APPROACH: Object.freeze({ position: Object.freeze([-320, 480, 760]), target: Object.freeze([centerX, groundY, centerZ]), near: 0.5, far: 6500 }),
+      CAMPUS_OVERVIEW: Object.freeze({
+        position: Object.freeze([(centerX + shelterXZ[0]) * 0.5 + 240, 320, (centerZ + shelterXZ[1]) * 0.5 - 220]),
+        target: Object.freeze([(centerX + shelterXZ[0]) * 0.5, (groundY + (shelter?.localCenter?.[1] ?? -13.5)) * 0.5, (centerZ + shelterXZ[1]) * 0.5]),
+        near: 0.25,
+        far: 6500
+      }),
+      BUILDING_INSPECTION: Object.freeze({ position: Object.freeze([centerX + 85, groundY + 68, centerZ + 65]), target: Object.freeze([centerX, targetY, centerZ]), near: 0.1, far: 1500 }),
+      PERSONAL_LOCATION: Object.freeze({ position: Object.freeze([doorXZ[0] + 28, targetY + 20, doorXZ[1] + 24]), target: Object.freeze([centerX, targetY, centerZ]), near: 0.05, far: 1200 })
+    })
+  });
 }

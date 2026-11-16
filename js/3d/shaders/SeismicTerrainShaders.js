@@ -171,22 +171,43 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
       }
 
       float dtG = u_simTime - tSlipG;
+      float waveRP = (dtG > 0.0) ? (u_vP * dtG) : -1.0;
       float waveRS = (dtG > 0.0) ? (u_vS * dtG) : -1.0;
-      float distToFrontG = abs(effDistG - waveRS);
-      if (distToFrontG < 0.075 && dtG > 0.0) {
-        float waveEnvG = exp(-pow(distToFrontG / 0.038, 2.0)) * smoothstep(-0.02, 0.04, dtG - effDistG / u_vS);
-        float attenG = 1.0 / sqrt(max(0.12, effDistG * 3.5));
-        vec2 waveDirG = (rEpiG > 0.0001) ? normalize(dEpiG) : vec2(0.0);
+      vec2 waveDirG = (rEpiG > 0.0001) ? normalize(dEpiG) : vec2(0.0);
+      vec3 waveTiltVec = normalize(tangent * waveDirG.x + bitangent * waveDirG.y);
 
-        float wavePhase = (u_simTime - effDistG / u_vS) * 6.2831853 * u_dominantFreq;
-        float tiltMag = sin(wavePhase * 2.0) * waveEnvG * attenG * (isOcean > 0.5 ? 0.32 : 0.22);
-        vec3 waveTiltVec = normalize(tangent * waveDirG.x + bitangent * waveDirG.y);
+      float distToFrontP = abs(effDistG - waveRP);
+      if (distToFrontP < 0.048 && dtG > 0.0) {
+        float envP = exp(-pow(distToFrontP / 0.022, 2.0)) * smoothstep(-0.015, 0.03, dtG - effDistG / max(0.001, u_vP));
+        float attenP = 1.0 / sqrt(max(0.14, effDistG * 3.8));
+        float phaseP = (u_simTime - effDistG / max(0.001, u_vP)) * 6.2831853 * u_dominantFreq * 1.4;
+        perturbedWorldN = normalize(perturbedWorldN + waveTiltVec * (sin(phaseP * 1.6) * envP * attenP * 0.14));
+      }
+
+      float distToFrontG = abs(effDistG - waveRS);
+      if (distToFrontG < 0.082 && dtG > 0.0) {
+        float waveEnvG = exp(-pow(distToFrontG / 0.036, 2.0)) * smoothstep(-0.02, 0.04, dtG - effDistG / max(0.001, u_vS));
+        float attenG = 1.0 / sqrt(max(0.10, effDistG * 3.2));
+
+        float wavePhase = (u_simTime - effDistG / max(0.001, u_vS)) * 6.2831853 * u_dominantFreq;
+        float tiltMag = sin(wavePhase * 2.0) * waveEnvG * attenG * (isOcean > 0.5 ? 0.36 : 0.26);
         perturbedWorldN = normalize(perturbedWorldN + waveTiltVec * tiltMag);
       }
     }
 
     vec3 perturbedN_view = normalize((viewMatrix * vec4(perturbedWorldN, 0.0)).xyz);
     vec3 lit = computeMonolithLighting(baseColor, perturbedN_view, V, L_view, u_ambientColor, u_lightColor, isOcean);
+
+    if (u_simTime > 0.0) {
+      float rEpiGlint = length(dEpiG);
+      float waveRSGlint = u_vS * max(0.0, u_simTime);
+      float waveRPGlint = u_vP * max(0.0, u_simTime);
+      float sRingG = exp(-pow(abs(rEpiGlint - waveRSGlint) / 0.020, 2.0)) * smoothstep(0.0, 0.4, u_simTime);
+      float pRingG = exp(-pow(abs(rEpiGlint - waveRPGlint) / 0.012, 2.0)) * smoothstep(0.0, 0.2, u_simTime);
+      float attenRing = 1.0 / sqrt(max(0.18, rEpiGlint * 5.0));
+      lit += vec3(0.55, 0.72, 0.90) * (pRingG * attenRing * 0.14);
+      lit += vec3(0.78, 0.74, 0.64) * (sRingG * attenRing * 0.22);
+    }
 
     if (u_hasErrorEllipse > 0.5 && u_errorEllipseAxes.x > 0.005) {
       float cosThG = cos(-u_errorEllipseAngle);
@@ -534,16 +555,16 @@ export const REGIONAL_TERRAIN_FRAGMENT_SHADER = `
 
         float ridgeResonance = smoothstep(10.0, 36.0, vSlope) * (0.45 + 0.55 * vRidgeConvexity);
 
-        float surfaceRidgeStream = sWaveAmp * ridgeResonance * 1.5;
-        float summitCondensation = smoothstep(950.0, 1800.0, vElevation) * sWaveAmp * 1.1;
+        float surfaceRidgeStream = sWaveAmp * ridgeResonance * 1.65;
+        float summitCondensation = smoothstep(900.0, 1750.0, vElevation) * sWaveAmp * 1.2;
 
-        lit += vec3(0.68, 0.82, 0.96) * (surfaceRidgeStream * 0.35 * vEdgeTaper);
-        lit += vec3(0.85, 0.94, 1.00) * (summitCondensation * 0.30 * vEdgeTaper);
+        lit += vec3(0.82, 0.80, 0.72) * (surfaceRidgeStream * 0.36 * vEdgeTaper);
+        lit += vec3(0.88, 0.94, 1.00) * (summitCondensation * 0.32 * vEdgeTaper);
 
         float dtP = vDtP;
         float pFrontPulse = exp(-pow(dtP / 0.45, 2.0)) * smoothstep(-0.08, 0.06, dtP) * u_modeP;
-        float pTrace = ridgeResonance * pFrontPulse * geomDecay * 0.35;
-        lit += vec3(0.70, 0.88, 1.00) * (pTrace * 0.18 * vEdgeTaper);
+        float pTrace = (0.25 + 0.75 * ridgeResonance) * pFrontPulse * geomDecay * 0.42;
+        lit += vec3(0.68, 0.86, 1.00) * (pTrace * 0.22 * vEdgeTaper);
       }
     }
 

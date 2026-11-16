@@ -198,16 +198,35 @@ export class UnifiedControlSurface {
         }
 
         const shelf = document.getElementById('contextual-benchmarks-shelf');
-        if (shelf && state !== 'EXPLORE') {
+        if (state === 'EXPLORE') {
+          // Always return to clean Main Globe Orbit (피드백 1): clear active category so shelf closes & top-right entry restores
+          if (this.exploreCategory !== null) {
+            this.exploreCategory = null;
+            document.getElementById('tab-cat-historical')?.classList.remove('active');
+            document.getElementById('tab-cat-usgs')?.classList.remove('active');
+            if (shelf) shelf.style.display = 'none';
+            const btnLabel = document.getElementById('discover-btn-label');
+            if (btnLabel) btnLabel.textContent = '아카이브 탐색';
+            this.activeFilter = 'all';
+          }
+        } else if (shelf) {
           shelf.style.display = 'none';
         }
 
-        if (!this.container) return;
+        if (!this.container) {
+          this.updateGlobalDevLabVisibility();
+          return;
+        }
         this.container.classList.remove('state-explore', 'state-discover', 'state-selected', 'state-performance');
         const subContainer = document.getElementById('chronicle-subtitle-container');
         if (state === 'EXPLORE') {
           this.container.classList.add('state-explore');
           if (subContainer) subContainer.style.opacity = '1.0';
+          const isOrbit = !this.appContext?.flightState || this.appContext.flightState === this.appContext.FLIGHT_STATES?.ORBIT || this.appContext.flightState === 'STATE_ORBIT';
+          const sub = document.getElementById('chronicle-subtitle-text');
+          if (sub && isOrbit && this.exploreCategory === null) {
+            sub.textContent = "지구 표면의 지진 노드를 탐색하십시오 · [글로벌 계측] 또는 [한반도 사료] 탭을 선택할 수 있습니다";
+          }
         } else if (state === 'DISCOVER') {
           this.container.classList.add('state-discover');
           if (subContainer) subContainer.style.opacity = '0.0';

@@ -28,7 +28,9 @@ import {
   solveCampusWalkGraph,
   doesSegmentIntersectOBBXZ,
   findVisibilityDetourXZ,
-  normalizeOBBList
+  normalizeOBBList,
+  decomposePolygonToOBBs,
+  buildDynamicFacilityFromPoint
 } from './CampusWalkRouter.js';
 
 export {
@@ -40,7 +42,9 @@ export {
   solveCampusWalkGraph,
   doesSegmentIntersectOBBXZ,
   findVisibilityDetourXZ,
-  normalizeOBBList
+  normalizeOBBList,
+  decomposePolygonToOBBs,
+  buildDynamicFacilityFromPoint
 };
 
 /**
@@ -120,16 +124,24 @@ export class PedestrianRoutingEngine {
     this.groundDataManager = options.groundDataManager || null;
     this.useRealMapRouting = Boolean(options.useRealMapRouting);
     this.buildingOBBs = options.buildingOBBs || null;
+    this.customWalkGraph = options.customWalkGraph || null;
+    this.elevationSampler = options.elevationSampler || null;
     this.initializeDefaultCampusGraph();
   }
 
   /**
-   * Toggle obstacle-aware real OpenStreetMap campus routing (OBB visibility + A*).
+   * Toggle obstacle-aware real OpenStreetMap campus/regional routing (OBB visibility + A*).
    */
-  setRealMapRouting({ enabled = true, buildingOBBs = null } = {}) {
+  setRealMapRouting({ enabled = true, buildingOBBs = null, customWalkGraph = undefined, elevationSampler = undefined } = {}) {
     this.useRealMapRouting = Boolean(enabled);
     if (buildingOBBs !== null) {
       this.buildingOBBs = buildingOBBs;
+    }
+    if (customWalkGraph !== undefined) {
+      this.customWalkGraph = customWalkGraph;
+    }
+    if (elevationSampler !== undefined) {
+      this.elevationSampler = elevationSampler;
     }
   }
 
@@ -708,7 +720,8 @@ export class PedestrianRoutingEngine {
     const conn = f.connector || {};
     const fp = conn.footwayPos || this.nodes.get(f.defaultOutdoorEgressNodeId)?.localPos || [73.68, -0.15, -41.98];
     const startXZ = options.startXZ || [fp[0], fp[2]];
-    const goalXZ = options.goalXZ || [222.89, 196.71];
+    const shelterLC = f.shelter?.localCenter;
+    const goalXZ = options.goalXZ || (shelterLC ? [shelterLC[0], shelterLC[2]] : [222.89, 196.71]);
     const centerXZ = options.originCentroidXZ || [
       f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
       f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
@@ -720,6 +733,9 @@ export class PedestrianRoutingEngine {
       goalXZ,
       excludeStairs,
       buildingOBBs: options.buildingOBBs ?? this.buildingOBBs,
+      customWalkGraph: options.customWalkGraph ?? this.customWalkGraph,
+      elevationSampler: options.elevationSampler ?? this.elevationSampler,
+      targetShelterId: f.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM',
       originCentroidXZ: centerXZ,
       originExclusionRadius: options.originExclusionRadius ?? 52.0,
       seismicDebrisAware: options.seismicDebrisAware !== false,

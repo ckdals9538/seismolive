@@ -410,8 +410,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
     // ORBITAL-TO-LOCAL CONTINUOUS FLIGHT CONTROLLER
     // -------------------------------------------------------------------------
-    async function startDescentFlight(targetEventId) {
+    let pendingLocalCityFlight = null;
+
+    async function startDescentFlight(targetEventId, flightOpts = {}) {
       console.log(`[Flight Controller] Initiating descent flight to: ${targetEventId}`);
+      if (!flightOpts.preservePendingLocalCity) {
+        pendingLocalCityFlight = null;
+      }
 
       // 1. Re-anchor camera coordinates to keep 3D orientation smooth
       const prevLat0 = currentParsedEvent?.spatialCoords?.lat ?? 37.95;
@@ -441,7 +446,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       flightState = FLIGHT_STATES.DESCEND;
       exhibitionAppContext.flightState = flightState;
       flightProgress = 0.0;
-      flightDuration = 3.8;
+      flightDuration = flightOpts.durationSec || 3.8;
 
       // 3. Re-anchor camera in new local origin frame
       const newCamThree = ecefToThree(camECEF, newLat0, newLon0);
@@ -459,7 +464,10 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       flightEndLookAt.copy(targetShotLookAt);
 
       updateHUDForFlight('descending');
-      if (controlSurface) controlSurface.setState('PERFORMANCE', currentParsedEvent);
+      if (controlSurface && !pendingLocalCityFlight) {
+        controlSurface.setState('PERFORMANCE', currentParsedEvent);
+      }
+      controlSurface?.updateGlobalDevLabVisibility?.();
     }
 
     function startAscentFlight() {
@@ -520,6 +528,21 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
         if (flightProgress >= 1.0) {
           flightProgress = 1.0;
+
+          if (pendingLocalCityFlight && exhibitionModeManager) {
+            const req = pendingLocalCityFlight;
+            pendingLocalCityFlight = null;
+            flightState = FLIGHT_STATES.ORBIT;
+            exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;
+            document.body.classList.add('in-local-evac-mode');
+            exhibitionModeManager.enterLocalResponseMode(req.stage, {
+              ...req,
+              withSeismicBrief: true
+            });
+            controlSurface?.updateGlobalDevLabVisibility?.();
+            return;
+          }
+
           flightState = FLIGHT_STATES.PERFORMANCE;
           exhibitionAppContext.flightState = flightState;
           simTime = 0.0;
@@ -2642,8 +2665,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       // Single-Canvas Stage R4 Mode Branch (avoids scale collision between 100km globe and 1m local ENU space)
       if (exhibitionModeManager && exhibitionModeManager.isLocalModeActive()) {
-        exhibitionModeManager.update();
-        controls.update();
+        exhibitionModeManager.update(Math.min(delta, 0.05), now * 0.001);
         renderer.render(scene, camera);
         return;
       }
@@ -2764,7 +2786,10 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     exhibitionModeManager = new ExhibitionModeManager({
       scene,
       camera,
+      renderer,
       controls,
+      hudMountRoot: document.getElementById('local-evac-hud'),
+      onReturnToGlobe: () => window.exitInSceneLocalResponse && window.exitInSceneLocalResponse(),
       getGlobalSceneObjects: () => [
         tier0GlobeMesh,
         terrainMesh,
@@ -2777,14 +2802,62 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       ]
     });
     window.exhibitionModeManager = exhibitionModeManager;
-    window.enterInSceneLocalResponse = function(stageKey) {
-      const res = exhibitionModeManager.enterLocalResponseMode(stageKey);
+    let preFlightGlobalOrbitPose = null;
+    window.enterInSceneLocalResponse = async function(stageOrOpts) {
+      if (typeof stageOrOpts === 'object' && stageOrOpts?.withFlight) {
+        preFlightGlobalOrbitPose = {
+          pos: camera.position.clone(),
+          target: controls.target.clone(),
+          fov: camera.fov,
+          near: camera.near,
+          far: camera.far
+        };
+        const opts = {
+          regionId: stageOrOpts.regionId || 'seoul_hanyang',
+          lat: stageOrOpts.lat ?? 37.555815,
+          lon: stageOrOpts.lon ?? 127.045053,
+          name: stageOrOpts.name || '서울 성동 · 한양대학교',
+          shortName: stageOrOpts.shortName || '서울 한양대',
+          eventId: stageOrOpts.eventId || 'hist_1681_0626',
+          stage: stageOrOpts.stage || 'CAMPUS_OVERVIEW'
+        };
+        pendingLocalCityFlight = opts;
+        controlSurface?.updateGlobalDevLabVisibility?.();
+        await startDescentFlight(opts.eventId, { preservePendingLocalCity: true, durationSec: 1.75 });
+        return { flyingToLocal: true, target: opts };
+      }
+
+      preFlightGlobalOrbitPose = null;
+      document.body.classList.add('in-local-evac-mode');
+      const stageKey = (typeof stageOrOpts === 'string' ? stageOrOpts : stageOrOpts?.stage) || 'CAMPUS_OVERVIEW';
+      const opts = typeof stageOrOpts === 'object' ? stageOrOpts : {};
+      const res = exhibitionModeManager.enterLocalResponseMode(stageKey, opts);
       controlSurface?.updateGlobalDevLabVisibility?.();
       return res;
     };
     window.exitInSceneLocalResponse = function() {
+      pendingLocalCityFlight = null;
+      document.body.classList.remove('in-local-evac-mode');
       const res = exhibitionModeManager.exitToGlobalExhibition();
-      controlSurface?.updateGlobalDevLabVisibility?.();
+      if (preFlightGlobalOrbitPose) {
+        camera.fov = preFlightGlobalOrbitPose.fov;
+        camera.near = preFlightGlobalOrbitPose.near;
+        camera.far = preFlightGlobalOrbitPose.far;
+        camera.updateProjectionMatrix();
+        camera.position.copy(preFlightGlobalOrbitPose.pos);
+        controls.target.copy(preFlightGlobalOrbitPose.target);
+        controls.minDistance = 20.0;
+        controls.maxDistance = 400.0;
+        controls.maxPolarAngle = Math.PI;
+        controls.enabled = true;
+        controls.update();
+        if (scene.fog) scene.fog.density = 0.0001;
+        preFlightGlobalOrbitPose = null;
+      }
+      flightState = FLIGHT_STATES.ORBIT;
+      exhibitionAppContext.flightState = FLIGHT_STATES.ORBIT;
+      controlSurface?.setState?.('EXPLORE');
+      updateHUDForFlight('orbit');
       return res;
     };
 
