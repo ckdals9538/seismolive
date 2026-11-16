@@ -74,6 +74,77 @@ export const GROUND_DATA_TYPE = Object.freeze({
 });
 
 /**
+ * Canonical P3.1 Field Verification Checklist (F-01 through F-06)
+ */
+export const FIELD_SURVEY_CHECKLIST_F01_F06 = Object.freeze([
+  Object.freeze({
+    code: 'F-01',
+    dataType: GROUND_DATA_TYPE.ARCHITECTURAL_FLOOR_PLAN,
+    title: '3층 실내 피난안내도 및 남동측 계단실 방화문 실측',
+    statutoryBenchmark: '피난계단 출입구 유효너비 >= 1.20m'
+  }),
+  Object.freeze({
+    code: 'F-02',
+    dataType: GROUND_DATA_TYPE.EXIT_DOOR_SPECIFICATION,
+    title: '1층 남동측 주 비상출구 문턱 높이 및 유효폭 실측',
+    statutoryBenchmark: '문턱 <= 2.0cm, 유효너비 >= 1.20m'
+  }),
+  Object.freeze({
+    code: 'F-03',
+    dataType: GROUND_DATA_TYPE.ACCESSIBILITY_RAMP,
+    title: '캠퍼스 무단차 우회 경사로 기울기 실측',
+    statutoryBenchmark: '경사도 <= 8.33% (1:12)'
+  }),
+  Object.freeze({
+    code: 'F-04',
+    dataType: GROUND_DATA_TYPE.PAVEMENT_SURFACE,
+    title: '배수로 덮개(그레이팅) 틈새 및 노면 상태 실측',
+    statutoryBenchmark: '그레이팅 틈새 <= 13.0mm'
+  }),
+  Object.freeze({
+    code: 'F-05',
+    dataType: GROUND_DATA_TYPE.BOLLARD_CLEARANCE,
+    title: '보행로 차량 진입 차단 볼라드 유효 간격 실측',
+    statutoryBenchmark: '볼라드 간격 >= 1.20m'
+  }),
+  Object.freeze({
+    code: 'F-06',
+    dataType: GROUND_DATA_TYPE.SHELTER_CAPACITY,
+    title: '한양대 대운동장(OA-21060) 진입구 개방·유효폭 및 수용 상태 확인',
+    statutoryBenchmark: '주 출입구 개방 및 수용 면적 검증'
+  })
+]);
+
+/**
+ * Evaluate physical field measurements in `record.attributes` against LEGAL_ACCESSIBILITY_STANDARDS.
+ */
+export function evaluateStatutoryCompliance(record) {
+  const attrs = record?.attributes || {};
+  const violations = [];
+
+  if (typeof attrs.clearWidthMeters === 'number' && attrs.clearWidthMeters < LEGAL_ACCESSIBILITY_STANDARDS.DOOR_CLEAR_WIDTH.minMetersPublic) {
+    violations.push(`출입구 유효폭 ${attrs.clearWidthMeters}m < 법정 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.DOOR_CLEAR_WIDTH.minMetersPublic}m`);
+  }
+  if (typeof attrs.thresholdHeightCm === 'number' && attrs.thresholdHeightCm > LEGAL_ACCESSIBILITY_STANDARDS.DOOR_THRESHOLD.maxHeightCm) {
+    violations.push(`출입구 문턱 높이 ${attrs.thresholdHeightCm}cm > 법정 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.DOOR_THRESHOLD.maxHeightCm}cm`);
+  }
+  if (typeof attrs.rampSlopePercent === 'number' && attrs.rampSlopePercent > LEGAL_ACCESSIBILITY_STANDARDS.RAMP_SLOPE.maxSlopeStandardPercent) {
+    violations.push(`경사로 기울기 ${attrs.rampSlopePercent}% > 법정 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.RAMP_SLOPE.maxSlopeStandardPercent}% (1:12)`);
+  }
+  if (typeof attrs.gratingSlotWidthMm === 'number' && attrs.gratingSlotWidthMm > LEGAL_ACCESSIBILITY_STANDARDS.DRAINAGE_GRATING.maxSlotWidthMm) {
+    violations.push(`배수로 그레이팅 틈새 ${attrs.gratingSlotWidthMm}mm > 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.DRAINAGE_GRATING.maxSlotWidthMm}mm`);
+  }
+  if (typeof attrs.bollardSpacingMeters === 'number' && attrs.bollardSpacingMeters < LEGAL_ACCESSIBILITY_STANDARDS.BOLLARD_CLEARANCE.minSpacingMeters) {
+    violations.push(`볼라드 간격 ${attrs.bollardSpacingMeters}m < 법정 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.BOLLARD_CLEARANCE.minSpacingMeters}m`);
+  }
+
+  return Object.freeze({
+    compliant: violations.length === 0,
+    violations: Object.freeze(violations)
+  });
+}
+
+/**
  * Human Official Authority Approval Workflow States (P3.0 Ingestion Standard)
  * Automated validation can only promote to SYNTAX_VALIDATED or PENDING_OFFICIAL_APPROVAL.
  * Transition to VERIFIED strictly requires an official human inspector sign-off.
@@ -354,6 +425,15 @@ export class GroundDataManager {
       };
     }
 
+    const compliance = evaluateStatutoryCompliance(existing);
+    if (!compliance.compliant) {
+      return {
+        success: false,
+        error: `법정 기준 미달로 공식 승인 거부: ${compliance.violations.join('; ')}`,
+        violations: compliance.violations
+      };
+    }
+
     const verParts = existing.version.split('.').map(Number);
     const bumpedVersion = approval.version || `${verParts[0]}.${verParts[1] + 1}.0`;
 
@@ -428,6 +508,60 @@ export class GroundDataManager {
     if (!rec) return false;
     const isApproved = !rec.approvalWorkflow || rec.approvalWorkflow.status === APPROVAL_WORKFLOW_STATUS.APPROVED;
     return rec.status === VERIFICATION_STATUS.VERIFIED && !!rec.verifiedBy && !!rec.verifiedAt && isApproved;
+  }
+
+  /**
+   * Evaluate F-01 through F-06 checklist completeness for a facility (defaults to PROVISIONAL 0/6).
+   */
+  getChecklistSummary(buildingId = 'BLDG_212_ENG1') {
+    const matchingRecords = Array.from(this.records.values()).filter(
+      r => !r.targetSpace?.buildingId || r.targetSpace.buildingId === buildingId
+    );
+
+    const items = FIELD_SURVEY_CHECKLIST_F01_F06.map(spec => {
+      const rec = matchingRecords.find(
+        r => r.checklistCode === spec.code || r.dataType === spec.dataType
+      ) || null;
+      const verified = Boolean(rec && this.isOfficiallyVerified(rec.id));
+      const compliance = rec ? evaluateStatutoryCompliance(rec) : { compliant: true, violations: [] };
+      return Object.freeze({
+        code: spec.code,
+        dataType: spec.dataType,
+        title: spec.title,
+        statutoryBenchmark: spec.statutoryBenchmark,
+        recordId: rec ? rec.id : null,
+        status: verified ? VERIFICATION_STATUS.VERIFIED : (rec ? rec.status : VERIFICATION_STATUS.PROVISIONAL),
+        compliant: compliance.compliant,
+        violations: compliance.violations,
+        verified
+      });
+    });
+
+    const verifiedCount = items.filter(i => i.verified).length;
+    const totalCount = items.length;
+    const isCodeVerified = (code) => items.some(i => i.code === code && i.verified);
+
+    const isIndoorFullyVerified = isCodeVerified('F-01') && isCodeVerified('F-02');
+    const isWheelchairRouteFullyVerified =
+      isCodeVerified('F-02') &&
+      isCodeVerified('F-03') &&
+      isCodeVerified('F-04') &&
+      isCodeVerified('F-05') &&
+      isCodeVerified('F-06');
+
+    let overallStatus = VERIFICATION_STATUS.PROVISIONAL;
+    if (verifiedCount === totalCount) overallStatus = VERIFICATION_STATUS.VERIFIED;
+    else if (verifiedCount > 0) overallStatus = VERIFICATION_STATUS.PARTIALLY_VERIFIED;
+
+    return Object.freeze({
+      buildingId,
+      verifiedCount,
+      totalCount,
+      overallStatus,
+      isIndoorFullyVerified,
+      isWheelchairRouteFullyVerified,
+      items: Object.freeze(items)
+    });
   }
 
   /**

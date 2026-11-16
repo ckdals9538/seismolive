@@ -36,20 +36,29 @@ import {
   VERIFICATION_STATUS,
   isProtectiveShakingOnset
 } from './ResponseDomainTypes.js';
+import { GroundDataManager } from './GroundDataContract.js';
 
 export class ResponseUIAdapter {
   /**
    * @param {Object} [options]
    * @param {SituationAssessmentEngine} [options.engine]
    * @param {PedestrianRoutingEngine} [options.router]
+   * @param {GroundDataManager} [options.groundDataManager]
    * @param {Object} [options.hanyangAdapter] - Instance of HanyangResponseAdapter (optional)
    * @param {Object} [options.facilityPackage] - Injectable FacilityPackage (defaults to Hanyang Bldg 212)
    * @param {Function} [options.onGuidanceUpdate] - Callback receiving UserFacingGuidance
    */
   constructor(options = {}) {
     this.facility = options.facilityPackage || options.hanyangAdapter?.facility || DEFAULT_HANYANG_FACILITY_PACKAGE;
+    this.groundDataManager = options.groundDataManager || new GroundDataManager();
     this.engine = options.engine || new SituationAssessmentEngine();
-    this.router = options.router || new PedestrianRoutingEngine({ facilityPackage: this.facility });
+    this.router = options.router || new PedestrianRoutingEngine({
+      facilityPackage: this.facility,
+      groundDataManager: this.groundDataManager
+    });
+    if (!this.router.groundDataManager) {
+      this.router.groundDataManager = this.groundDataManager;
+    }
     this.hanyangAdapter = options.hanyangAdapter || null;
     this.onGuidanceUpdate = options.onGuidanceUpdate || null;
 
@@ -154,6 +163,33 @@ export class ResponseUIAdapter {
 
   getAvoidPolygons() {
     return this.router.getAvoidPolygons();
+  }
+
+  // --------------------------------------------------------------------------
+  // P3.1 RUNTIME FIELD VERIFICATION WORKFLOW (GroundDataManager Gate)
+  // --------------------------------------------------------------------------
+
+  submitFieldSurveyRecord(record) {
+    const res = this.groundDataManager.registerRecord(record);
+    if (res.success) this.reassess();
+    return res;
+  }
+
+  approveFieldSurveyRecord(id, approval) {
+    const res = this.groundDataManager.approveRecord(id, approval);
+    if (res.success) this.reassess();
+    return res;
+  }
+
+  rejectFieldSurveyRecord(id, rejection) {
+    const res = this.groundDataManager.rejectRecord(id, rejection);
+    if (res.success) this.reassess();
+    return res;
+  }
+
+  getFieldChecklistSummary() {
+    const bldgId = this.facility?.buildingMetadata?.id || 'BLDG_212_ENG1';
+    return this.groundDataManager.getChecklistSummary(bldgId);
   }
 
   /**
@@ -451,14 +487,15 @@ export class ResponseUIAdapter {
       badgeKorean = '위치 확인 대기';
     }
 
-    // 2. Synthesize Warnings & Unverified Items
+    // 2. Synthesize Warnings & Unverified Items (propagating P3.1 Field Checklist state)
+    const fieldChecklist = this.getFieldChecklistSummary();
     const warnings = [...assessment.warnings];
     const unverifiedItems = [];
 
-    if (assessment.verificationStatus.spatialVerification === VERIFICATION_STATUS.PROVISIONAL) {
+    if (assessment.verificationStatus.spatialVerification === VERIFICATION_STATUS.PROVISIONAL && !fieldChecklist.isIndoorFullyVerified) {
       unverifiedItems.push('3층 실내 평면도 및 비상문 규격 (현장 미실측 추정치)');
     }
-    if (assessment.verificationStatus.routeVerification === VERIFICATION_STATUS.PROVISIONAL) {
+    if (assessment.verificationStatus.routeVerification === VERIFICATION_STATUS.PROVISIONAL && !fieldChecklist.isWheelchairRouteFullyVerified) {
       unverifiedItems.push('옥외 대피 경로 지진 후 통행 안전성 (사전 계산된 후보 경로)');
     }
     for (const item of assessment.indeterminateItems) {
@@ -546,6 +583,7 @@ export class ResponseUIAdapter {
         caveat: routeCaveat
       }),
       replanStatus: Object.freeze(replanStatus),
+      fieldChecklist,
       conflictResolution: assessment.conflictResolution
     });
   }

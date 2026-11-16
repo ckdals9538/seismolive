@@ -107,6 +107,7 @@ export class PedestrianRoutingEngine {
     this.blockedEdges = new Set();
 
     this.facility = options.facilityPackage || DEFAULT_HANYANG_FACILITY_PACKAGE;
+    this.groundDataManager = options.groundDataManager || null;
     this.initializeDefaultCampusGraph();
   }
 
@@ -640,9 +641,12 @@ export class PedestrianRoutingEngine {
     }
 
     // Strict Directive: "Step-free" in OSM does NOT mean "Wheelchair Verified" on-site
-    const isWheelchairVerified = false; // Always false until F-03/F-05 on-site measurements!
+    // Only promotes to true when GroundDataManager confirms F-02..F-06 official human sign-off.
+    const bldgId = this.facility?.buildingMetadata?.id || 'BLDG_212_ENG1';
+    const checklistSummary = this.groundDataManager ? this.groundDataManager.getChecklistSummary(bldgId) : null;
+    const isWheelchairVerified = Boolean(isStepFree && checklistSummary?.isWheelchairRouteFullyVerified);
 
-    if (isWheelchair) {
+    if (isWheelchair && !isWheelchairVerified) {
       hazardAlerts.push('주의: 무단차 우회로는 지도 데이터상 계단이 없는 경로이나, 현장 경사도/단차 실측(F-03/F-05) 전이므로 안전을 보증하지 않습니다.');
     }
 

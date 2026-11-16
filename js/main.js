@@ -60,8 +60,10 @@
     } from './3d/shaders/SeismicTerrainShaders.js';
     import { FLIGHT_STATES, computeSphericalFlightPose } from './3d/FlightController.js';
     import { exhibitionAppContext } from './ui/ExhibitionAppContext.js';
+    import { ExhibitionModeManager } from './ui/ExhibitionModeManager.js';
 
     let orchestrator = null;
+    let exhibitionModeManager = null;
     window.orchestrator = null;
     window.wavefieldEngine = null;
 
@@ -2543,19 +2545,21 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         // Load 1681 Yangyang event without snapping camera
         await loadHistoricalEvent("hist_1681_0626", false);
 
-        // Setup Orbit camera
-        camera.position.set(10.0, 140.0, 40.0);
-        controls.target.set(0.0, 0.0, 0.0);
-        controls.minDistance = 20.0;
-        controls.maxDistance = 400.0;
-        camera.near = 0.02;
-        camera.far = 600.0;
-        camera.updateProjectionMatrix();
-        controls.update();
+        // Setup Orbit camera (only if user has not already entered in-scene 4km local mode)
+        if (!exhibitionModeManager || !exhibitionModeManager.isLocalModeActive()) {
+          camera.position.set(10.0, 140.0, 40.0);
+          controls.target.set(0.0, 0.0, 0.0);
+          controls.minDistance = 20.0;
+          controls.maxDistance = 400.0;
+          camera.near = 0.02;
+          camera.far = 600.0;
+          camera.updateProjectionMatrix();
+          controls.update();
 
-        flightState = FLIGHT_STATES.ORBIT;
-        orbitDwellTimer = 0.0;
-        updateHUDForFlight('orbit');
+          flightState = FLIGHT_STATES.ORBIT;
+          orbitDwellTimer = 0.0;
+          updateHUDForFlight('orbit');
+        }
 
         // Raycasting for discovery beacons (throttled in CLASSROOM/Eco mode)
         let lastRaycastTimeMs = 0;
@@ -2631,6 +2635,14 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
         const fpsLabel = document.getElementById('fps-label');
         if (fpsLabel) fpsLabel.textContent = `${avgFps.toFixed(1)} FPS (WebGL2 ANGLE Metal)`;
+      }
+
+      // Single-Canvas Stage R4 Mode Branch (avoids scale collision between 100km globe and 1m local ENU space)
+      if (exhibitionModeManager && exhibitionModeManager.isLocalModeActive()) {
+        exhibitionModeManager.update();
+        controls.update();
+        renderer.render(scene, camera);
+        return;
       }
 
       // Flight State Machine & Discovery update
@@ -2744,6 +2756,29 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       });
       renderer.render(scene, camera);
       return mode;
+    };
+
+    exhibitionModeManager = new ExhibitionModeManager({
+      scene,
+      camera,
+      controls,
+      getGlobalSceneObjects: () => [
+        tier0GlobeMesh,
+        terrainMesh,
+        waterMesh,
+        tier2Mesh,
+        celestialStarsMesh,
+        atmosphereGlowMesh,
+        ...archivalEntities,
+        ...discoveryNodes.map(n => n.group)
+      ]
+    });
+    window.exhibitionModeManager = exhibitionModeManager;
+    window.enterInSceneLocalResponse = function(stageKey) {
+      return exhibitionModeManager.enterLocalResponseMode(stageKey);
+    };
+    window.exitInSceneLocalResponse = function() {
+      return exhibitionModeManager.exitToGlobalExhibition();
     };
 
     window.openLocalSpatialResponse = function(stage = 'local4km') {

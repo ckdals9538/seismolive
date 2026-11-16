@@ -258,9 +258,17 @@
       <button class="ctrl-btn" id="btn-hazard-poly-toggle" title="동적 위험구역 폴리곤(avoid_polygons) 회피 라우팅 전환">위험폴리곤 회피</button>
     </div>
     <div class="btn-group">
+      <button class="ctrl-btn" id="btn-field-audit-toggle" title="P3.1 현장 실측 체크리스트 (F-01~F-06) 점검 상태 보기">P3.1 실측 (0/6)</button>
       <button class="ctrl-btn" id="btn-xray-toggle" title="실내/건물 검사 시 주변 건물 반투명 X-Ray 전환">X-Ray 투시</button>
       <button class="ctrl-btn" id="btn-eco-toggle" title="저사양/교육용 Eco 모드 (높이 우선 LOD + 라벨 쓰로틀링)">Eco 60fps</button>
       <a class="ctrl-btn" id="link-return-global" href="./index.html" style="text-decoration:none;">← 글로벌 지구본</a>
+    </div>
+    <div id="field-audit-drawer" style="display:none; width:360px; background:rgba(2,4,8,0.94); border:1px solid rgba(255,255,255,0.16); padding:10px 12px; font-size:10px; color:#cbd5e1; line-height:1.45;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:4px;">
+        <strong style="color:#f8fafc; letter-spacing:0.06em;">P3.1 FIELD VERIFICATION (F-01~F-06)</strong>
+        <span id="field-audit-overall" style="color:#94a3b8;">PROVISIONAL (0/6)</span>
+      </div>
+      <div id="field-audit-list" style="display:flex; flex-direction:column; gap:4px;"></div>
     </div>
   </div>
 
@@ -268,7 +276,7 @@
     <div class="guidance-phase">
       <span id="ui-phase-badge">전시 시연 연동</span>
       <span class="badge-simulated" id="ui-sim-badge">SIMULATED SCENARIO</span>
-      <span class="badge-provisional">PROVISIONAL 3F</span>
+      <span class="badge-provisional" id="ui-provisional-badge">PROVISIONAL 3F</span>
     </div>
     <div class="guidance-headline" id="ui-headline">상황 분석 대기 중...</div>
     <div class="guidance-primary" id="ui-primary">...</div>
@@ -494,6 +502,36 @@
       unvEl.textContent = g.unverifiedItems.length > 0
         ? `불확실성: ${g.unverifiedItems.join(' | ')}`
         : '미확인 항목 없음';
+
+      // Render P3.1 Field Survey Checklist (F-01 ~ F-06) status
+      const fc = g.fieldChecklist || uiAdapter.getFieldChecklistSummary();
+      const provBadge = document.getElementById('ui-provisional-badge');
+      const auditBtn = document.getElementById('btn-field-audit-toggle');
+      const auditOverall = document.getElementById('field-audit-overall');
+      const auditList = document.getElementById('field-audit-list');
+      if (fc) {
+        if (provBadge) {
+          provBadge.textContent = fc.overallStatus === 'VERIFIED'
+            ? `FIELD VERIFIED (${fc.verifiedCount}/${fc.totalCount})`
+            : `${fc.overallStatus} (${fc.verifiedCount}/${fc.totalCount})`;
+          provBadge.style.borderColor = fc.overallStatus === 'VERIFIED' ? '#38bdf8' : '#475569';
+          provBadge.style.color = fc.overallStatus === 'VERIFIED' ? '#38bdf8' : '#94a3b8';
+        }
+        if (auditBtn) {
+          auditBtn.textContent = `P3.1 실측 (${fc.verifiedCount}/${fc.totalCount})`;
+        }
+        if (auditOverall) {
+          auditOverall.textContent = `${fc.overallStatus} (${fc.verifiedCount}/${fc.totalCount})`;
+        }
+        if (auditList) {
+          auditList.innerHTML = fc.items.map(it =>
+            `<div style="display:flex; justify-content:space-between; gap:8px;">
+              <span><strong>${it.code}</strong> ${it.title}</span>
+              <span style="color:${it.verified ? '#38bdf8' : '#94a3b8'}; white-space:nowrap;">${it.status}</span>
+            </div>`
+          ).join('');
+        }
+      }
     }
 
     // Button event listeners
@@ -577,6 +615,13 @@
       return hazardPolyActive;
     }
 
+    document.getElementById('btn-field-audit-toggle').addEventListener('click', () => {
+      const drawer = document.getElementById('field-audit-drawer');
+      const isOpen = drawer.style.display !== 'none';
+      drawer.style.display = isOpen ? 'none' : 'block';
+      document.getElementById('btn-field-audit-toggle').classList.toggle('active', !isOpen);
+    });
+
     document.getElementById('btn-fac-212').addEventListener('click', () => switchFacilityPackage('BLDG_212_ENG1'));
     document.getElementById('btn-fac-hit').addEventListener('click', () => switchFacilityPackage('BLDG_701_HIT'));
     document.getElementById('btn-fac-paiknam').addEventListener('click', () => switchFacilityPackage('BLDG_104_PAIKNAM'));
@@ -658,6 +703,8 @@
     window.__applyTimelineStep = applyTimelineStep;
     window.__switchFacilityPackage = switchFacilityPackage;
     window.__toggleHazardPolygon = toggleHazardAvoidPolygon;
+    window.__groundDataManager = uiAdapter.groundDataManager;
+    window.__getFieldChecklistSummary = () => uiAdapter.getFieldChecklistSummary();
     window.__localSpatialLayer = localSpatialLayer;
     window.__getSpatialDiagnostics = () => ({
       ...localSpatialLayer.getLayerDiagnostics(),
