@@ -1,5 +1,9 @@
+.DS_Store
+*/.DS_Store
+*.bak
 *.tif
 *.tiff
+*.md
 archive/
 captures/
 scratch/
@@ -8,3 +12,16 @@ scripts/
 docs/
 .agents/
 .git/
+assets/references/
+assets/terrain/historical_event_coverage_assessment.json
+assets/terrain/bathymetry/global_etopo_elevation_4096_unorm16.*
+assets/terrain/bathymetry/donghae_ulleung_macro_unorm16.*
+assets/terrain/copernicus/expanded_seorak_gangneung_unorm16.bin
+assets/terrain/copernicus/gangneung_odaesan_*
+assets/terrain/copernicus/seoraksan_yangyang_*
+assets/terrain/copernicus/verification_log.txt
+viewer_p1_2.html
+viewer_p1_3.html
+viewer_p2_3.html
+viewer_p2_4.html
+viewer_p2_5.html
