@@ -187,6 +187,17 @@ export class ResponseUIAdapter {
     return res;
   }
 
+  ingestFieldSurveyPacket(packet, options = {}) {
+    const res = this.groundDataManager.ingestBatchSurveyPacket(packet, options);
+    this.reassess();
+    return res;
+  }
+
+  resetFieldChecklist() {
+    this.groundDataManager.resetRegistry();
+    return this.reassess();
+  }
+
   getFieldChecklistSummary() {
     const bldgId = this.facility?.buildingMetadata?.id || 'BLDG_212_ENG1';
     return this.groundDataManager.getChecklistSummary(bldgId);

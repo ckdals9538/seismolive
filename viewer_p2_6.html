@@ -269,6 +269,12 @@
         <span id="field-audit-overall" style="color:#94a3b8;">PROVISIONAL (0/6)</span>
       </div>
       <div id="field-audit-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+      <div style="display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.1);">
+        <button class="ctrl-btn" id="btn-p31-drill-approve" title="법정 기준 충족 가상 실측 패킷 적재·승인 리허설 (DRILL)">[리허설] 6/6 적격 승인</button>
+        <button class="ctrl-btn" id="btn-p31-drill-reject" title="그레이팅 틈새 기준 미달(16.5mm) 시 승인 거부 동작 확인">[리허설] 미달 거부</button>
+        <button class="ctrl-btn" id="btn-p31-reset" title="실측 레지스트리를 기본 PROVISIONAL (0/6)으로 복원">PROVISIONAL 초기화</button>
+      </div>
+      <div id="p31-audit-message" style="margin-top:5px; font-size:9.5px; color:#94a3b8;">기본 상태: 현장 실측 전 (PROVISIONAL 유지)</div>
     </div>
   </div>
 
@@ -300,6 +306,7 @@
     import { ResponseUIAdapter } from './js/response/ResponseUIAdapter.js';
     import { PedestrianRoutingEngine, LINK_STATE } from './js/response/PedestrianRoutingEngine.js';
     import { DATA_PROVENANCE_SOURCE, DEFAULT_HANYANG_FACILITY_PACKAGE, getFacilityPackageById } from './js/response/HanyangBuildingData.js';
+    import { buildSimulatedDrillSurveyPacket } from './js/response/GroundDataContract.js';
     import { LOCATION_CERTAINTY, MOBILITY_PROFILE } from './js/response/SituationAssessmentEngine.js';
     import { HANYANG_LOCAL_4KM_PACKAGE, HANYANG_LOCAL_SPATIAL_VIEWPOINTS } from './js/response/HanyangLocalSpatialData.js';
     import { LocalSpatialMapLayer, samplePointAlong3D } from './js/response/LocalSpatialMapLayer.js';
@@ -620,6 +627,52 @@
       const isOpen = drawer.style.display !== 'none';
       drawer.style.display = isOpen ? 'none' : 'block';
       document.getElementById('btn-field-audit-toggle').classList.toggle('active', !isOpen);
+    });
+
+    const p31MsgEl = document.getElementById('p31-audit-message');
+    document.getElementById('btn-p31-drill-approve').addEventListener('click', () => {
+      const packet = buildSimulatedDrillSurveyPacket('COMPLIANT', activeFacilityId);
+      const res = uiAdapter.ingestFieldSurveyPacket(packet, {
+        approve: true,
+        approvalMetadata: {
+          approvedByAuthority: '성동소방서·한양대 합동 점검반 (리허설)',
+          approvalDocumentRef: `DRILL-PASS-${activeFacilityId}`,
+          approvedAt: new Date().toISOString()
+        }
+      });
+      renderUI();
+      if (p31MsgEl) {
+        p31MsgEl.style.color = '#38bdf8';
+        p31MsgEl.textContent = `[리허설 완료] ${res.approvedCount}/${res.totalCount} 법정 기준 적합 및 공식 승인 (VERIFIED 전환)`;
+      }
+    });
+
+    document.getElementById('btn-p31-drill-reject').addEventListener('click', () => {
+      uiAdapter.resetFieldChecklist();
+      const packet = buildSimulatedDrillSurveyPacket('NON_COMPLIANT_GRATING', activeFacilityId);
+      const res = uiAdapter.ingestFieldSurveyPacket(packet, {
+        approve: true,
+        approvalMetadata: {
+          approvedByAuthority: '성동소방서·한양대 합동 점검반 (리허설)',
+          approvalDocumentRef: `DRILL-FAIL-${activeFacilityId}`,
+          approvedAt: new Date().toISOString()
+        }
+      });
+      renderUI();
+      if (p31MsgEl) {
+        p31MsgEl.style.color = '#fb7185';
+        const firstErr = res.errors?.[0]?.errors?.[0] || '법정 기준 미달';
+        p31MsgEl.textContent = `[승인 차단됨] ${firstErr} (승인 ${res.approvedCount}/${res.totalCount})`;
+      }
+    });
+
+    document.getElementById('btn-p31-reset').addEventListener('click', () => {
+      uiAdapter.resetFieldChecklist();
+      renderUI();
+      if (p31MsgEl) {
+        p31MsgEl.style.color = '#94a3b8';
+        p31MsgEl.textContent = '초기화 완료: 기본 PROVISIONAL (0/6) 상태 복원';
+      }
     });
 
     document.getElementById('btn-fac-212').addEventListener('click', () => switchFacilityPackage('BLDG_212_ENG1'));

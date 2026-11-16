@@ -1,0 +1,163 @@
+{
+  "schemaVersion": "P3.1-FIELD-SURVEY-1.0",
+  "buildingId": "BLDG_212_ENG1",
+  "buildingName": "한양대학교 제1공학관 (212동)",
+  "status": "PROVISIONAL",
+  "scientificNote": "모든 현장 실측 속성값이 null인 미측정 양식입니다. 실제 계측기 실측값 입력 및 담당 소방/안전 점검관 공식 승인(approvedByAuthority, approvalDocumentRef, approvedAt) 전에는 절대 VERIFIED로 승격할 수 없습니다.",
+  "records": [
+    {
+      "id": "P31_BLDG212_F01_FLOORPLAN",
+      "checklistCode": "F-01",
+      "dataType": "ARCHITECTURAL_FLOOR_PLAN",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_F03_STAIR_SE",
+        "floor": 3
+      },
+      "source": {
+        "provenanceType": "AUTHORIZED_FIELD_SURVEY",
+        "organization": "한양대학교 시설관리팀 / 성동소방서",
+        "documentRef": "PENDING_SURVEY_F01"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-01 초기 실측 양식 생성 (미실측 null)"],
+      "documentMetadata": {
+        "documentTitle": "제1공학관 3층 피난안내도 및 남동측 계단실 방화문 실측표",
+        "issuingOrganization": "한양대학교 안전팀 (확인 대기)"
+      },
+      "surveyEquipment": {
+        "equipmentModel": "Laser Distance Meter (±1.5mm)"
+      },
+      "surveyor": {
+        "name": "UNASSIGNED"
+      },
+      "spatialReference": {
+        "horizontalDatum": "WGS84_LOCAL_TANGENT_ENU"
+      },
+      "alignmentRationale": {
+        "method": "2점 OSM 풋프린트 코너 정합"
+      },
+      "attributes": {
+        "clearWidthMeters": null,
+        "corridorWidthMeters": null,
+        "hasFireDoor": null
+      }
+    },
+    {
+      "id": "P31_BLDG212_F02_EXIT_DOOR",
+      "checklistCode": "F-02",
+      "dataType": "EXIT_DOOR_SPECIFICATION",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_F01_EXIT_SE_PORTAL",
+        "floor": 1
+      },
+      "source": {
+        "provenanceType": "AUTHORIZED_FIELD_SURVEY",
+        "organization": "한양대학교 시설관리팀 / 성동소방서",
+        "documentRef": "PENDING_SURVEY_F02"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-02 초기 실측 양식 생성 (미실측 null)"],
+      "attributes": {
+        "clearWidthMeters": null,
+        "thresholdHeightCm": null
+      }
+    },
+    {
+      "id": "P31_BLDG212_F03_RAMP",
+      "checklistCode": "F-03",
+      "dataType": "ACCESSIBILITY_RAMP",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_OUTDOOR_RAMP_DETOUR"
+      },
+      "source": {
+        "provenanceType": "AUTHORIZED_FIELD_SURVEY",
+        "organization": "성동구 교통·보행 편의 점검반",
+        "documentRef": "PENDING_SURVEY_F03"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-03 초기 실측 양식 생성 (미실측 null)"],
+      "attributes": {
+        "rampSlopePercent": null
+      }
+    },
+    {
+      "id": "P31_BLDG212_F04_GRATING",
+      "checklistCode": "F-04",
+      "dataType": "PAVEMENT_SURFACE",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_OUTDOOR_DRAINAGE_PATH"
+      },
+      "source": {
+        "provenanceType": "AUTHORIZED_FIELD_SURVEY",
+        "organization": "성동구 교통·보행 편의 점검반",
+        "documentRef": "PENDING_SURVEY_F04"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-04 초기 실측 양식 생성 (미실측 null)"],
+      "attributes": {
+        "gratingSlotWidthMm": null
+      }
+    },
+    {
+      "id": "P31_BLDG212_F05_BOLLARD",
+      "checklistCode": "F-05",
+      "dataType": "BOLLARD_CLEARANCE",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_OUTDOOR_BOLLARD_GATE"
+      },
+      "source": {
+        "provenanceType": "AUTHORIZED_FIELD_SURVEY",
+        "organization": "성동구 교통·보행 편의 점검반",
+        "documentRef": "PENDING_SURVEY_F05"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-05 초기 실측 양식 생성 (미실측 null)"],
+      "attributes": {
+        "bollardSpacingMeters": null
+      }
+    },
+    {
+      "id": "P31_BLDG212_F06_SHELTER",
+      "checklistCode": "F-06",
+      "dataType": "SHELTER_CAPACITY",
+      "targetSpace": {
+        "buildingId": "BLDG_212_ENG1",
+        "spaceId": "BLDG212_OUTDOOR_STADIUM_OA21060"
+      },
+      "source": {
+        "provenanceType": "OFFICIAL_DISASTER_INFO",
+        "organization": "성동구청 재난안전과 / 한양대",
+        "documentRef": "PENDING_SURVEY_F06"
+      },
+      "acquiredAt": "2026-11-16T00:00:00Z",
+      "status": "PROVISIONAL",
+      "version": "1.0.0",
+      "previousVersion": null,
+      "changes": ["F-06 초기 실측 양식 생성 (미실측 null)"],
+      "attributes": {
+        "clearWidthMeters": null,
+        "gateOpen": null
+      }
+    }
+  ]
+}

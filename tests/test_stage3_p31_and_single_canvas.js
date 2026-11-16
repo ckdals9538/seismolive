@@ -10,7 +10,8 @@ import {
   GROUND_DATA_TYPE,
   GROUND_DATA_PROVENANCE_SOURCE,
   FIELD_SURVEY_CHECKLIST_F01_F06,
-  evaluateStatutoryCompliance
+  evaluateStatutoryCompliance,
+  buildSimulatedDrillSurveyPacket
 } from '../js/response/GroundDataContract.js';
 import { VERIFICATION_STATUS, MOBILITY_PROFILE } from '../js/response/ResponseDomainTypes.js';
 import { ResponseUIAdapter } from '../js/response/ResponseUIAdapter.js';
@@ -182,6 +183,51 @@ console.log('\n--- 2. End-to-End P3.1 PROVISIONAL -> VERIFIED Promotion ---');
     full.isWheelchairRouteFullyVerified === true &&
     verifiedOutdoor.isWheelchairVerified === true,
     '2.3: Completing all 6 compliant official approvals promotes checklist to VERIFIED (6/6) & outdoor wheelchair route verified'
+  );
+
+  // 2.4 Template (null measurements) batch ingestion must NEVER approve any item
+  adapter.resetFieldChecklist();
+  const templatePacket = JSON.parse(Deno.readTextFileSync('assets/data/p3_1_field_survey_template.json'));
+  const tplRes = adapter.ingestFieldSurveyPacket(templatePacket, {
+    approve: true,
+    approvalMetadata: {
+      approvedByAuthority: '테스트 점검관',
+      approvalDocumentRef: 'DOC-NULL-BLOCK',
+      approvedAt: '2026-11-16T06:40:00Z'
+    }
+  });
+  assert(
+    tplRes.registeredCount === 6 &&
+    tplRes.approvedCount === 0 &&
+    adapter.getFieldChecklistSummary().overallStatus === VERIFICATION_STATUS.PROVISIONAL,
+    '2.4: p3_1_field_survey_template.json with null attributes registers cleanly but blocks VERIFIED promotion (0/6 approved)'
+  );
+
+  // 2.5 Non-compliant grating (16.5mm > 13.0mm) batch drill blocks F-04 and keeps wheelchair unverified
+  adapter.resetFieldChecklist();
+  const badDrill = buildSimulatedDrillSurveyPacket('NON_COMPLIANT_GRATING');
+  const badRes = adapter.ingestFieldSurveyPacket(badDrill, {
+    approve: true,
+    approvalMetadata: {
+      approvedByAuthority: '성동 합동 점검반',
+      approvalDocumentRef: 'DOC-DRILL-BAD',
+      approvedAt: '2026-11-16T06:45:00Z'
+    }
+  });
+  const badSummary = adapter.getFieldChecklistSummary();
+  assert(
+    badRes.approvedCount === 5 &&
+    badSummary.overallStatus === VERIFICATION_STATUS.PARTIALLY_VERIFIED &&
+    badSummary.isWheelchairRouteFullyVerified === false,
+    '2.5: Non-compliant 16.5mm grating drill rejects F-04 approval and preserves isWheelchairRouteFullyVerified === false'
+  );
+
+  // 2.6 Reset restores PROVISIONAL (0/6)
+  adapter.resetFieldChecklist();
+  assert(
+    adapter.getFieldChecklistSummary().verifiedCount === 0 &&
+    adapter.getFieldChecklistSummary().overallStatus === VERIFICATION_STATUS.PROVISIONAL,
+    '2.6: resetFieldChecklist cleanly restores baseline PROVISIONAL (0/6) state'
   );
 }
 

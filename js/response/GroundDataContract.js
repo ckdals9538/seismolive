@@ -122,6 +122,15 @@ export function evaluateStatutoryCompliance(record) {
   const attrs = record?.attributes || {};
   const violations = [];
 
+  for (const key of ['clearWidthMeters', 'thresholdHeightCm', 'rampSlopePercent', 'gratingSlotWidthMm', 'bollardSpacingMeters', 'gateOpen']) {
+    if (Object.prototype.hasOwnProperty.call(attrs, key) && attrs[key] === null) {
+      violations.push(`미측정 현장 항목 (${key} === null)`);
+    }
+  }
+  if (attrs.gateOpen === false) {
+    violations.push('대피소 주 진입구 폐쇄 상태 (gateOpen === false)');
+  }
+
   if (typeof attrs.clearWidthMeters === 'number' && attrs.clearWidthMeters < LEGAL_ACCESSIBILITY_STANDARDS.DOOR_CLEAR_WIDTH.minMetersPublic) {
     violations.push(`출입구 유효폭 ${attrs.clearWidthMeters}m < 법정 기준 ${LEGAL_ACCESSIBILITY_STANDARDS.DOOR_CLEAR_WIDTH.minMetersPublic}m`);
   }
@@ -590,11 +599,168 @@ export class GroundDataManager {
   }
 
   /**
+   * Clear all registered records (restores baseline PROVISIONAL state).
+   */
+  resetRegistry() {
+    this.records.clear();
+    this.versionHistory.clear();
+  }
+
+  /**
+   * Batch ingest a P3.1 JSON field survey packet (F-01..F-06).
+   * Records remain PROVISIONAL unless explicit `approve: true` + human authority metadata is passed
+   * and statutory compliance succeeds.
+   */
+  ingestBatchSurveyPacket(packet, options = {}) {
+    const records = Array.isArray(packet?.records) ? packet.records : (Array.isArray(packet) ? packet : []);
+    const results = [];
+    let registeredCount = 0;
+    let approvedCount = 0;
+    const errors = [];
+
+    for (const rawRec of records) {
+      const existing = this.records.get(rawRec.id);
+      const rec = { ...rawRec };
+      if (existing) {
+        const prevParts = existing.version.split('.').map(Number);
+        rec.previousVersion = existing.version;
+        rec.version = `${prevParts[0]}.${prevParts[1] + 1}.0`;
+      } else {
+        rec.previousVersion = null;
+        rec.version = rec.version || '1.0.0';
+      }
+
+      const regRes = this.registerRecord(rec);
+      if (!regRes.success) {
+        errors.push({ id: rec.id, stage: 'REGISTER', errors: regRes.errors });
+        results.push({ id: rec.id, success: false, errors: regRes.errors });
+        continue;
+      }
+      registeredCount++;
+
+      if (options.approve && options.approvalMetadata) {
+        const appRes = this.approveRecord(rec.id, options.approvalMetadata);
+        if (!appRes.success) {
+          errors.push({ id: rec.id, stage: 'APPROVE', errors: [appRes.error] });
+          results.push({ id: rec.id, success: false, approved: false, error: appRes.error });
+        } else {
+          approvedCount++;
+          results.push({ id: rec.id, success: true, approved: true });
+        }
+      } else {
+        results.push({ id: rec.id, success: true, approved: false });
+      }
+    }
+
+    return {
+      registeredCount,
+      approvedCount,
+      totalCount: records.length,
+      errors,
+      results
+    };
+  }
+
+  /**
    * Export all active records as JSON.
    */
   exportRegistryJson() {
     const list = Array.from(this.records.values());
     return JSON.stringify(list, null, 2);
   }
+}
+
+/**
+ * Construct an explicitly labeled P3.1 Field Survey Rehearsal Packet (DRILL ONLY).
+ * Used to verify statutory compliance approval & rejection gates in UI/tests without
+ * fabricating real on-site survey measurements.
+ */
+export function buildSimulatedDrillSurveyPacket(mode = 'COMPLIANT', buildingId = 'BLDG_212_ENG1') {
+  const isNonCompliant = mode === 'NON_COMPLIANT_GRATING';
+  return {
+    schemaVersion: 'P3.1-FIELD-SURVEY-1.0',
+    drillSimulation: true,
+    buildingId,
+    records: [
+      {
+        id: `${buildingId}_DRILL_F01`,
+        checklistCode: 'F-01',
+        dataType: GROUND_DATA_TYPE.ARCHITECTURAL_FLOOR_PLAN,
+        targetSpace: { buildingId, spaceId: 'BLDG212_F03_STAIR_SE' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.AUTHORIZED_FIELD_SURVEY },
+        acquiredAt: '2026-11-16T06:00:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: ['[DRILL] F-01 방화문 유효폭 1.24m 시연 입력'],
+        attributes: { clearWidthMeters: 1.24, corridorWidthMeters: 2.40 }
+      },
+      {
+        id: `${buildingId}_DRILL_F02`,
+        checklistCode: 'F-02',
+        dataType: GROUND_DATA_TYPE.EXIT_DOOR_SPECIFICATION,
+        targetSpace: { buildingId, spaceId: 'BLDG212_F01_EXIT_SE_PORTAL' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.AUTHORIZED_FIELD_SURVEY },
+        acquiredAt: '2026-11-16T06:05:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: ['[DRILL] F-02 1층 주출구 유효폭 1.42m · 문턱 1.2cm'],
+        attributes: { clearWidthMeters: 1.42, thresholdHeightCm: 1.2 }
+      },
+      {
+        id: `${buildingId}_DRILL_F03`,
+        checklistCode: 'F-03',
+        dataType: GROUND_DATA_TYPE.ACCESSIBILITY_RAMP,
+        targetSpace: { buildingId, spaceId: 'BLDG212_OUTDOOR_RAMP_DETOUR' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.AUTHORIZED_FIELD_SURVEY },
+        acquiredAt: '2026-11-16T06:10:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: ['[DRILL] F-03 경사로 기울기 6.2% (1:16)'],
+        attributes: { rampSlopePercent: 6.2 }
+      },
+      {
+        id: `${buildingId}_DRILL_F04`,
+        checklistCode: 'F-04',
+        dataType: GROUND_DATA_TYPE.PAVEMENT_SURFACE,
+        targetSpace: { buildingId, spaceId: 'BLDG212_OUTDOOR_DRAINAGE_PATH' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.AUTHORIZED_FIELD_SURVEY },
+        acquiredAt: '2026-11-16T06:15:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: [isNonCompliant ? '[DRILL] F-04 기준 미달 그레이팅 16.5mm (>13mm)' : '[DRILL] F-04 그레이팅 틈새 10.5mm'],
+        attributes: { gratingSlotWidthMm: isNonCompliant ? 16.5 : 10.5 }
+      },
+      {
+        id: `${buildingId}_DRILL_F05`,
+        checklistCode: 'F-05',
+        dataType: GROUND_DATA_TYPE.BOLLARD_CLEARANCE,
+        targetSpace: { buildingId, spaceId: 'BLDG212_OUTDOOR_BOLLARD_GATE' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.AUTHORIZED_FIELD_SURVEY },
+        acquiredAt: '2026-11-16T06:20:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: ['[DRILL] F-05 볼라드 유효 간격 1.35m'],
+        attributes: { bollardSpacingMeters: 1.35 }
+      },
+      {
+        id: `${buildingId}_DRILL_F06`,
+        checklistCode: 'F-06',
+        dataType: GROUND_DATA_TYPE.SHELTER_CAPACITY,
+        targetSpace: { buildingId, spaceId: 'BLDG212_OUTDOOR_STADIUM_OA21060' },
+        source: { provenanceType: GROUND_DATA_PROVENANCE_SOURCE.OFFICIAL_DISASTER_INFO },
+        acquiredAt: '2026-11-16T06:25:00Z',
+        status: VERIFICATION_STATUS.PROVISIONAL,
+        version: '1.0.0',
+        previousVersion: null,
+        changes: ['[DRILL] F-06 대운동장 주 진입구 개방 (유효폭 4.2m)'],
+        attributes: { clearWidthMeters: 4.20, gateOpen: true }
+      }
+    ]
+  };
 }
 
