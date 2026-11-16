@@ -66,6 +66,9 @@ export class ResponseUIAdapter {
     this.preferredRouteMode = 'ALL'; // 'ALL' | 'SHORTEST' | 'STEP_FREE'
 
     const meta = this.facility.buildingMetadata || {};
+    const hasIndoorData = meta.indoorScope
+      ? Boolean(meta.indoorScope.hasIndoorData)
+      : Object.keys(this.facility.indoorGraphs || {}).length > 0;
 
     // Canonical Assessment Input Context
     this.context = {
@@ -78,10 +81,10 @@ export class ResponseUIAdapter {
         pga_g: 0.0
       },
       user: {
-        locationType: 'INDOOR',
+        locationType: hasIndoorData ? 'INDOOR' : 'OUTDOOR',
         buildingId: meta.id || 'BLDG_212_ENG1',
-        floor: this.facility.defaultFloor ?? 3,
-        room: this.facility.defaultRoomId || 'ROOM_301',
+        floor: hasIndoorData ? (this.facility.defaultFloor ?? 3) : 1,
+        room: hasIndoorData ? (this.facility.defaultRoomId || 'ROOM_301') : null,
         locationCertainty: LOCATION_CERTAINTY.MANUAL_EXACT,
         mobilityLimitation: MOBILITY_PROFILE.NONE
       },
@@ -89,7 +92,13 @@ export class ResponseUIAdapter {
         corridorPassable: true,
         exitPassable: true,
         stairsPassable: true,
-        outdoorPathStatus: 'UNVERIFIED' // Default unverified until field checked
+        outdoorPathStatus: 'UNVERIFIED', // Default unverified until field checked
+        hasIndoorData,
+        impactStatus: meta.impactStatus || 'IN_IMPACT_ZONE',
+        destinationStatus: meta.destinationStatus || (this.facility.shelter ? 'CONFIRMED' : 'UNAVAILABLE'),
+        destinationName: meta.shelterName || this.facility.shelter?.name || null,
+        regionLabel: meta.regionLabel || meta.name || null,
+        facilityName: meta.name || null
       },
       sources: {
         station: {
@@ -218,11 +227,53 @@ export class ResponseUIAdapter {
       this.hanyangAdapter.setFacilityPackage(facilityPackage);
     }
     const meta = facilityPackage.buildingMetadata || {};
+    const hasIndoorData = meta.indoorScope
+      ? Boolean(meta.indoorScope.hasIndoorData)
+      : Object.keys(facilityPackage.indoorGraphs || {}).length > 0;
+
     this.context.user.buildingId = meta.id || 'FACILITY';
-    this.context.user.floor = facilityPackage.defaultFloor ?? 3;
-    this.context.user.room = facilityPackage.defaultRoomId || 'ROOM_301';
-    this.context.user.locationType = 'INDOOR';
+    this.context.user.floor = hasIndoorData ? (facilityPackage.defaultFloor ?? 3) : 1;
+    this.context.user.room = hasIndoorData ? (facilityPackage.defaultRoomId || 'ROOM_301') : null;
+    this.context.user.locationType = hasIndoorData ? 'INDOOR' : 'OUTDOOR';
     this.context.user.locationCertainty = LOCATION_CERTAINTY.MANUAL_EXACT;
+    this.context.spatial.hasIndoorData = hasIndoorData;
+    this.context.spatial.impactStatus = meta.impactStatus || this.context.spatial.impactStatus || 'IN_IMPACT_ZONE';
+    this.context.spatial.destinationStatus = meta.destinationStatus || (facilityPackage.shelter ? 'CONFIRMED' : 'UNAVAILABLE');
+    this.context.spatial.destinationName = meta.shelterName || facilityPackage.shelter?.name || null;
+    this.context.spatial.regionLabel = meta.regionLabel || meta.name || null;
+    this.context.spatial.facilityName = meta.name || null;
+    return this.reassess();
+  }
+
+  /**
+   * Update region-independent hazard impact, destination availability, and labels.
+   */
+  setRegionContext(regionMeta = {}) {
+    if (!regionMeta || typeof regionMeta !== 'object') return this.reassess();
+    if (regionMeta.impactStatus !== undefined) {
+      this.context.spatial.impactStatus = regionMeta.impactStatus;
+      this.context.disaster.impactStatus = regionMeta.impactStatus;
+    }
+    if (regionMeta.destinationStatus !== undefined) {
+      this.context.spatial.destinationStatus = regionMeta.destinationStatus;
+    }
+    if (regionMeta.destinationName !== undefined) {
+      this.context.spatial.destinationName = regionMeta.destinationName;
+    }
+    if (regionMeta.regionLabel !== undefined) {
+      this.context.spatial.regionLabel = regionMeta.regionLabel;
+    }
+    if (regionMeta.facilityName !== undefined) {
+      this.context.spatial.facilityName = regionMeta.facilityName;
+    }
+    if (regionMeta.hasIndoorData !== undefined) {
+      this.context.spatial.hasIndoorData = Boolean(regionMeta.hasIndoorData);
+      if (!this.context.spatial.hasIndoorData) {
+        this.context.user.locationType = 'OUTDOOR';
+        this.context.user.floor = 1;
+        this.context.user.room = null;
+      }
+    }
     return this.reassess();
   }
 
@@ -379,11 +430,15 @@ export class ResponseUIAdapter {
     const user = this.context.user;
     const isWheelchair = user.mobilityLimitation === MOBILITY_PROFILE.WHEELCHAIR;
 
-    if (assessment.canMove && assessment.canNavigate) {
+    const targetNode = this.facility.shelter?.shelterId || null;
+
+    if (assessment.canMove && assessment.canNavigate && targetNode) {
       // Determine Start Node from injected FacilityPackage
-      let startNode = this.facility.defaultRoomNodeId || 'NODE_ROOM_301';
+      let startNode = this.context.spatial?.hasIndoorData === false
+        ? (this.facility.defaultOutdoorEgressNodeId || this.facility.defaultExitNodeId || 'NODE_EXIT_1F_SE')
+        : (this.facility.defaultRoomNodeId || 'NODE_ROOM_301');
       if (user.locationType === 'OUTDOOR') {
-        startNode = this.facility.defaultOutdoorEgressNodeId || 'OSM_NODE_6415394841';
+        startNode = this.facility.defaultOutdoorEgressNodeId || this.facility.defaultExitNodeId || 'OSM_NODE_6415394841';
       } else if (user.floor === 1) {
         startNode = this.facility.defaultExitNodeId || 'NODE_EXIT_1F_SE';
       } else if (user.room) {
@@ -396,7 +451,6 @@ export class ResponseUIAdapter {
         }
       }
 
-      const targetNode = this.facility.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM';
       const mobilityProfile = isWheelchair
         ? USER_MOBILITY_PROFILE.WHEELCHAIR_USER
         : USER_MOBILITY_PROFILE.STANDARD_EVACUEE;
@@ -466,30 +520,41 @@ export class ResponseUIAdapter {
     const act = assessment.recommendedAction;
     const isWheelchair = this.context.user.mobilityLimitation === MOBILITY_PROFILE.WHEELCHAIR;
 
-    // 1. Determine Korean Phase Headline
+    // 1. Determine Korean Phase Headline (Region-Agnostic)
     let phaseHeadline = '';
     let badgeKorean = '';
     const isSimulatedScenario = this.context.sources.station?.provenanceType === DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO;
+    const regionLabel = this.context.spatial?.regionType === 'CAMPUS' ? '캠퍼스' : (this.context.spatial?.regionLabel || '도심/지역');
+    const isOutsideImpact = this.context.disaster?.impactStatus === 'OUTSIDE_IMPACT_ZONE';
+    const isDestinationUnavailable = this.context.spatial?.destinationStatus === 'UNAVAILABLE' || this.context.spatial?.destinationStatus === 'UNKNOWN';
 
-    if (act.tacticalState === 'S1_SHAKING') {
+    if (isOutsideImpact && !this.context.disaster.isShakingActive) {
+      phaseHeadline = '지진 영향권 외 — 현 위치 일상 대기';
+      badgeKorean = '원거리 사건 · 대피 불필요';
+    } else if (isDestinationUnavailable && act.tacticalState !== 'S1_SHAKING') {
+      phaseHeadline = '대피 후보 · 경로 판단 불가 (데이터 부족)';
+      badgeKorean = '지역 공간/대피소 정보 부족';
+    } else if (act.tacticalState === 'S1_SHAKING') {
       phaseHeadline = '지진동 진행 중 — 현 위치 즉각 엄폐';
       badgeKorean = isSimulatedScenario ? '가상 시나리오 지반 가속도 연동 (SIMULATED)' : '실시간 지반 가속도 계측 연동';
     } else if (act.tacticalState === 'S2_POST_SHAKING_ASSESSMENT') {
       phaseHeadline = '진동 멈춤 — 탈출로 확보 및 안전 점검';
       badgeKorean = '현장 3점 점검 단계';
     } else if (act.tacticalState === 'S3_ACTION_DECISION') {
-      phaseHeadline = '이동 판단 — 비상계단 피난 하향 이동';
-      badgeKorean = isWheelchair ? '이동 약자 대기 지원' : '비상계단 피난 개시';
+      phaseHeadline = this.facility?.hasIndoorData === false
+        ? '외곽 보행 피난 개시 — 낙하물 주의 이탈'
+        : '이동 판단 — 비상계단 피난 하향 이동';
+      badgeKorean = isWheelchair ? '이동 약자 대기 지원' : (this.facility?.hasIndoorData === false ? '건물 외곽 기준 대피 개시' : '비상계단 피난 개시');
     } else if (act.tacticalState === 'S4_EXTERIOR_EGRESS') {
       phaseHeadline = '건물 탈출 — 외벽 낙하물 위험구역 신속 이탈';
-      badgeKorean = '1층 출구 통과 및 옥외 전이';
+      badgeKorean = '출구 통과 및 옥외 전이';
     } else if (act.tacticalState === 'S5_PEDESTRIAN_TRANSIT') {
-      phaseHeadline = '옥외 보행 — 캠퍼스 대피소 이동';
-      badgeKorean = '캠퍼스 보행 네트워크 이동 중';
+      phaseHeadline = `옥외 보행 — ${regionLabel} 안전 이동`;
+      badgeKorean = `${regionLabel} 보행 네트워크 이동 중`;
     } else if (act.tacticalState === 'S6_SHELTER_ARRIVAL') {
-      const shelterName = this.facility?.shelter?.officialName || '한양대 대운동장';
-      phaseHeadline = `대피소 안착 — ${shelterName} 중앙 집결`;
-      badgeKorean = '공식 지진옥외대피장소 집결';
+      const shelterName = this.facility?.shelter?.officialName || this.context.spatial?.destinationName || '개활 대피 후보지';
+      phaseHeadline = `목적지 도달 — ${shelterName}`;
+      badgeKorean = this.facility?.shelter?.candidateStatus === 'CONFIRMED' ? '공식 지진옥외대피장소' : '조건부 개활 후보지 (현장 확인 필요)';
     } else if (act.tacticalState === 'SHELTER_IN_PLACE') {
       phaseHeadline = '탈출로 차단 — 실내 격리 방호 및 구조 요청 (건물 안전 보증 아님)';
       badgeKorean = '실내 방호 격리 조치 발령';
@@ -503,8 +568,10 @@ export class ResponseUIAdapter {
     const warnings = [...assessment.warnings];
     const unverifiedItems = [];
 
-    if (assessment.verificationStatus.spatialVerification === VERIFICATION_STATUS.PROVISIONAL && !fieldChecklist.isIndoorFullyVerified) {
-      unverifiedItems.push('3층 실내 평면도 및 비상문 규격 (현장 미실측 추정치)');
+    if (this.facility?.hasIndoorData === false) {
+      unverifiedItems.push('선택 건축물의 실내 평면도 및 출입구 위치 미확보 (외곽 기준 안내)');
+    } else if (assessment.verificationStatus.spatialVerification === VERIFICATION_STATUS.PROVISIONAL && !fieldChecklist.isIndoorFullyVerified) {
+      unverifiedItems.push('실내 평면도 및 비상문 규격 (현장 미실측 추정치)');
     }
     if (assessment.verificationStatus.routeVerification === VERIFICATION_STATUS.PROVISIONAL && !fieldChecklist.isWheelchairRouteFullyVerified) {
       unverifiedItems.push('옥외 대피 경로 지진 후 통행 안전성 (사전 계산된 후보 경로)');

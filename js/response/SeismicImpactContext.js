@@ -197,12 +197,15 @@ export function resolveActiveSeismicEvent(eventId = null, options = {}) {
  * the active evacuation path normalized progress t in [0, 1].
  */
 export function buildEvacuationSafetyCheckpoints(ctx = {}) {
-  const facilityName = ctx.facilityName || '제1공학관(212동)';
-  const floor = ctx.floor ?? 3;
-  const room = ctx.room || '301호';
-  const shelterName = ctx.shelterName || '한양대 대운동장';
-  const shortestMeters = ctx.shortestMeters ?? 737.9;
-  const stepFreeMeters = ctx.stepFreeMeters ?? 855.1;
+  const facilityName = ctx.facilityName || '출발 건축물';
+  const hasIndoorData = ctx.hasIndoorData !== false;
+  const isCampusRegion = Boolean(ctx.isCampusRegion || (ctx.facilityName && ctx.facilityName.includes('212')) || (ctx.shelterName && ctx.shelterName.includes('한양')));
+  const regionPathNoun = isCampusRegion ? '캠퍼스' : (ctx.regionLabel || '도심 보행');
+  const floor = ctx.floor ?? 1;
+  const room = ctx.room || '';
+  const shelterName = ctx.shelterName || '확인 대피 후보';
+  const shortestMeters = ctx.shortestMeters ?? 0;
+  const stepFreeMeters = ctx.stepFreeMeters ?? 0;
   const isStepFree = Boolean(ctx.isStepFree);
   const hasObstacles = Boolean(ctx.hasObstacles);
 
@@ -212,25 +215,33 @@ export function buildEvacuationSafetyCheckpoints(ctx = {}) {
     Object.freeze({
       id: 'CP_01_INDOOR_HOLD',
       stepNo: '01',
-      title: `${facilityName} ${floor}층 ${room} · 진동 멈춤 확인 후 출발`,
-      shortLabel: '실내 출발',
+      title: hasIndoorData
+        ? `${facilityName} ${floor}층 ${room} · 진동 멈춤 확인 후 출발`
+        : `${facilityName} 외곽 출구 지점 (실내 도면 미확보)`,
+      shortLabel: hasIndoorData ? '실내 출발' : '외곽 출발',
       tAnchor: 0.05,
       range: [0.0, 0.16],
-      instruction: '흔들림 중엔 책상 아래서 머리를 보호하세요. 진동이 완전히 멈춘 뒤 출입문을 열어 탈출로를 확보하고 이동을 시작합니다.',
+      instruction: hasIndoorData
+        ? '흔들림 중엔 책상 아래서 머리를 보호하세요. 진동이 완전히 멈춘 뒤 출입문을 열어 탈출로를 확보하고 이동을 시작합니다.'
+        : '해당 건축물의 실내 도면이 확보되지 않아 외곽 지점부터 경로를 안내합니다. 흔들림이 완전히 멎은 후 낙하물을 살피며 외부로 나오십시오.',
       caution: '승강기(엘리베이터)는 정전·갇힘 위험이 있으므로 절대 이용하지 마십시오.',
       isAlert: true
     }),
     Object.freeze({
       id: 'CP_02_STAIR_EXIT',
       stepNo: '02',
-      title: isStepFree ? '1층 경사로 및 비상출구 통과' : '비상계단 하강 및 1층 남동측 출구',
-      shortLabel: '계단 · 출구',
+      title: hasIndoorData
+        ? (isStepFree ? '1층 완경사 연결로 및 출구 통과' : '비상계단 하강 및 1층 출구')
+        : '건물 주변 보행로 진입 구간',
+      shortLabel: hasIndoorData ? '계단 · 출구' : '보행로 진입',
       tAnchor: 0.24,
       range: [0.16, 0.36],
-      instruction: isStepFree
-        ? '단차가 없는 완경사 연결로를 따라 낙하물에 주의하며 1층 출구 외부로 진입하세요.'
-        : '계단 균열과 천장 마감재 탈락을 살피며 난간을 잡고 질서 있게 1층 남동측 출구로 내려오세요.',
-      caution: '출구 직전 로비 유리창과 상부 간판·외장재 낙하에 유의하십시오.',
+      instruction: hasIndoorData
+        ? (isStepFree
+          ? '단차가 없는 연결로를 따라 낙하물에 주의하며 1층 출구 외부로 진입하세요.'
+          : '계단 균열과 천장 마감재 탈락을 살피며 난간을 잡고 질서 있게 1층 출구로 내려오세요.')
+        : '출입구 직후 상부 간판·유리창·에어컨 실외기 등 외벽 낙하물 여부를 먼저 확인하고 보도로 진입하십시오.',
+      caution: '출구 직전 유리창과 상부 간판·외장재 낙하에 유의하십시오.',
       isAlert: true
     }),
     Object.freeze({
@@ -242,34 +253,34 @@ export function buildEvacuationSafetyCheckpoints(ctx = {}) {
       range: [0.36, 0.60],
       instruction: '건물 외벽 유리와 벽돌 추락 위험 반경(건물 높이 이상 이격 권장)에서 즉시 벗어나 넓은 보행로 중앙으로 이동하세요.',
       caution: hasObstacles
-        ? '동측 계단/외벽 주의 구간 폐쇄가 감지되어 안전한 우회 동선으로 안내 중입니다.'
-        : '옥외 첫 계단 구간(68.5m)은 여진 시 발을 헛디딜 수 있으므로 보폭을 줄이십시오.',
+        ? '주의 구간 폐쇄 또는 장애물 신고가 반영되어 대체 보행 경로로 안내 중입니다.'
+        : '초기 보도·계단 구간은 여진 시 발을 헛디딜 수 있으므로 보폭을 줄이십시오.',
       isAlert: hasObstacles
     }),
     Object.freeze({
       id: 'CP_04_CORRIDOR_TRANSIT',
       stepNo: '04',
       title: isStepFree
-        ? `캠퍼스 무단차 안전 우회로 (${outdoorDistStr})`
-        : `캠퍼스 최단 대피 경로 보행 (${outdoorDistStr})`,
-      shortLabel: isStepFree ? '무단차 우회' : '캠퍼스 보행',
+        ? `${regionPathNoun} 계단 회피 경로 (${outdoorDistStr})`
+        : `${regionPathNoun} 최단 도보 경로 (${outdoorDistStr})`,
+      shortLabel: isStepFree ? '계단 회피' : '보행 이동',
       tAnchor: 0.74,
       range: [0.60, 0.86],
       instruction: isStepFree
-        ? '계단과 낙하 위험 구간을 우회하는 완경사 도로를 따라 남동쪽 대운동장 방향으로 이동 중입니다.'
-        : '전신주·옹벽·가로등에서 거리를 두고 도로 중앙 시야가 트인 경로로 이동하십시오.',
+        ? '계단과 급경사 구간을 피한 완만한 도로를 따라 목적지 방향으로 이동 중입니다.'
+        : '전신주·옹벽·가로등에서 거리를 두고 시야가 트인 보도·도로를 따라 이동하십시오.',
       caution: '이동 중 여진이 다시 시작되면 그 자리에서 자세를 낮춰 두부를 보호하세요.',
       isAlert: false
     }),
     Object.freeze({
       id: 'CP_05_SHELTER_ARRIVAL',
       stepNo: '05',
-      title: `${shelterName} (최종 옥외대피소) 도착 · 집결`,
-      shortLabel: '대피소 안착',
+      title: `${shelterName} (목적지 후보) 도착 · 현장 확인`,
+      shortLabel: '목적지 안착',
       tAnchor: 0.96,
       range: [0.86, 1.01],
-      instruction: `낙하물 위험이 없는 ${shelterName} 중앙 개활지에 안착했습니다. 재난문자 및 현장 안내요원의 지시를 확인하십시오.`,
-      caution: '안전 점검이 완료되기 전까지 건물 내부로 임의 재진입하지 마십시오.',
+      instruction: `낙하물 위험이 적은 ${shelterName} 개활 지점 인근에 도달했습니다. 현장 안전 표지, 개방 상태, 공식 재난문자를 확인하십시오.`,
+      caution: '안전 점검이 완료되기 전까지 손상된 건물 내부로 임의 재진입하지 마십시오.',
       isAlert: false
     })
   ]);

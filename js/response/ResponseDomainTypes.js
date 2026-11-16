@@ -109,3 +109,89 @@ export const LINK_STATE = Object.freeze({
   CLOSED: 'CLOSED',       // 신뢰할 수 있는 근거로 통행 불가 확정 (경로 계산에서 원천 배제)
   UNKNOWN: 'UNKNOWN'      // 정보 없음 (신선도 소실 또는 미확인)
 });
+
+/**
+ * Standardized Spatial Object Data Quality & Source Classification (Section 7)
+ */
+export const DATA_ORIGIN_TYPES = Object.freeze({
+  OBSERVED: 'OBSERVED',       // 실시간 관측소·센서 계측 데이터
+  OFFICIAL: 'OFFICIAL',       // 행정안전부·기상청·지자체 등 공공 공식 데이터
+  MODELLED: 'MODELLED',       // 수치 모델·이론적 주시 계산
+  SYNTHETIC: 'SYNTHETIC',     // 교육/훈련용 사용자 설정 인공지진 매개변수
+  PROVISIONAL: 'PROVISIONAL', // 미실측·OSM 추출 등 잠정 추정 데이터
+  UNKNOWN: 'UNKNOWN'          // 확인 불가 / 데이터 부재
+});
+
+/**
+ * Clear Demarcation of Earthquake Scenario Modes (DATA 1)
+ */
+export const SCENARIO_TYPES = Object.freeze({
+  OBSERVED_EVENT: 'OBSERVED_EVENT',               // 실제 계기 관측 지진 (USGS / KMA)
+  EDUCATIONAL_SYNTHETIC: 'EDUCATIONAL_SYNTHETIC', // 사용자 지역·규모 지정 교육용 인공지진
+  HISTORICAL_RECORD: 'HISTORICAL_RECORD'          // 역사 문헌 지진 사료 (위치·규모 불확실성 보존)
+});
+
+/**
+ * Seismic Impact Zone Evaluation relative to User Position (Section 2-1 & DATA 1)
+ */
+export const IMPACT_ZONE_STATUS = Object.freeze({
+  IN_IMPACT_ZONE: 'IN_IMPACT_ZONE',
+  MARGINAL_FELT_ZONE: 'MARGINAL_FELT_ZONE',
+  OUTSIDE_IMPACT_ZONE: 'OUTSIDE_IMPACT_ZONE',
+  EDUCATIONAL_DRILL: 'EDUCATIONAL_DRILL',
+  HISTORICAL_REFERENCE_ONLY: 'HISTORICAL_REFERENCE_ONLY',
+  UNKNOWN: 'UNKNOWN'
+});
+
+/**
+ * Evacuation Destination Candidate Verification Result (Section 3-4)
+ */
+export const CANDIDATE_STATUS = Object.freeze({
+  CONFIRMED: 'CONFIRMED',     // 공식 지정·실존·접근성 근거 확인됨
+  CONDITIONAL: 'CONDITIONAL', // 개활/임시 후보이나 개방·현장 점검 조건부 확인 필요
+  UNKNOWN: 'UNKNOWN',         // 주변 공간 데이터/시설 정보 부족으로 판단 불가
+  UNAVAILABLE: 'UNAVAILABLE'  // 후보 시설 없음 또는 보행 경로 단절로 이용 불가
+});
+
+export const CANDIDATE_FACILITY_TYPES = Object.freeze({
+  OFFICIALLY_DESIGNATED: 'OFFICIALLY_DESIGNATED',
+  LOCAL_DESIGNATED: 'LOCAL_DESIGNATED',
+  CONFIRMED_PUBLIC_FACILITY: 'CONFIRMED_PUBLIC_FACILITY',
+  OPEN_SPACE_ALTERNATIVE: 'OPEN_SPACE_ALTERNATIVE'
+});
+
+/**
+ * Indoor Spatial Data Scope Tiers (Section 8)
+ */
+export const INDOOR_SPATIAL_SCOPE = Object.freeze({
+  FOOTPRINT_ONLY: 'FOOTPRINT_ONLY',           // 외곽 풋프린트만 확보
+  HEIGHT_ONLY_3D: 'HEIGHT_ONLY_3D',           // 3D 외형 높이 확보 (실내 미확보)
+  LEVEL_COUNT_ONLY: 'LEVEL_COUNT_ONLY',       // 지상 층수 확보 (평면도 미확보)
+  PROVISIONAL_FLOORPLAN: 'PROVISIONAL_FLOORPLAN', // 잠정 실내 도면(파일럿 등)
+  VERIFIED_INDOOR: 'VERIFIED_INDOOR'          // 공식 도면+현장 실측(F-01~F-06) 완료
+});
+
+/**
+ * Build standardized metadata envelope attached to every provider output and spatial entity.
+ */
+export function createProvenanceRecord({
+  source = 'UNKNOWN',
+  sourceType = DATA_ORIGIN_TYPES.UNKNOWN,
+  updatedAt = null,
+  geometryAccuracy = 'UNKNOWN',
+  completeness = 'UNKNOWN',
+  verificationStatus = VERIFICATION_STATUS.PROVISIONAL,
+  confidence = 0.0,
+  limitations = '현장 확인 필요'
+} = {}) {
+  return Object.freeze({
+    source,
+    sourceType,
+    updatedAt: updatedAt || new Date().toISOString().slice(0, 10),
+    geometryAccuracy,
+    completeness,
+    verificationStatus,
+    confidence: Math.max(0, Math.min(1, Number(confidence) || 0)),
+    limitations
+  });
+}

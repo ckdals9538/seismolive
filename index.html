@@ -27,14 +27,14 @@
       </button>
       <div id="global-dev-lab-menu">
         <span class="global-menu-eyebrow">Earth-to-City · 전국 3D 대피</span>
-        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="우주 궤도에서 한양대 진원·대피 동선으로 연속 비행 진입" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'seoul_hanyang', withFlight: true })">
-          <strong>서울 한양대 · 3D 지진대피 비행 ▸</strong>
-          <small>역사지진 진원 → 흔들림 확인 → 보행 대피</small>
+        <button id="btn-inscene-local-mode" class="global-menu-item is-primary" title="우주 궤도에서 지역 기반 3D 지진·대피 공간으로 연속 비행 진입" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'seoul_hanyang', withFlight: true })">
+          <strong>위치 기반 3D 지진 대응 · 서울 ▸</strong>
+          <small>실측 도시/지역 공간 진입 → 시나리오 판단 → 대피 안내</small>
         </button>
         <div class="global-menu-subrow">
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 진앙권', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'sokcho', lat: 38.2070, lon: 128.5918, name: '강원 속초 · 청초·교동 연안 도심', shortName: '속초 도심', withFlight: true })">속초 도심</button>
+          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'gyeongju', lat: 35.8347, lon: 129.2190, name: '경북 경주 · 황남·월성 지구', shortName: '경주 도심', eventId: 'hist_2016_gyeongju', withFlight: true })">경주 M5.8</button>
           <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'pohang', lat: 36.1086, lon: 129.3490, name: '경북 포항 · 흥해·중앙 지구', shortName: '포항 흥해권', eventId: 'hist_2017_pohang', withFlight: true })">포항 M5.4</button>
-          <button type="button" class="global-menu-chip" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.enterInSceneLocalResponse && window.enterInSceneLocalResponse({ regionId: 'yangyang', lat: 38.0754, lon: 128.6189, name: '강원 양양 · 낙산·읍내 지구', shortName: '양양 역사권', eventId: 'hist_1681_0626', withFlight: true })">양양 1681</button>
         </div>
         <button id="btn-lab-open-campus" class="global-menu-item" title="독립 3D 대피 안내 페이지로 열기" onclick="document.getElementById('global-dev-lab-menu').style.display='none'; window.openLocalSpatialResponse && window.openLocalSpatialResponse('campus')">
           <span>독립 3D 대피 뷰어 ↗</span>

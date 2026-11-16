@@ -546,8 +546,11 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           flightState = FLIGHT_STATES.PERFORMANCE;
           exhibitionAppContext.flightState = flightState;
           simTime = 0.0;
+          window.simTime = 0.0;
           isPlaying = true;
           exhibitionAppContext.isPlaying = isPlaying;
+          if (orchestrator?.seekToTime) orchestrator.seekToTime(0.0);
+          controlSurface?.updatePerformanceTime?.(0.0, currentMaxSimTime);
           controls.target.copy(flightEndLookAt);
           controls.minDistance = 0.04;
           controls.maxDistance = 6.0;
@@ -1628,8 +1631,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
 
       currentMaxSimTime = resolveEventDuration(currentParsedEvent);
       window.currentMaxSimTime = currentMaxSimTime;
+      simTime = 0.0;
+      window.simTime = 0.0;
+      if (orchestrator?.seekToTime) orchestrator.seekToTime(0.0);
+      exhibitionAppContext.isScrubbing = false;
       if (controlSurface) {
-        controlSurface.updatePerformanceTime(simTime, currentMaxSimTime);
+        controlSurface.isScrubbing = false;
+        controlSurface.updatePerformanceTime(0.0, currentMaxSimTime);
       }
 
       updateWaveDisplays();
@@ -1824,7 +1832,6 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       return 35.0;
     }
     let currentMaxSimTime = 35.0;
-    const maxSimTime = currentMaxSimTime;
     window.currentMaxSimTime = currentMaxSimTime;
     window.resolveEventDuration = resolveEventDuration;
 
@@ -1926,6 +1933,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     window.setSimulationPlaying = function(play) {
       isPlaying = !!play;
       exhibitionAppContext.isPlaying = isPlaying;
+      if (orchestrator) orchestrator.isPlaying = isPlaying;
     };
     try {
       Object.defineProperty(window, 'isPlaying', {
@@ -2136,7 +2144,9 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
     // Synchronously reconstructs wavefield, typography, lighting & sound at time t
     // -------------------------------------------------------------------------
     function seekToSimulationTime(targetSec) {
-      simTime = Math.max(0.0, Math.min(currentMaxSimTime, targetSec));
+      const clamped = Math.max(0.0, Math.min(currentMaxSimTime, Number.isFinite(Number(targetSec)) ? Number(targetSec) : 0.0));
+      simTime = clamped;
+      window.simTime = simTime;
 
       if (terrainUniforms) {
         terrainUniforms.u_simTime.value = simTime;
@@ -2151,11 +2161,14 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         }
       }
       if (orchestrator) {
-        orchestrator.seismicTime = simTime;
-        if (orchestrator.uniforms && orchestrator.uniforms.u_seismicTime) {
-          orchestrator.uniforms.u_seismicTime.value = simTime;
+        if (typeof orchestrator.seekToTime === 'function') {
+          orchestrator.seekToTime(simTime);
+        } else {
+          orchestrator.seismicTime = simTime;
+          if (orchestrator.uniforms && orchestrator.uniforms.u_seismicTime) {
+            orchestrator.uniforms.u_seismicTime.value = simTime;
+          }
         }
-        orchestrator.update(simTime);
       }
 
       updateWaveDisplays();
@@ -2179,8 +2192,12 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
 
       const scrubber = document.getElementById('transport-scrubber');
-      if (scrubber && Math.abs(parseFloat(scrubber.value) - simTime) > 0.05) {
-        scrubber.value = simTime.toFixed(1);
+      const isScrubbingNow = Boolean(exhibitionAppContext?.isScrubbing || controlSurface?.isScrubbing);
+      if (scrubber) {
+        scrubber.max = String(currentMaxSimTime);
+        if (!isScrubbingNow && Math.abs(parseFloat(scrubber.value) - simTime) > 0.05) {
+          scrubber.value = simTime.toFixed(1);
+        }
       }
       const curLabel = document.getElementById('transport-time-current');
       if (curLabel) {
@@ -2678,18 +2695,22 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         if (isOrbitView) n.update(now * 0.001);
       });
 
-      if (isPlaying) {
+      const userScrubbing = Boolean(exhibitionAppContext?.isScrubbing || controlSurface?.isScrubbing);
+      if (isPlaying && !userScrubbing) {
         const scaledDelta = delta * playbackSpeed;
         simTime += scaledDelta;
         if (orchestrator) {
           orchestrator.isPlaying = true;
           orchestrator.update(scaledDelta);
         }
-        if (simTime > maxSimTime) {
+        if (simTime > currentMaxSimTime) {
           simTime = 0.0;
-          if (orchestrator) orchestrator.restart();
+          if (orchestrator?.seekToTime) orchestrator.seekToTime(0.0);
+          else if (orchestrator) orchestrator.restart();
         }
         updateWaveDisplays();
+      } else if (orchestrator) {
+        orchestrator.isPlaying = false;
       }
 
       window.simTime = simTime;
@@ -2818,12 +2839,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           lon: stageOrOpts.lon ?? 127.045053,
           name: stageOrOpts.name || '서울 성동 · 한양대학교',
           shortName: stageOrOpts.shortName || '서울 한양대',
-          eventId: stageOrOpts.eventId || 'hist_1681_0626',
+          eventId: stageOrOpts.eventId || null,
           stage: stageOrOpts.stage || 'CAMPUS_OVERVIEW'
         };
         pendingLocalCityFlight = opts;
         controlSurface?.updateGlobalDevLabVisibility?.();
-        await startDescentFlight(opts.eventId, { preservePendingLocalCity: true, durationSec: 1.75 });
+        const flightTargetEvent = stageOrOpts.eventId || 'hist_1518_seoul';
+        await startDescentFlight(flightTargetEvent, { preservePendingLocalCity: true, durationSec: 1.75 });
         return { flyingToLocal: true, target: opts };
       }
 

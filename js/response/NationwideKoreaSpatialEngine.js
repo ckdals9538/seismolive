@@ -11,7 +11,15 @@
 //   - Deterministic Offline Fallbacks for key Korean seismic benchmarks
 // ============================================================================
 
-import { VERIFICATION_STATUS } from './ResponseDomainTypes.js';
+import {
+  VERIFICATION_STATUS,
+  DATA_ORIGIN_TYPES,
+  SCENARIO_TYPES,
+  IMPACT_ZONE_STATUS,
+  CANDIDATE_STATUS,
+  INDOOR_SPATIAL_SCOPE,
+  createProvenanceRecord
+} from './ResponseDomainTypes.js';
 import {
   HANYANG_LOCAL_4KM_PACKAGE,
   HANYANG_LOCAL_SPATIAL_METADATA,
@@ -19,12 +27,20 @@ import {
 } from './HanyangLocalSpatialData.js';
 import { HANYANG_CAMPUS_WALK_GRAPH } from './HanyangCampusWalkData.js';
 import {
-  decomposePolygonToOBBs,
   polygonArea2D,
   buildDynamicFacilityFromPoint,
   doesSegmentIntersectOBBXZ
 } from './CampusWalkRouter.js';
 import { sampleGridHeightAt } from './LocalSpatialMapLayer.js';
+import {
+  HazardProvider,
+  IndoorSpatialProvider,
+  BuildingProvider,
+  RoadNetworkProvider,
+  FacilityProvider,
+  geodesicDistanceKm,
+  geodesicBearingDeg
+} from './SpatialDataProviders.js';
 
 export const HANYANG_SHELTER_JUSTIFICATION = Object.freeze({
   'OA-21060': Object.freeze({
@@ -94,133 +110,220 @@ export const KOREA_BENCHMARK_REGIONS = Object.freeze([
     id: 'seoul_hanyang',
     name: '서울 성동 · 한양대학교',
     shortName: '서울 한양대',
-    subtitle: '한반도 직하·원거리 역사지진 수도권 3D 대피 기준 권역',
+    subtitle: '실측 OSM 건물·보행망 + 제1공학관(212동) 3F 파일럿 실내망 검증 기준 권역',
     lat: 37.555815,
     lon: 127.045053,
     isHanyangDefault: true,
     scenarioEvent: Object.freeze({
-      id: 'SJM-1681-CAPSTONE',
-      title: '1681 양양 역사지진 서울 감응 · 도시 대피 시나리오',
-      epicenterLat: 38.05,
-      epicenterLon: 128.65,
-      originText: '강원도 양양 인근 (숙종 7년 5월 14일 실록 기록)',
-      magnitudeText: '규모 미상(사료 기록)',
-      depthText: '진원 깊이 미상',
-      distanceKm: 164.7,
-      azimuthDeg: 72.4,
-      pArrivalSec: 23.5,
-      sArrivalSec: 47.1
+      id: 'SYNTH-SEOUL-DRILL',
+      scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+      title: '서울 성동 인근 가상 근거리 단층 대피 훈련 (교육용 합성)',
+      epicenterLat: 37.585,
+      epicenterLon: 127.095,
+      magnitude: 5.2,
+      depthKm: 10,
+      originText: '서울 성동·광진 북동측 약 5.4km 인근 (교육용 합성 단층)',
+      magnitudeText: 'M5.2 (교육용 가상 설정)',
+      depthText: '진원 깊이 10km (가상)',
+      source: 'SEISMOLIVE_EDUCATIONAL_SYNTHETIC'
+    })
+  }),
+  Object.freeze({
+    id: 'sokcho',
+    name: '강원 속초 · 청초·교동 연안 도심',
+    shortName: '속초 도심',
+    subtitle: '동해안 연안·청초호 수계 인접 도심 지진·대피 분석 권역 (범용 OSM)',
+    lat: 38.2070,
+    lon: 128.5918,
+    isHanyangDefault: false,
+    scenarioEvent: Object.freeze({
+      id: 'SYNTH-SOKCHO-DRILL',
+      scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+      title: '속초 동북동 해역 가상 지진 대응 시나리오 (교육용 합성)',
+      epicenterLat: 38.245,
+      epicenterLon: 128.695,
+      magnitude: 5.4,
+      depthKm: 12,
+      originText: '강원 속초시 동북동 해역 약 10km (교육용 합성)',
+      magnitudeText: 'M5.4 (교육용 가상 설정)',
+      depthText: '진원 깊이 12km (가상)',
+      source: 'SEISMOLIVE_EDUCATIONAL_SYNTHETIC'
     })
   }),
   Object.freeze({
     id: 'gyeongju',
     name: '경북 경주 · 황남·월성 지구',
-    shortName: '경주 진앙권',
-    subtitle: '2016.09.12 경주 지진(M5.8) 인접 한옥·구도심 개활 대피 권역',
+    shortName: '경주 도심',
+    subtitle: '2016.09.12 경주 지진(M5.8) 인접 구도심·형산강 수계 대피 분석 권역',
     lat: 35.8347,
     lon: 129.2190,
     isHanyangDefault: false,
     scenarioEvent: Object.freeze({
       id: 'KMA-2016-GYEONGJU',
-      title: '2016 경주 M5.8 내남면 단층 파열 · 구도심 대피 권역',
+      scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+      title: '2016 경주 M5.8 내남면 관측 지진 · 구도심 대응',
       epicenterLat: 35.760,
       epicenterLon: 129.190,
-      originText: '경북 경주시 남남서쪽 8.7km (2016.09.12)',
-      magnitudeText: 'M5.8 (기상청 계기 기록)',
+      magnitude: 5.8,
+      depthKm: 15,
+      occurredAt: '2016-09-12T11:32:54Z',
+      originText: '경북 경주시 남남서쪽 약 8.7km (2016.09.12 기상청 관측)',
+      magnitudeText: 'M5.8 (기상청 계기 관측)',
       depthText: '진원 깊이 약 15km',
-      distanceKm: 8.7,
-      azimuthDeg: 197.5,
-      pArrivalSec: 1.5,
-      sArrivalSec: 2.6
+      source: 'KMA_OBSERVED_ARCHIVE'
     })
   }),
   Object.freeze({
     id: 'pohang',
     name: '경북 포항 · 흥해·중앙 지구',
     shortName: '포항 흥해권',
-    subtitle: '2017.11.15 포항 지진(M5.4) 천부 지진 단층 대피 권역',
+    subtitle: '2017.11.15 포항 지진(M5.4) 천부 단층 도심 대응 분석 권역',
     lat: 36.1086,
     lon: 129.3490,
     isHanyangDefault: false,
     scenarioEvent: Object.freeze({
       id: 'KMA-2017-POHANG',
-      title: '2017 포항 M5.4 흥해 천부 단층 · 필로티 회피 대피 권역',
+      scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+      title: '2017 포항 M5.4 흥해 천부 단층 관측 지진',
       epicenterLat: 36.109,
       epicenterLon: 129.366,
-      originText: '경북 포항시 북구 북쪽 9km (2017.11.15)',
-      magnitudeText: 'M5.4 (기상청 계기 기록)',
+      magnitude: 5.4,
+      depthKm: 7,
+      occurredAt: '2017-11-15T05:29:31Z',
+      originText: '경북 포항시 북구 북쪽 9km (2017.11.15 기상청 관측)',
+      magnitudeText: 'M5.4 (기상청 계기 관측)',
       depthText: '진원 깊이 약 7km',
-      distanceKm: 1.6,
-      azimuthDeg: 88.2,
-      pArrivalSec: 1.1,
-      sArrivalSec: 2.0
+      source: 'KMA_OBSERVED_ARCHIVE'
     })
   }),
   Object.freeze({
     id: 'yangyang',
     name: '강원 양양 · 낙산·읍내 지구',
     shortName: '양양 역사권',
-    subtitle: '1681년 조선 숙종 7년 대규모 역사지진 진원 추정 연안 권역',
+    subtitle: '1681년 조선 숙종 7년 역사 문헌 사료 진원 추정 연안 권역',
     lat: 38.0754,
     lon: 128.6189,
     isHanyangDefault: false,
     scenarioEvent: Object.freeze({
       id: 'HIST-1681-YANGYANG',
-      title: '1681 양양·강릉 대지진(승정원일기) 동해안 고지 대피 권역',
+      scenarioType: SCENARIO_TYPES.HISTORICAL_RECORD,
+      title: '1681 양양·강릉 역사지진 사료 기록 (승정원일기·조선왕조실록)',
       epicenterLat: 38.05,
       epicenterLon: 128.65,
-      originText: '강원도 양양·강릉 해역 (1681.06.26)',
-      magnitudeText: '규모 미상 (한반도 전역 감지)',
+      magnitude: null,
+      depthKm: null,
+      occurredAt: '1681-06-26',
+      originText: '강원도 양양·강릉 해역 추정 (1681.06.26 사료 기록)',
+      magnitudeText: '규모 미상 (역사 문헌 사료)',
       depthText: '진원 깊이 미상',
-      distanceKm: 3.9,
-      azimuthDeg: 136.0,
-      pArrivalSec: 1.4,
-      sArrivalSec: 2.5
+      source: 'CHOSUN_ANNALS_HISTORICAL'
     })
   }),
   Object.freeze({
     id: 'buan',
     name: '전북 부안 · 부안읍 지구',
-    shortName: '부안 진앙권',
-    subtitle: '2024.06.12 부안 지진(M4.8) 호남 내륙 단층 대피 권역',
+    shortName: '부안 내륙권',
+    subtitle: '2024.06.12 부안 지진(M4.8) 호남 내륙 소도시 대피 분석 권역',
     lat: 35.7285,
     lon: 126.7318,
     isHanyangDefault: false,
     scenarioEvent: Object.freeze({
       id: 'KMA-2024-BUAN',
-      title: '2024 부안 M4.8 남남서 단층 · 내륙 소도시 대피 권역',
+      scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+      title: '2024 부안 M4.8 내륙 관측 지진',
       epicenterLat: 35.700,
       epicenterLon: 126.710,
-      originText: '전북 부안군 남남서쪽 4km (2024.06.12)',
-      magnitudeText: 'M4.8 (기상청 계기 기록)',
+      magnitude: 4.8,
+      depthKm: 8,
+      occurredAt: '2024-06-11T23:26:49Z',
+      originText: '전북 부안군 남남서쪽 4km (2024.06.12 기상청 관측)',
+      magnitudeText: 'M4.8 (기상청 계기 관측)',
       depthText: '진원 깊이 약 8km',
-      distanceKm: 3.7,
-      azimuthDeg: 212.0,
-      pArrivalSec: 1.4,
-      sArrivalSec: 2.5
+      source: 'KMA_OBSERVED_ARCHIVE'
     })
   }),
   Object.freeze({
     id: 'busan_haeundae',
     name: '부산 해운대 · 좌동 지구',
     shortName: '부산 해운대',
-    subtitle: '동남권 고밀도 해안 도심 지진·해일 고지 대피 권역',
+    subtitle: '동남권 고밀도 해안 도심 지진·연안 대피 분석 권역',
     lat: 35.1695,
     lon: 129.1725,
     isHanyangDefault: false,
     scenarioEvent: Object.freeze({
-      id: 'KMA-SE-BUSAN',
-      title: '울산·양산단층 동남권 지진 · 해안 고밀도 블록 대피 권역',
+      id: 'SYNTH-BUSAN-SE',
+      scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+      title: '울산·동남권 해역 가상 지진 대응 시나리오 (교육용 합성)',
       epicenterLat: 35.42,
       epicenterLon: 129.55,
-      originText: '동남권 해역 단층대 시나리오',
-      magnitudeText: 'M5.9 (시나리오 가정)',
-      depthText: '진원 깊이 약 12km',
-      distanceKm: 44.1,
-      azimuthDeg: 50.8,
-      pArrivalSec: 7.4,
-      sArrivalSec: 12.6
+      magnitude: 5.9,
+      depthKm: 12,
+      originText: '동남권 해역 단층대 가상 지진 (교육용 합성)',
+      magnitudeText: 'M5.9 (교육용 가상 설정)',
+      depthText: '진원 깊이 12km (가상)',
+      source: 'SEISMOLIVE_EDUCATIONAL_SYNTHETIC'
     })
+  })
+]);
+
+/**
+ * Independent Earthquake Scenarios selectable against ANY user/analysis location.
+ * Strictly demarcates OBSERVED_EVENT, EDUCATIONAL_SYNTHETIC, and HISTORICAL_RECORD.
+ */
+export const PRESET_EARTHQUAKE_SCENARIOS = Object.freeze([
+  Object.freeze({
+    id: 'SYNTH-LOCAL-M52',
+    scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+    title: '분석 지점 근거리 가상 단층 시나리오 (교육용)',
+    useLocalOffset: true,
+    offsetLatDeg: 0.032,
+    offsetLonDeg: 0.045,
+    magnitude: 5.2,
+    depthKm: 10
+  }),
+  Object.freeze({
+    id: 'KMA-2016-GYEONGJU',
+    scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+    title: '2016.09.12 경주 M5.8 (실제 기상청 관측)',
+    epicenterLat: 35.760,
+    epicenterLon: 129.190,
+    magnitude: 5.8,
+    depthKm: 15,
+    occurredAt: '2016-09-12T11:32:54Z',
+    originText: '경북 경주시 남남서쪽 8.7km (KMA 계기 기록)'
+  }),
+  Object.freeze({
+    id: 'KMA-2017-POHANG',
+    scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+    title: '2017.11.15 포항 M5.4 (실제 기상청 관측)',
+    epicenterLat: 36.109,
+    epicenterLon: 129.366,
+    magnitude: 5.4,
+    depthKm: 7,
+    occurredAt: '2017-11-15T05:29:31Z',
+    originText: '경북 포항시 북구 북쪽 9km (KMA 계기 기록)'
+  }),
+  Object.freeze({
+    id: 'KMA-2024-BUAN',
+    scenarioType: SCENARIO_TYPES.OBSERVED_EVENT,
+    title: '2024.06.12 부안 M4.8 (실제 기상청 관측)',
+    epicenterLat: 35.700,
+    epicenterLon: 126.710,
+    magnitude: 4.8,
+    depthKm: 8,
+    occurredAt: '2024-06-11T23:26:49Z',
+    originText: '전북 부안군 남남서쪽 4km (KMA 계기 기록)'
+  }),
+  Object.freeze({
+    id: 'HIST-1681-YANGYANG',
+    scenarioType: SCENARIO_TYPES.HISTORICAL_RECORD,
+    title: '1681 양양·강릉 역사지진 사료 (승정원일기)',
+    epicenterLat: 38.05,
+    epicenterLon: 128.65,
+    magnitude: null,
+    depthKm: null,
+    occurredAt: '1681-06-26',
+    originText: '강원도 양양·강릉 해역 추정 (역사 사료 · 규모 미상)'
   })
 ]);
 
@@ -452,120 +555,53 @@ export async function fetchTerrariumTerrainGrid(lat, lon, opts = {}) {
   }
 }
 
-function estimateBuildingHeightMeters(tags = {}, areaSqMeters = 220) {
-  if (tags.height) {
-    const parsed = parseFloat(String(tags.height).replace(/[^0-9.]/g, ''));
-    if (Number.isFinite(parsed) && parsed >= 3 && parsed <= 240) return parsed;
-  }
-  if (tags['building:levels']) {
-    const lvls = parseFloat(String(tags['building:levels']).replace(/[^0-9.]/g, ''));
-    if (Number.isFinite(lvls) && lvls >= 1 && lvls <= 70) return Number((lvls * 3.35).toFixed(1));
-  }
-  const btype = String(tags.building || '').toLowerCase();
-  if (btype === 'apartments' || btype === 'office' || btype === 'commercial') {
-    return areaSqMeters > 700 ? 28.0 : 18.5;
-  }
-  if (btype === 'school' || btype === 'university' || btype === 'hospital' || btype === 'public') {
-    return 17.5;
-  }
-  if (btype === 'house' || btype === 'residential' || btype === 'detached') {
-    return 7.8;
-  }
-  if (areaSqMeters > 1200) return 21.0;
-  if (areaSqMeters > 450) return 14.0;
-  return 9.5;
-}
+export function evaluateRegionalHazard(regionOrScenario, userLat, userLon) {
+  const lat = Number.isFinite(userLat) ? userLat : 37.555815;
+  const lon = Number.isFinite(userLon) ? userLon : 127.045053;
+  const raw = regionOrScenario?.scenarioEvent || regionOrScenario || {};
+  const epiLat = Number.isFinite(raw.epicenterLat)
+    ? raw.epicenterLat
+    : (raw.useLocalOffset ? lat + (raw.offsetLatDeg ?? 0.032) : lat + 0.032);
+  const epiLon = Number.isFinite(raw.epicenterLon)
+    ? raw.epicenterLon
+    : (raw.useLocalOffset ? lon + (raw.offsetLonDeg ?? 0.045) : lon + 0.045);
 
-function classifyOsmHighway(tags = {}) {
-  const hw = String(tags.highway || '').toLowerCase();
-  if (tags.railway === 'rail' || tags.railway === 'subway' || tags.railway === 'light_rail') return 'rail';
-  if (hw === 'motorway' || hw === 'motorway_link') return 'motorway';
-  if (hw === 'trunk' || hw === 'trunk_link') return 'trunk';
-  if (hw === 'primary' || hw === 'primary_link') return 'primary';
-  if (hw === 'secondary' || hw === 'secondary_link') return 'secondary';
-  if (hw === 'tertiary' || hw === 'tertiary_link' || hw === 'unclassified') return 'tertiary';
-  if (
-    hw === 'footway' || hw === 'steps' || hw === 'pedestrian' ||
-    hw === 'path' || hw === 'cycleway' || hw === 'living_street' ||
-    hw === 'residential' || hw === 'service'
-  ) {
-    return hw === 'footway' || hw === 'steps' || hw === 'pedestrian' || hw === 'path'
-      ? 'footway'
-      : 'tertiary';
-  }
-  return null;
-}
+  const hazard = HazardProvider.createScenario({
+    id: raw.id || `SCENARIO_${lat.toFixed(2)}_${lon.toFixed(2)}`,
+    scenarioType: raw.scenarioType || SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+    title: raw.title || '사용자 지정 지진 시나리오',
+    epicenterLat: epiLat,
+    epicenterLon: epiLon,
+    magnitude: raw.magnitude !== undefined ? raw.magnitude : 5.2,
+    depthKm: raw.depthKm !== undefined ? raw.depthKm : 10,
+    originText: raw.originText || '사용자·시나리오 지정 진앙',
+    occurredAt: raw.occurredAt || null,
+    source: raw.source || 'SEISMOLIVE_HAZARD_PROVIDER'
+  });
 
-function isWalkableOsmHighway(tags = {}) {
-  const hw = String(tags.highway || '').toLowerCase();
-  if (!hw) return false;
-  if (hw === 'motorway' || hw === 'motorway_link' || hw === 'trunk' || hw === 'trunk_link') return false;
-  return (
-    hw === 'footway' || hw === 'steps' || hw === 'pedestrian' || hw === 'path' ||
-    hw === 'cycleway' || hw === 'living_street' || hw === 'residential' ||
-    hw === 'service' || hw === 'unclassified' || hw === 'tertiary' ||
-    hw === 'secondary' || hw === 'primary' || hw === 'track'
-  );
-}
-
-function pointInsideBBox(east_m, north_m, box) {
-  return (
-    east_m >= box.minE && east_m <= box.maxE &&
-    north_m >= box.minN && north_m <= box.maxN
-  );
-}
-
-function computePolygonCentroidAndBBox(ptsEN) {
-  let minE = Infinity;
-  let maxE = -Infinity;
-  let minN = Infinity;
-  let maxN = -Infinity;
-  let sumE = 0;
-  let sumN = 0;
-  for (const [e, n] of ptsEN) {
-    if (e < minE) minE = e;
-    if (e > maxE) maxE = e;
-    if (n < minN) minN = n;
-    if (n > maxN) maxN = n;
-    sumE += e;
-    sumN += n;
-  }
-  const len = Math.max(1, ptsEN.length);
+  const evalResult = HazardProvider.evaluateSeismicImpactAtLocation(hazard, lat, lon);
   return {
-    centroidE: sumE / len,
-    centroidN: sumN / len,
-    minE,
-    maxE,
-    minN,
-    maxN,
-    spanMeters: Math.max(maxE - minE, maxN - minN)
+    ...hazard,
+    distanceKm: evalResult.distanceKm,
+    azimuthDeg: evalResult.bearingDeg,
+    pArrivalSec: evalResult.pWaveEtaSec,
+    sArrivalSec: evalResult.sWaveEtaSec,
+    impactAssessment: evalResult
   };
 }
 
-function isPointInsidePolygonEN(east_m, north_m, ptsEN) {
-  let inside = false;
-  for (let i = 0, j = ptsEN.length - 1; i < ptsEN.length; j = i++) {
-    const xi = ptsEN[i][0];
-    const yi = ptsEN[i][1];
-    const xj = ptsEN[j][0];
-    const yj = ptsEN[j][1];
-    const intersect = (yi > north_m) !== (yj > north_m) &&
-      east_m < ((xj - xi) * (north_m - yi)) / ((yj - yi) || 1e-9) + xi;
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
 /**
- * Compile raw OSM 0.6 JSON (+ optional Terrarium terrainGrid) into a complete,
- * OBB-decomposed, collision-free nationwide Spatial Package consumed by LocalSpatialMapLayer.
+ * Compile raw OSM 0.6 / Overpass JSON (+ optional Terrarium terrainGrid) into a complete,
+ * OBB-decomposed, collision-free nationwide Spatial Package using the 7 normalized providers.
+ * NEVER fabricates buildings, walkable grids, indoor floorplans, or shelters when sparse/missing.
  */
 export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
   const anchorLat = opts.lat ?? 37.555815;
   const anchorLon = opts.lon ?? 127.045053;
   const regionId = opts.regionId || `KR_${anchorLat.toFixed(4)}_${anchorLon.toFixed(4)}`;
-  const regionTitle = opts.title || '대한민국 지진 대응 3D 국지 공간 패키지';
-  const halfExtentMeters = opts.halfExtentMeters || 1400.0;
+  const regionTitle = opts.title || `대한민국 (${anchorLat.toFixed(4)}°N, ${anchorLon.toFixed(4)}°E) 국지 3D 공간 패키지`;
+  const halfExtentMeters = opts.halfExtentMeters || 1800.0;
+  const impactStatus = opts.impactStatus || IMPACT_ZONE_STATUS.EDUCATIONAL_DRILL;
 
   const terrainGrid = opts.terrainGrid || {
     nx: 48,
@@ -578,277 +614,160 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
   };
 
   const elements = Array.isArray(osmJson?.elements) ? osmJson.elements : [];
-  const osmNodesById = new Map();
 
-  for (const el of elements) {
-    if (el.type === 'node' && Number.isFinite(el.lat) && Number.isFinite(el.lon)) {
-      const [e, n] = latLonToLocalENU(el.lat, el.lon, anchorLat, anchorLon);
-      osmNodesById.set(el.id, {
-        id: el.id,
-        lat: el.lat,
-        lon: el.lon,
-        e: Number(e.toFixed(2)),
-        n: Number(n.toFixed(2)),
-        tags: el.tags || null
-      });
-    }
-  }
+  // Provider 4: Buildings (concave OBB wings + Section 8 indoor scoping; zero fake blocks)
+  const buildingData = BuildingProvider.extractFromOsmElements(elements, {
+    anchorLat,
+    anchorLon,
+    terrainGrid,
+    halfExtentMeters
+  });
 
-  const obbRawList = [];
-  const namedBuildings = [];
-  const denseRoadNetwork = [];
-  const waterPolygons = [];
-  const greenPolygons = [];
-  const waterways = [];
-  const shelterCandidates = [];
-  const walkableWays = [];
+  // Provider 5: Road Network & Hydrology (walkable ways + bridges + crossings + waterways; zero fake grid)
+  const roadData = RoadNetworkProvider.extractFromOsmElements(elements, {
+    anchorLat,
+    anchorLon,
+    terrainGrid,
+    halfExtentMeters
+  });
 
-  const getWayPointsEN = way => {
-    const ids = Array.isArray(way.nodes) ? way.nodes : [];
-    const pts = [];
-    for (const nid of ids) {
-      const nd = osmNodesById.get(nid);
-      if (nd) pts.push([nd.e, nd.n, nd.id]);
-    }
-    return pts;
-  };
+  const {
+    obbRawList,
+    obbBuildingsFloat32,
+    obbGroundOffsets,
+    obbLodCounts,
+    namedBuildings
+  } = buildingData;
 
-  // Pass 1: Process OSM Ways (Buildings, Roads, Green, Water, Walkways, Shelters)
-  for (const el of elements) {
-    if (el.type !== 'way') continue;
-    const tags = el.tags || {};
-    const rawPts = getWayPointsEN(el);
-    if (rawPts.length < 2) continue;
+  const {
+    denseRoadNetwork,
+    waterPolygons,
+    waterways,
+    greenPolygons,
+    walkGraph
+  } = roadData;
 
-    const ptsEN = rawPts.map(p => [p[0], p[1]]);
-    const { centroidE, centroidN, minE, maxE, minN, maxN, spanMeters } = computePolygonCentroidAndBBox(ptsEN);
-    if (Math.abs(centroidE) > halfExtentMeters + 250 || Math.abs(centroidN) > halfExtentMeters + 250) {
-      continue;
-    }
-
-    // A) Building -> Concave Wing-OBB Decomposition
-    if (tags.building && ptsEN.length >= 3) {
-      const closedClean = ptsEN.slice();
-      if (
-        closedClean.length > 2 &&
-        Math.hypot(closedClean[0][0] - closedClean[closedClean.length - 1][0], closedClean[0][1] - closedClean[closedClean.length - 1][1]) < 0.05
-      ) {
-        closedClean.pop();
-      }
-      if (closedClean.length < 3) continue;
-      const area = polygonArea2D(closedClean);
-      if (area < 9.0) continue;
-      const height_m = estimateBuildingHeightMeters(tags, area);
-      const wingObbs = decomposePolygonToOBBs(closedClean, height_m);
-      const groundY = sampleGridHeightAt(terrainGrid, centroidE, centroidN);
-
-      for (const obb of wingObbs) {
-        obbRawList.push({
-          east_m: Number(obb[0].toFixed(2)),
-          north_m: Number(obb[1].toFixed(2)),
-          width_m: Number(obb[2].toFixed(2)),
-          depth_m: Number(obb[3].toFixed(2)),
-          yaw_rad: Number(obb[4].toFixed(4)),
-          height_m: Number(obb[5].toFixed(2)),
-          groundY_m: sampleGridHeightAt(terrainGrid, obb[0], obb[1])
-        });
-      }
-
-      const bName = tags['name:ko'] || tags.name || tags['addr:housename'] || null;
-      if (bName && wingObbs.length > 0 && namedBuildings.length < 90) {
-        const primary = wingObbs[0];
-        namedBuildings.push({
-          id: `OSM_BLDG_${el.id}`,
-          name: bName,
-          category: tags.amenity === 'hospital' ? 'MEDICAL' : tags.amenity === 'school' || tags.building === 'school' ? 'SCHOOL' : 'URBAN_BUILDING',
-          east_m: Number(centroidE.toFixed(2)),
-          north_m: Number(centroidN.toFixed(2)),
-          groundY_m: Number(groundY.toFixed(2)),
-          width_m: Number(primary[2].toFixed(2)),
-          depth_m: Number(primary[3].toFixed(2)),
-          yaw_rad: Number(primary[4].toFixed(4)),
-          height_m: Number(height_m.toFixed(2)),
-          isTargetBuilding: false,
-          priority: tags.amenity === 'hospital' || tags.building === 'public' ? 88 : Math.min(82, Math.round(45 + area * 0.015))
-        });
-      }
-      continue;
-    }
-
-    // B) Roads & Railways
-    const roadCls = classifyOsmHighway(tags);
-    if (roadCls) {
-      const bridgeInt = tags.bridge && tags.bridge !== 'no' ? 1 : 0;
-      denseRoadNetwork.push([roadCls, bridgeInt, ptsEN.map(([e, n]) => [Number(e.toFixed(1)), Number(n.toFixed(1))])]);
-      if (isWalkableOsmHighway(tags)) {
-        walkableWays.push({ el, tags, rawPts });
-      }
-      continue;
-    }
-
-    // C) Waterways / Water Polygons
-    if (tags.waterway && !tags.natural) {
-      waterways.push({
-        id: `WATERWAY_${el.id}`,
-        name: tags['name:ko'] || tags.name || '하천',
-        widthMeters: tags.waterway === 'river' ? 38.0 : 12.0,
-        elevationY: sampleGridHeightAt(terrainGrid, centroidE, centroidN) - 0.6,
-        provenance: VERIFICATION_STATUS.VERIFIED,
-        pointsEN: ptsEN
-      });
-      continue;
-    }
-
-    if ((tags.natural === 'water' || tags.waterway === 'riverbank') && ptsEN.length >= 3) {
-      waterPolygons.push({
-        outer: ptsEN,
-        holes: [],
-        y: Number((sampleGridHeightAt(terrainGrid, centroidE, centroidN) - 0.45).toFixed(2))
-      });
-      continue;
-    }
-
-    // D) Green Areas / Open Fields / Earthquake Shelter Candidates
-    const isOpenGround =
-      tags.leisure === 'park' ||
-      tags.leisure === 'pitch' ||
-      tags.leisure === 'stadium' ||
-      tags.leisure === 'playground' ||
-      tags.leisure === 'recreation_ground' ||
-      tags.landuse === 'grass' ||
-      tags.landuse === 'recreation_ground' ||
-      tags.landuse === 'village_green' ||
-      tags.amenity === 'school' ||
-      tags.emergency === 'assembly_point';
-
-    if (isOpenGround && ptsEN.length >= 3) {
-      const area = polygonArea2D(ptsEN);
-      if (area >= 220) {
-        greenPolygons.push(ptsEN);
-        // Mark greenMask on terrainGrid inside polygon bbox
-        const { nx, nz, halfExtentMeters: gridHalf, greenMask } = terrainGrid;
-        if (greenMask && gridHalf > 0) {
-          const gridSpan = gridHalf * 2;
-          const iMin = Math.max(0, Math.floor(((minE + gridHalf) / gridSpan) * nx));
-          const iMax = Math.min(nx, Math.ceil(((maxE + gridHalf) / gridSpan) * nx));
-          const jMin = Math.max(0, Math.floor(((minN + gridHalf) / gridSpan) * nz));
-          const jMax = Math.min(nz, Math.ceil(((maxN + gridHalf) / gridSpan) * nz));
-          const bbox = { minE, maxE, minN, maxN };
-          for (let j = jMin; j <= jMax; j++) {
-            const gn = -gridHalf + (j / nz) * gridSpan;
-            for (let i = iMin; i <= iMax; i++) {
-              const ge = -gridHalf + (i / nx) * gridSpan;
-              if (pointInsideBBox(ge, gn, bbox) && isPointInsidePolygonEN(ge, gn, ptsEN)) {
-                greenMask[j * (nx + 1) + i] = 1;
-              }
-            }
-          }
-        }
-      }
-
-      if (area >= 650 && spanMeters >= 24) {
-        const isExplicitAssembly = tags.emergency === 'assembly_point';
-        const isPitchOrSchool = tags.leisure === 'pitch' || tags.leisure === 'stadium' || tags.amenity === 'school' || tags.leisure === 'recreation_ground';
-        const label =
-          tags['name:ko'] ||
-          tags.name ||
-          (tags.amenity === 'school' ? '인근 학교 운동장(임시 집결 후보)' :
-            tags.leisure === 'pitch' ? '체육 운동장 공터' :
-            isExplicitAssembly ? '지진 옥외집결지(OSM)' : '도시 개활 공원 광장');
-        const capacity = Math.min(18000, Math.max(120, Math.round((area * 0.5) / 1.65)));
-        shelterCandidates.push({
-          id: isExplicitAssembly ? `OSM-AP-${el.id}` : `OSM-OPEN-${el.id}`,
-          name: label,
-          east_m: Number(centroidE.toFixed(2)),
-          north_m: Number(centroidN.toFixed(2)),
-          areaSqMeters: Math.round(area),
-          spanMeters: Number(spanMeters.toFixed(1)),
-          capacityEstimate: capacity,
-          isExplicitAssembly,
-          isPitchOrSchool,
-          ptsEN
-        });
-      }
-    }
-  }
-
-  // Pass 2: Also check point nodes tagged emergency=assembly_point or hospital/school
-  for (const [, nd] of osmNodesById) {
-    const tags = nd.tags;
-    if (!tags) continue;
-    if (Math.abs(nd.e) > halfExtentMeters || Math.abs(nd.n) > halfExtentMeters) continue;
-    if (tags.emergency === 'assembly_point') {
-      shelterCandidates.push({
-        id: `OSM-AP-NODE-${nd.id}`,
-        name: tags['name:ko'] || tags.name || '공식 집결표지 지점(OSM)',
-        east_m: nd.e,
-        north_m: nd.n,
-        areaSqMeters: 2400,
-        spanMeters: 48,
-        capacityEstimate: 720,
-        isExplicitAssembly: true,
-        isPitchOrSchool: false,
-        ptsEN: null
-      });
-    }
-  }
-
-  // Height-sort OBBs for overviewCount LOD & pack Float32Array
-  obbRawList.sort((a, b) => b.height_m - a.height_m);
-  const obbFloat32 = new Float32Array(obbRawList.length * 6);
-  const groundOffsets = new Float32Array(obbRawList.length);
-  for (let i = 0; i < obbRawList.length; i++) {
-    const b = obbRawList[i];
-    const base = i * 6;
-    obbFloat32[base + 0] = b.east_m;
-    obbFloat32[base + 1] = b.north_m;
-    obbFloat32[base + 2] = b.width_m;
-    obbFloat32[base + 3] = b.depth_m;
-    obbFloat32[base + 4] = b.yaw_rad;
-    obbFloat32[base + 5] = b.height_m;
-    groundOffsets[i] = b.groundY_m;
-  }
-
-  // Build Pedestrian WalkGraph from OSM walkable ways
-  const walkGraph = buildWalkGraphFromOsmWays(walkableWays, anchorLat, anchorLon, terrainGrid);
-
-  // Evaluate & Rank Shelters using real debris clearance & connectivity to walkGraph
-  const rankedShelters = rankAndFilterShelters(
-    shelterCandidates,
+  // Determine Origin Point/Building near center (0, 0) without fabricating a fake building when absent
+  const defaultOrigin = pickDefaultOriginBuilding(
+    namedBuildings,
     obbRawList,
     walkGraph,
     terrainGrid
   );
 
-  // Guarantee at least one open safe shelter if a sparse rural query returned 0 polygon parks
-  if (rankedShelters.length === 0) {
-    const fallbackOpen = findNearestOpenClearancePoint(obbRawList, walkGraph, terrainGrid);
-    rankedShelters.push(fallbackOpen);
+  const originEN = defaultOrigin ? [defaultOrigin.east_m, defaultOrigin.north_m] : [0, 0];
+
+  // Provider 6: Facility / Destination Candidates with honest multi-dimensional evaluation
+  const facilityEval = FacilityProvider.discoverAndEvaluateCandidates(elements, {
+    anchorLat,
+    anchorLon,
+    terrainGrid,
+    obbRawList,
+    walkGraph,
+    waterPolygons,
+    waterways,
+    impactStatus,
+    originEN,
+    halfExtentMeters
+  });
+
+  const rankedShelters = facilityEval.candidates;
+  const primaryCandidate = facilityEval.primaryCandidate;
+  const reachableCandidates = rankedShelters.filter(c => c.candidateStatus !== CANDIDATE_STATUS.UNAVAILABLE);
+
+  // Build Initial Facility Package ONLY if walkable road data & a viable candidate exist
+  let initialFacilityPackage = null;
+  if (primaryCandidate && walkGraph.edges.length > 0 && defaultOrigin) {
+    const builtPkg = buildDynamicFacilityFromPoint({
+      buildingId: defaultOrigin.id,
+      name: defaultOrigin.name,
+      east_m: defaultOrigin.east_m,
+      north_m: defaultOrigin.north_m,
+      width_m: defaultOrigin.width_m,
+      depth_m: defaultOrigin.depth_m,
+      yaw_rad: defaultOrigin.yaw_rad,
+      height_m: defaultOrigin.height_m,
+      hasIndoorData: false,
+      indoorScope: defaultOrigin.indoorScope || INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY,
+      levelsKnown: defaultOrigin.levelsKnown ?? null,
+      anchor: { lat: anchorLat, lon: anchorLon, h: terrainGrid.anchorElevationMeters || 20 },
+      walkGraph,
+      buildingOBBs: obbBuildingsFloat32,
+      waterPolygons,
+      waterways,
+      shelter: primaryCandidate,
+      destinationStatus: primaryCandidate.candidateStatus,
+      elevationSampler: (e, n) => sampleGridHeightAt(terrainGrid, e, n)
+    });
+
+    if (builtPkg && builtPkg.outdoorGraph?.edges?.length > 0) {
+      initialFacilityPackage = builtPkg;
+    }
   }
 
-  // Pick a compelling, well-connected Default Origin Building near anchor (0, 0)
-  const primaryShelter = rankedShelters[0];
-  const defaultOrigin = pickDefaultOriginBuilding(
-    namedBuildings,
-    obbRawList,
-    primaryShelter,
-    terrainGrid
-  );
+  // Honest Data Completeness Grading (Section 7)
+  let dataCompleteness = 'INSUFFICIENT';
+  if (obbRawList.length >= 6 && walkGraph.edges.length >= 12 && reachableCandidates.length >= 1 && initialFacilityPackage) {
+    dataCompleteness = 'SUFFICIENT';
+  } else if (walkGraph.edges.length >= 1 || obbRawList.length >= 1 || rankedShelters.length >= 1) {
+    dataCompleteness = 'PARTIAL';
+  }
 
-  const overviewCount = Math.min(Math.max(1, obbRawList.length), Math.max(180, obbRawList.filter(b => b.height_m >= 18).length));
+  const dataLimitations = [];
+  if (obbRawList.length === 0) {
+    dataLimitations.push('주변 건축물(building) 외곽 데이터가 확인되지 않았습니다.');
+  } else {
+    dataLimitations.push('추출된 건물은 외곽 풋프린트만 존재하며, 파일럿 지정 건물이 아닌 이상 실내 평면도·비상계단 정보는 미제공입니다.');
+  }
+  if (walkGraph.edges.length === 0) {
+    dataLimitations.push('보행 가능 도로·보도 네트워크가 확인되지 않아 실측 경로를 계산할 수 없습니다.');
+  }
+  if (reachableCandidates.length === 0) {
+    dataLimitations.push(facilityEval.limitations || '접근 가능한 확인된 대피소 또는 개활 안전 후보를 찾지 못했습니다.');
+  } else {
+    dataLimitations.push('공식 행정안전부 지진옥외대피장소 실시간 API 미연동 구간에서는 OSM 개활 공터·집결지 태그를 조건부(CONDITIONAL) 후보로 제시합니다.');
+  }
+  if (terrainGrid.provenance === 'SYNTHETIC_SLOPE_FALLBACK' || terrainGrid.provenance === 'DEFAULT_FLAT_GRID') {
+    dataLimitations.push('실시간 DEM 고도 타일(Terrarium AWS) 미연결로 기본 표고 평면을 표시합니다.');
+  }
 
-  const pkg = {
+  const viewAnchorE = primaryCandidate?.east_m ?? defaultOrigin?.east_m ?? 0;
+  const viewAnchorN = primaryCandidate?.north_m ?? defaultOrigin?.north_m ?? 0;
+  const originE = defaultOrigin?.east_m ?? 0;
+  const originN = defaultOrigin?.north_m ?? 0;
+
+  return {
     metadata: {
       packageId: regionId,
       title: regionTitle,
       crs: 'LOCAL_TANGENT_ENU_WGS84',
       anchor: { lat: anchorLat, lon: anchorLon, ellipsoidalHeightMeters: terrainGrid.anchorElevationMeters || 20 },
+      dataCompleteness,
+      dataLimitations,
       dataSources: [
         `Terrain: ${terrainGrid.provenance || 'Mapzen Terrarium DEM'}`,
-        `Urban Massing & Walkable Sidewalks: OpenStreetMap 0.6 Live (${obbRawList.length} OBBs, ${walkGraph.edges.length} edges)`,
-        `Shelters: ${rankedShelters.map(s => s.provenanceLabel || s.provenance).slice(0, 2).join(', ')}`
+        `Buildings: ${buildingData.provenance.source} (${obbRawList.length} OBBs, ${buildingData.provenance.completeness})`,
+        `Roads: ${roadData.provenance.source} (${walkGraph.edges.length} walkable edges, ${roadData.provenance.completeness})`,
+        `Facilities: ${facilityEval.overallStatus} (${reachableCandidates.length}/${rankedShelters.length} reachable candidates)`
       ]
     },
+    providers: {
+      terrain: createProvenanceRecord({
+        source: terrainGrid.provenance || 'Mapzen Terrarium DEM',
+        sourceType: terrainGrid.provenance === 'MAPZEN_TERRARIUM_AWS_DEM'
+          ? DATA_ORIGIN_TYPES.OBSERVED
+          : DATA_ORIGIN_TYPES.UNKNOWN,
+        verificationStatus: terrainGrid.provenance === 'MAPZEN_TERRARIUM_AWS_DEM'
+          ? VERIFICATION_STATUS.VERIFIED
+          : VERIFICATION_STATUS.UNAVAILABLE
+      }),
+      buildings: buildingData.provenance,
+      roads: roadData.provenance,
+      facilities: facilityEval
+    },
+    dataCompleteness,
+    dataLimitations,
+    destinationAssessment: facilityEval,
     viewpoints: {
       LOCAL_4KM_OVERVIEW: {
         position: [-360.0, 440.0, 780.0],
@@ -863,8 +782,8 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
         far: 6500.0
       },
       CAMPUS_OVERVIEW: {
-        position: [primaryShelter.east_m + 180, 195, -primaryShelter.north_m + 260],
-        target: [(defaultOrigin.east_m + primaryShelter.east_m) * 0.5, 4, -(defaultOrigin.north_m + primaryShelter.north_m) * 0.5],
+        position: [viewAnchorE + 180, 195, -viewAnchorN + 260],
+        target: [(originE + viewAnchorE) * 0.5, 4, -(originN + viewAnchorN) * 0.5],
         near: 0.25,
         far: 6500.0
       }
@@ -881,342 +800,152 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     denseRoadNetwork,
     sheltersAndFacilities: rankedShelters,
     namedBuildings,
-    obbBuildingsFloat32: obbFloat32,
-    obbGroundOffsets: groundOffsets,
-    obbLodCounts: {
-      overviewCount,
-      fullCount: obbRawList.length,
-      stride: 6
-    },
+    obbBuildingsFloat32,
+    obbGroundOffsets,
+    obbLodCounts,
     walkGraph,
-    defaultOriginMeta: defaultOrigin
-  };
-
-  // Pre-build initial collision-free FacilityPackage ready for Evacuee Animation & Camera Staging
-  pkg.initialFacilityPackage = buildDynamicFacilityFromPoint({
-    buildingId: defaultOrigin.id,
-    name: defaultOrigin.name,
-    east_m: defaultOrigin.east_m,
-    north_m: defaultOrigin.north_m,
-    width_m: defaultOrigin.width_m,
-    depth_m: defaultOrigin.depth_m,
-    yaw_rad: defaultOrigin.yaw_rad,
-    height_m: defaultOrigin.height_m,
-    anchor: { lat: anchorLat, lon: anchorLon, h: terrainGrid.anchorElevationMeters || 20 },
-    walkGraph,
-    buildingOBBs: obbFloat32,
-    shelter: primaryShelter,
-    elevationSampler: (e, n) => sampleGridHeightAt(terrainGrid, e, n)
-  });
-
-  return pkg;
-}
-
-function buildWalkGraphFromOsmWays(walkableWays, anchorLat, anchorLon, terrainGrid) {
-  const nodeIndexByOsmId = new Map();
-  const nodes = [];
-  const edges = [];
-
-  const getOrAddNode = (osmId, east_m, north_m) => {
-    if (nodeIndexByOsmId.has(osmId)) return nodeIndexByOsmId.get(osmId);
-    const idx = nodes.length;
-    const y = Number(sampleGridHeightAt(terrainGrid, east_m, north_m).toFixed(2));
-    nodes.push([osmId, Number(east_m.toFixed(2)), Number(north_m.toFixed(2)), y]);
-    nodeIndexByOsmId.set(osmId, idx);
-    return idx;
-  };
-
-  for (const { tags, rawPts } of walkableWays) {
-    const hw = String(tags.highway || 'footway');
-    const hasStairs = hw === 'steps' ? 1 : 0;
-    const debrisRisk = hw === 'footway' || hw === 'pedestrian' || hw === 'steps' ? 0.08 : 0.14;
-    for (let i = 1; i < rawPts.length; i++) {
-      const [e0, n0, id0] = rawPts[i - 1];
-      const [e1, n1, id1] = rawPts[i];
-      if (id0 === id1) continue;
-      const dist = Math.hypot(e1 - e0, n1 - n0);
-      if (dist < 0.4 || dist > 380) continue;
-      const u = getOrAddNode(id0, e0, n0);
-      const v = getOrAddNode(id1, e1, n1);
-      edges.push([u, v, Number(dist.toFixed(2)), hw, hasStairs, debrisRisk]);
-    }
-  }
-
-  // Fallback sparse orthogonal walkway grid if OSM had 0 walkable ways
-  if (nodes.length < 4) {
-    const step = 120;
-    const gridN = 5;
-    for (let r = -gridN; r <= gridN; r++) {
-      for (let c = -gridN; c <= gridN; c++) {
-        const e = c * step;
-        const n = r * step;
-        const y = Number(sampleGridHeightAt(terrainGrid, e, n).toFixed(2));
-        nodes.push([`FALLBACK_${r}_${c}`, e, n, y]);
-      }
-    }
-    const stride = gridN * 2 + 1;
-    for (let r = 0; r < stride; r++) {
-      for (let c = 0; c < stride; c++) {
-        const u = r * stride + c;
-        if (c + 1 < stride) edges.push([u, u + 1, step, 'footway', 0, 0.1]);
-        if (r + 1 < stride) edges.push([u, u + stride, step, 'footway', 0, 0.1]);
-      }
-    }
-  }
-
-  return {
-    anchor: { lat: anchorLat, lon: anchorLon },
-    nodes,
-    edges
+    defaultOriginMeta: defaultOrigin,
+    initialFacilityPackage
   };
 }
 
-function measureShelterClearanceRadius(east_m, north_m, obbRawList) {
-  let minClear = 85.0;
-  for (let i = 0; i < obbRawList.length; i++) {
-    const b = obbRawList[i];
-    const centerDist = Math.hypot(b.east_m - east_m, b.north_m - north_m);
-    const edgeClear = Math.max(0, centerDist - Math.hypot(b.width_m, b.depth_m) * 0.45);
-    if (edgeClear < minClear) minClear = edgeClear;
-  }
-  return minClear;
-}
-
-function rankAndFilterShelters(candidates, obbRawList, walkGraph, terrainGrid) {
-  const scored = [];
-  for (const c of candidates) {
-    const distFromCenter = Math.hypot(c.east_m, c.north_m);
-    if (distFromCenter > 1150) continue;
-
-    // Exclude candidates whose centroid sits inside a building OBB
-    const insideBuilding = obbRawList.some(b => {
-      const dx = c.east_m - b.east_m;
-      const dn = c.north_m - b.north_m;
-      const cos = Math.cos(-b.yaw_rad);
-      const sin = Math.sin(-b.yaw_rad);
-      const lx = Math.abs(dx * cos - dn * sin);
-      const lz = Math.abs(dx * sin + dn * cos);
-      return lx <= b.width_m * 0.5 + 1.5 && lz <= b.depth_m * 0.5 + 1.5;
-    });
-    if (insideBuilding) continue;
-
-    const clearance = measureShelterClearanceRadius(c.east_m, c.north_m, obbRawList);
-    const baseScore =
-      (c.isExplicitAssembly ? 45 : 0) +
-      (c.isPitchOrSchool ? 28 : 10) +
-      Math.min(30, Math.sqrt(c.areaSqMeters) * 0.28) +
-      Math.min(20, clearance * 0.6) -
-      distFromCenter * 0.025;
-
-    const y = sampleGridHeightAt(terrainGrid, c.east_m, c.north_m);
-    const provenanceStatus = c.isExplicitAssembly
-      ? VERIFICATION_STATUS.PARTIALLY_VERIFIED
-      : VERIFICATION_STATUS.PROVISIONAL;
-    const provenanceLabel = c.isExplicitAssembly
-      ? 'OSM 지진옥외집결지 표기 (현장 점검 권장)'
-      : 'OSM 개활지·학교운동장 후보 (잠정 산출)';
-    const selectionReason =
-      `면적 약 ${c.areaSqMeters.toLocaleString()}㎡, 인접 건축물 이격 반경 약 ${Math.round(clearance)}m의 ` +
-      `${c.isExplicitAssembly ? '옥외 집결지' : c.isPitchOrSchool ? '학교/운동장 개활지' : '공원 광장'}로 ` +
-      `보행로 그래프와의 접속 거리가 짧아 대피 목적지로 선정되었습니다.`;
-
-    scored.push({
-      id: c.id,
-      name: c.name,
-      category: scored.length === 0 ? 'PRIMARY_SHELTER' : 'REGIONAL_SHELTER',
-      subtitle: `${c.isExplicitAssembly ? '옥외집결지' : '개활 안전 공터'} · 약 ${c.capacityEstimate.toLocaleString()}명 수용(추정)`,
-      positionThree: [Number(c.east_m.toFixed(2)), Number(y.toFixed(2)), Number((-c.north_m).toFixed(2))],
-      east_m: c.east_m,
-      north_m: c.north_m,
-      priority: Math.round(65 + Math.min(34, Math.max(0, baseScore * 0.4))),
-      score: baseScore,
-      provenance: provenanceStatus,
-      provenanceLabel,
-      justification: {
-        id: c.id,
-        areaSqMeters: c.areaSqMeters,
-        capacityEstimate: c.capacityEstimate,
-        clearanceRadiusMeters: Math.round(clearance),
-        provenanceLabel,
-        selectionReason,
-        hazardCaveat: '전국 동적 OSM 추출 결과이므로, 실제 재난 시 현장 안전표지 및 붕괴 위험물을 우선 확인하십시오.'
-      }
-    });
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-  // Deduplicate close candidates (<120m apart)
-  const deduped = [];
-  for (const item of scored) {
-    if (!deduped.some(prev => Math.hypot(prev.east_m - item.east_m, prev.north_m - item.north_m) < 120)) {
-      item.category = deduped.length === 0 ? 'PRIMARY_SHELTER' : 'REGIONAL_SHELTER';
-      deduped.push(item);
-    }
-    if (deduped.length >= 6) break;
-  }
-  return deduped;
-}
-
-function findNearestOpenClearancePoint(obbRawList, walkGraph, terrainGrid) {
-  let best = { east_m: 140, north_m: 120, clearance: 0 };
-  for (const node of walkGraph.nodes || []) {
-    const [, e, n] = node;
-    if (Math.hypot(e, n) < 160 || Math.hypot(e, n) > 650) continue;
-    const cl = measureShelterClearanceRadius(e, n, obbRawList);
-    if (cl > best.clearance) best = { east_m: e, north_m: n, clearance: cl };
-  }
-  const y = sampleGridHeightAt(terrainGrid, best.east_m, best.north_m);
-  return {
-    id: 'OSM-OPEN-AUTO',
-    name: '인근 최대 이격 개활 공터(잠정)',
-    category: 'PRIMARY_SHELTER',
-    subtitle: '개활 대피 지점 · 현장 이격 반경 산출',
-    positionThree: [best.east_m, y, -best.north_m],
-    east_m: best.east_m,
-    north_m: best.north_m,
-    priority: 82,
-    provenance: VERIFICATION_STATUS.PROVISIONAL,
-    provenanceLabel: '보행망 기반 최대 이격 개활 지점(PROVISIONAL)',
-    justification: {
-      id: 'OSM-OPEN-AUTO',
-      areaSqMeters: Math.round(Math.PI * Math.pow(Math.max(12, best.clearance), 2)),
-      capacityEstimate: 450,
-      clearanceRadiusMeters: Math.round(best.clearance),
-      provenanceLabel: '보행망 최대 이격 산출 지점 (PROVISIONAL)',
-      selectionReason: `주변 건물 밀집 구역에서 가장 먼 이격 반경(${Math.round(best.clearance)}m)의 개활 교차 지점을 대피 거점으로 자동 선정했습니다.`,
-      hazardCaveat: '공식 대피소 표지 미검출 구간으로, 주변 공터·학교 운동장 확인 후 대피하십시오.'
-    }
-  };
-}
-
-function pickDefaultOriginBuilding(namedBuildings, obbRawList, primaryShelter, terrainGrid) {
-  const candidates = namedBuildings.filter(b => {
-    const dShelter = Math.hypot(b.east_m - primaryShelter.east_m, b.north_m - primaryShelter.north_m);
-    const dOrigin = Math.hypot(b.east_m, b.north_m);
-    return dShelter >= 140 && dShelter <= 720 && dOrigin <= 520;
-  });
-  candidates.sort((a, b) => Math.hypot(a.east_m, a.north_m) - Math.hypot(b.east_m, b.north_m));
-  if (candidates.length > 0) return candidates[0];
-
-  const obbFallback = obbRawList.find(b => {
-    const dS = Math.hypot(b.east_m - primaryShelter.east_m, b.north_m - primaryShelter.north_m);
-    return dS >= 130 && dS <= 720 && Math.hypot(b.east_m, b.north_m) <= 450 && b.width_m >= 10;
-  });
-  if (obbFallback) {
+function pickDefaultOriginBuilding(namedBuildings, obbRawList, walkGraph, terrainGrid) {
+  const namedCandidates = namedBuildings.filter(b => Math.hypot(b.east_m, b.north_m) <= 650);
+  namedCandidates.sort((a, b) => Math.hypot(a.east_m, a.north_m) - Math.hypot(b.east_m, b.north_m));
+  if (namedCandidates.length > 0) {
     return {
-      id: 'ORIGIN_CENTER_BLDG',
-      name: '중심부 출발 건축물',
-      east_m: obbFallback.east_m,
-      north_m: obbFallback.north_m,
-      groundY_m: obbFallback.groundY_m,
-      width_m: obbFallback.width_m,
-      depth_m: obbFallback.depth_m,
-      yaw_rad: obbFallback.yaw_rad,
-      height_m: obbFallback.height_m
+      ...namedCandidates[0],
+      originHasBuilding: true
     };
   }
-  const e = -120;
-  const n = -90;
-  return {
-    id: 'ORIGIN_DEFAULT_POINT',
-    name: '출발 지점(현위치)',
-    east_m: e,
-    north_m: n,
-    groundY_m: sampleGridHeightAt(terrainGrid, e, n),
-    width_m: 22,
-    depth_m: 16,
-    yaw_rad: 0.15,
-    height_m: 16
-  };
+
+  const obbNear = obbRawList.find(b => Math.hypot(b.east_m, b.north_m) <= 650 && b.width_m >= 8);
+  if (obbNear) {
+    return {
+      id: obbNear.buildingId || 'OSM_BLDG_CENTER',
+      name: obbNear.name || '분석 지점 인근 건축물',
+      east_m: obbNear.east_m,
+      north_m: obbNear.north_m,
+      groundY_m: obbNear.groundY_m,
+      width_m: obbNear.width_m,
+      depth_m: obbNear.depth_m,
+      yaw_rad: obbNear.yaw_rad,
+      height_m: obbNear.height_m,
+      indoorScope: INDOOR_SPATIAL_SCOPE.HEIGHT_ONLY_3D,
+      originHasBuilding: true
+    };
+  }
+
+  // If no buildings exist at all, ONLY expose an outdoor road point if genuine walkable roads exist
+  if ((walkGraph?.nodes?.length || 0) >= 2 && (walkGraph?.edges?.length || 0) >= 1) {
+    let bestNode = walkGraph.nodes[0];
+    let bestD = Infinity;
+    for (const nd of walkGraph.nodes) {
+      const d = Math.hypot(nd[1], nd[2]);
+      if (d < bestD) { bestD = d; bestNode = nd; }
+    }
+    return {
+      id: 'OUTDOOR_ANALYSIS_ORIGIN',
+      name: '지정 야외 분석 지점',
+      east_m: bestNode[1],
+      north_m: bestNode[2],
+      groundY_m: sampleGridHeightAt(terrainGrid, bestNode[1], bestNode[2]),
+      width_m: 6,
+      depth_m: 6,
+      yaw_rad: 0,
+      height_m: 0,
+      indoorScope: INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY,
+      originHasBuilding: false
+    };
+  }
+
+  return null;
+}
+
+async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
+  if (typeof fetch !== 'function') return null;
+
+  const latDegPerMeter = 1 / 111320;
+  const lonDegPerMeter = 1 / (111320 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  const dLat = halfSpanMeters * latDegPerMeter;
+  const dLon = halfSpanMeters * lonDegPerMeter;
+  const south = (lat - dLat).toFixed(5);
+  const west = (lon - dLon).toFixed(5);
+  const north = (lat + dLat).toFixed(5);
+  const east = (lon + dLon).toFixed(5);
+
+  // 1. Fast OSM 0.6 XML/JSON bbox API for tighter bounding boxes (< ~1km half-span)
+  if (halfSpanMeters <= 1000) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5500);
+      const bbox = `${west},${south},${east},${north}`;
+      const res = await fetch(`https://api.openstreetmap.org/api/0.6/map.json?bbox=${bbox}`, {
+        mode: 'cors',
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && Array.isArray(json.elements) && json.elements.length > 0) {
+          return json;
+        }
+      }
+    } catch (_) {
+      // Fall through to Overpass API
+    }
+  }
+
+  // 2. Overpass API (handles wider 4km regional queries & serves CORS cleanly)
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 7500);
+    const overpassQuery =
+      `[out:json][timeout:10];` +
+      `(` +
+        `way["building"](${south},${west},${north},${east});` +
+        `way["highway"](${south},${west},${north},${east});` +
+        `way["waterway"](${south},${west},${north},${east});` +
+        `way["natural"="water"](${south},${west},${north},${east});` +
+        `way["leisure"~"park|pitch|stadium|recreation_ground"](${south},${west},${north},${east});` +
+        `way["amenity"="school"](${south},${west},${north},${east});` +
+        `way["emergency"="assembly_point"](${south},${west},${north},${east});` +
+        `node["emergency"="assembly_point"](${south},${west},${north},${east});` +
+      `);` +
+      `(._;>;);out body;`;
+    const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(overpassQuery)}`;
+    const res = await fetch(url, { mode: 'cors', signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (json && Array.isArray(json.elements)) return json;
+  } catch (_) {
+    return null;
+  }
+  return null;
 }
 
 /**
- * Offline deterministic OSM-structured fallback for key Korean cities when network is offline.
- */
-function buildOfflineBenchmarkOsmPayload(region) {
-  const lat0 = region.lat;
-  const lon0 = region.lon;
-  const toNodeLatLon = (e, n) => localENUToLatLon(e, n, lat0, lon0);
-
-  const elements = [];
-  let nextId = 100000;
-  const pushPolyWay = (ptsEN, tags) => {
-    const nodeIds = [];
-    for (const [e, n] of ptsEN) {
-      const ll = toNodeLatLon(e, n);
-      const nid = nextId++;
-      elements.push({ type: 'node', id: nid, lat: ll.lat, lon: ll.lon });
-      nodeIds.push(nid);
-    }
-    nodeIds.push(nodeIds[0]);
-    const wid = nextId++;
-    elements.push({ type: 'way', id: wid, nodes: nodeIds, tags });
-  };
-  const pushLineWay = (ptsEN, tags) => {
-    const nodeIds = [];
-    for (const [e, n] of ptsEN) {
-      const ll = toNodeLatLon(e, n);
-      const nid = nextId++;
-      elements.push({ type: 'node', id: nid, lat: ll.lat, lon: ll.lon });
-      nodeIds.push(nid);
-    }
-    const wid = nextId++;
-    elements.push({ type: 'way', id: wid, nodes: nodeIds, tags });
-  };
-
-  // Street grid + diagonal pedestrian connectors
-  const xs = [-420, -240, -80, 90, 260, 420];
-  const ys = [-360, -180, 0, 180, 360];
-  for (let yi = 0; yi < ys.length; yi++) {
-    const hw = ys[yi] === 0 ? 'primary' : Math.abs(ys[yi]) === 180 ? 'secondary' : 'footway';
-    pushLineWay(xs.map(x => [x, ys[yi]]), { highway: hw });
-  }
-  for (let xi = 0; xi < xs.length; xi++) {
-    const hw = xs[xi] === 90 ? 'secondary' : 'footway';
-    pushLineWay(ys.map(y => [xs[xi], y]), { highway: hw });
-  }
-
-  // City blocks leaving central avenues + shelter plaza open
-  const blockCenters = [
-    [-160, -90, 62, 34, 18, `${region.shortName} 중심 상업동`],
-    [-160, 90, 54, 42, 14, `${region.shortName} 주거 블록 A`],
-    [10, -90, 68, 36, 22, `${region.shortName} 공용 청사`],
-    [10, 90, 58, 38, 16, `${region.shortName} 문화 회관`],
-    [175, -270, 56, 36, 24, `${region.shortName} 아파트 A동`],
-    [-320, -90, 64, 44, 12, `${region.shortName} 서측 블록`]
-  ];
-  for (const [cx, cy, w, d, h, name] of blockCenters) {
-    const hw = w * 0.5;
-    const hd = d * 0.5;
-    pushPolyWay([[cx - hw, cy - hd], [cx + hw, cy - hd], [cx + hw, cy + hd], [cx - hw, cy + hd]], {
-      building: 'yes',
-      height: String(h),
-      name
-    });
-  }
-
-  // Open ground / park shelter polygon at (+260, +180) area centered (+220, +90)
-  pushPolyWay(
-    [[145, 25], [295, 25], [295, 165], [145, 165]],
-    {
-      leisure: 'pitch',
-      emergency: 'assembly_point',
-      name: `${region.shortName} 중앙 대피광장·운동장`
-    }
-  );
-
-  return { elements };
-}
-
-/**
- * Unified Regional Spatial Loader for all of South Korea.
- * Instantly returns Hanyang's verified 4km package near Hanyang;
- * otherwise fetches live AWS Terrarium DEM + OSM 0.6 urban map & shelters.
+ * Unified Regional Spatial Loader for ANY location in South Korea.
+ * - Uses Hanyang's verified 4km + BLDG_212 pilot indoor dataset only when analyzing Hanyang.
+ * - Otherwise queries AWS Terrarium DEM + OSM (auto-expanding radius up to 2km half-span / 4km area when sparse).
+ * - Supports caller-injected opts.osmJsonOverride for deterministic testing without synthetic fake cities.
  */
 export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
   const distToHanyang = distanceMetersLatLon(lat, lon, 37.555815, 127.045053);
-  if (distToHanyang < 2200 || opts.regionId === 'seoul_hanyang') {
+  const useHanyangNative = !opts.forceGenericOsm && (distToHanyang < 2200 || opts.regionId === 'seoul_hanyang');
+  if (useHanyangNative) {
     const hanyangRegion = KOREA_BENCHMARK_REGIONS[0];
+    const scenarioEval = evaluateRegionalHazard(opts.customScenario || hanyangRegion.scenarioEvent, lat, lon);
+    const hanyangCandidates = (HANYANG_LOCAL_4KM_PACKAGE.sheltersAndFacilities || []).map(s => ({
+      ...s,
+      candidateStatus: HANYANG_SHELTER_JUSTIFICATION[s.id]
+        ? CANDIDATE_STATUS.CONFIRMED
+        : CANDIDATE_STATUS.CONDITIONAL,
+      provenanceLabel: HANYANG_SHELTER_JUSTIFICATION[s.id]?.provenanceLabel || '성동 권역 대피 후보',
+      justification: HANYANG_SHELTER_JUSTIFICATION[s.id] || s.justification || null
+    }));
+
     return {
       ...HANYANG_LOCAL_4KM_PACKAGE,
       walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
@@ -1225,80 +954,108 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
         name: '제1공학관 (212동)',
         east_m: 44.36,
         north_m: 112.16,
-        height_m: 26.0
+        height_m: 26.0,
+        hasIndoorData: true,
+        indoorScope: INDOOR_SPATIAL_SCOPE.VERIFIED_FLOORPLAN
       },
       shelterJustifications: HANYANG_SHELTER_JUSTIFICATION,
-      regionInfo: hanyangRegion,
+      destinationAssessment: {
+        candidates: hanyangCandidates,
+        primaryCandidate: hanyangCandidates[0] || null,
+        overallStatus: hanyangCandidates.length > 0 ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.UNAVAILABLE,
+        limitations: '제1공학관(212동) 3층 파일럿 실내망 외 캠퍼스 주변 건물은 외곽 풋프린트만 포함됩니다. 공식 옥외대피장소 개방 여부는 재난 당시 현장 안전을 우선 확인하십시오.'
+      },
+      dataCompleteness: 'SUFFICIENT',
+      dataLimitations: [
+        '제1공학관(212동)은 파일럿 3층 실내망(PROVISIONAL 현장 검증 대상)을 포함합니다.',
+        '701동 HIT 및 104동 백남학술정보관은 실측 외곽 기반 출발점이며 상세 전층 평면도는 미포함입니다.'
+      ],
+      regionInfo: {
+        ...hanyangRegion,
+        scenarioEvent: scenarioEval
+      },
       isHanyangNative: true
     };
   }
 
   const matchedBenchmark =
     KOREA_BENCHMARK_REGIONS.find(r => r.id === opts.regionId) ||
-    KOREA_BENCHMARK_REGIONS.find(r => distanceMetersLatLon(lat, lon, r.lat, r.lon) < 4000) || {
+    KOREA_BENCHMARK_REGIONS.find(r => !r.isHanyangDefault && distanceMetersLatLon(lat, lon, r.lat, r.lon) < 4000) || {
       id: opts.regionId || `KR_${lat.toFixed(3)}_${lon.toFixed(3)}`,
       name: opts.name || `대한민국 (${lat.toFixed(4)}°N, ${lon.toFixed(4)}°E)`,
-      shortName: opts.shortName || opts.name || '선택 지역',
+      shortName: opts.shortName || opts.name || `지정 좌표 (${lat.toFixed(3)}, ${lon.toFixed(3)})`,
+      subtitle: '사용자 지정 좌표 기반 범용 3D 공간 분석 권역',
       lat,
       lon,
       isHanyangDefault: false,
-      scenarioEvent: {
-        id: `DYNAMIC-KR-${lat.toFixed(2)}`,
-        title: `${opts.shortName || opts.name || '선택 지역'} 지진 감응 · 국지 3D 대피 경로`,
-        epicenterLat: lat + 0.11,
-        epicenterLon: lon + 0.14,
-        originText: `${opts.shortName || '현장'} 북동측 약 17.5km 인근 단층 시나리오`,
-        magnitudeText: 'M5.2 (국지 대응 가정)',
-        depthText: '진원 깊이 10km (가정)',
-        distanceKm: 17.5,
-        azimuthDeg: 45.0,
-        pArrivalSec: 2.9,
-        sArrivalSec: 5.0
+      scenarioEvent: opts.customScenario || {
+        id: `SYNTH-KR-${lat.toFixed(2)}`,
+        scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+        title: `${opts.shortName || opts.name || '분석 지점'} 인근 가상 지진 시나리오 (교육용 합성)`,
+        epicenterLat: lat + 0.032,
+        epicenterLon: lon + 0.045,
+        magnitude: 5.2,
+        depthKm: 10,
+        originText: `${opts.shortName || '분석 지점'} 북동측 약 5.3km (교육용 합성 가정)`,
+        magnitudeText: 'M5.2 (교육용 가상 설정)',
+        depthText: '진원 깊이 10km (가상)'
       }
     };
 
-  const dLat = 0.0065; // ~720m half-span -> 1.44km N-S (compact, fast <1.5s, under OSM limits)
-  const dLon = 0.0080; // ~720m half-span -> 1.44km E-W
-  const bbox = `${(lon - dLon).toFixed(5)},${(lat - dLat).toFixed(5)},${(lon + dLon).toFixed(5)},${(lat + dLat).toFixed(5)}`;
+  const scenarioEval = evaluateRegionalHazard(opts.customScenario || matchedBenchmark.scenarioEvent, lat, lon);
+  const impactStatus = scenarioEval.impactAssessment?.impactStatus || IMPACT_ZONE_STATUS.UNKNOWN;
 
-  const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: 1400.0, nx: 64, nz: 64 });
+  let queryRadiusMeters = opts.radiusMeters || 900;
+  const maxExtentMeters = Math.max(1800, queryRadiusMeters);
+
+  const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: maxExtentMeters, nx: 64, nz: 64 });
   const osmPromise = (async () => {
+    if (opts.osmJsonOverride) return opts.osmJsonOverride;
+    if (opts.osmJson) return opts.osmJson;
     if (typeof fetch !== 'function' || opts.offlineOnly) return null;
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 5500);
-      const res = await fetch(`https://api.openstreetmap.org/api/0.6/map.json?bbox=${bbox}`, {
-        mode: 'cors',
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      if (!res.ok) return null;
-      const json = await res.json();
-      if (!json || !Array.isArray(json.elements) || json.elements.length === 0) return null;
-      return json;
-    } catch (_) {
-      return null;
+
+    // 1. Compact urban fetch (~1.8km span)
+    let json = await fetchOsmRegionElements(lat, lon, 900);
+    const wayCount = json?.elements?.filter(e => e.type === 'way')?.length || 0;
+    // 2. Dynamic expansion up to ~4km span (2000m half-extent) if sparse or empty
+    if (!json || wayCount < 15) {
+      const expanded = await fetchOsmRegionElements(lat, lon, 2000);
+      if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (json?.elements?.length || 0)) {
+        json = expanded;
+        queryRadiusMeters = 2000;
+      }
     }
+    return json;
   })();
 
   const [terrainGrid, liveOsmJson] = await Promise.all([demPromise, osmPromise]);
-  const osmJson = liveOsmJson || buildOfflineBenchmarkOsmPayload(matchedBenchmark);
-  const usedFallback = !liveOsmJson;
+  const osmJson = liveOsmJson || { elements: [] };
+  const osmUnavailable = !liveOsmJson || !Array.isArray(liveOsmJson.elements) || liveOsmJson.elements.length === 0;
 
   const pkg = compileOsmJsonToSpatialPackage(osmJson, {
     lat,
     lon,
     regionId: matchedBenchmark.id,
-    title: `${matchedBenchmark.name} 국지 3D 대피 패키지`,
-    halfExtentMeters: 1400.0,
+    title: `${matchedBenchmark.name} 범용 지진 대응 공간 분석`,
+    halfExtentMeters: maxExtentMeters,
+    impactStatus,
     terrainGrid
   });
 
-  if (usedFallback) {
-    pkg.metadata.dataSources.push('OSM 실시간 네트워크 미연결로 기준 권역 표준 격자 모델을 표시합니다.');
+  if (osmUnavailable) {
+    pkg.metadata.dataSources.push('OSM 실시간 공간 데이터를 확보하지 못했습니다 (가상 데이터 생성 금지).');
+    pkg.dataLimitations = [
+      'OpenStreetMap / Overpass 공간 데이터를 불러오지 못해 건물·보행로·대피 후보가 미확인(INSUFFICIENT) 상태입니다.',
+      ...pkg.dataLimitations
+    ];
   }
-  pkg.regionInfo = matchedBenchmark;
+
+  pkg.regionInfo = {
+    ...matchedBenchmark,
+    scenarioEvent: scenarioEval
+  };
   pkg.isHanyangNative = false;
-  pkg.usedOsmFallback = usedFallback;
+  pkg.osmFetchUnavailable = osmUnavailable;
+  pkg.queryRadiusMeters = queryRadiusMeters;
   return pkg;
 }

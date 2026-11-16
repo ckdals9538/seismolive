@@ -489,16 +489,42 @@ export class UnifiedControlSurface {
 
         const scrubber = document.getElementById('transport-scrubber');
         if (scrubber) {
-          scrubber.addEventListener('mousedown', () => { this.isScrubbing = true; });
-          window.addEventListener('mouseup', () => { this.isScrubbing = false; });
+          const beginScrub = (e) => {
+            e.stopPropagation();
+            this.isScrubbing = true;
+            if (this.appContext) this.appContext.isScrubbing = true;
+          };
+          const endScrub = () => {
+            if (!this.isScrubbing) return;
+            this.isScrubbing = false;
+            if (this.appContext) this.appContext.isScrubbing = false;
+          };
+          scrubber.addEventListener('pointerdown', beginScrub);
+          scrubber.addEventListener('mousedown', beginScrub);
+          scrubber.addEventListener('touchstart', beginScrub, { passive: true });
+          scrubber.addEventListener('pointerup', endScrub);
+          scrubber.addEventListener('pointercancel', endScrub);
+          scrubber.addEventListener('blur', endScrub);
+          window.addEventListener('pointerup', endScrub);
+          window.addEventListener('pointercancel', endScrub);
+          window.addEventListener('mouseup', endScrub);
+          window.addEventListener('touchend', endScrub);
+          window.addEventListener('blur', endScrub);
+
           scrubber.addEventListener('input', (e) => {
+            e.stopPropagation();
             const val = parseFloat(e.target.value);
-            this.appContext.seekToSimulationTime(val);
+            if (Number.isFinite(val)) {
+              this.appContext.seekToSimulationTime(val);
+            }
           });
           scrubber.addEventListener('change', (e) => {
-            this.isScrubbing = false;
+            e.stopPropagation();
             const val = parseFloat(e.target.value);
-            this.appContext.seekToSimulationTime(val);
+            endScrub();
+            if (Number.isFinite(val)) {
+              this.appContext.seekToSimulationTime(val);
+            }
           });
         }
 
@@ -1739,8 +1765,9 @@ export class UnifiedControlSurface {
         if (curLabel) curLabel.textContent = time.toFixed(1) + 's';
         if (totalLabel) totalLabel.textContent = maxTime.toFixed(1) + 's';
         if (scrubber) {
+          scrubber.min = '0';
           scrubber.max = String(maxTime);
-          if (!this.isScrubbing) scrubber.value = time.toFixed(1);
+          if (!this.isScrubbing) scrubber.value = String(Number(time.toFixed(1)));
         }
         if (badgeEl) {
           const ratio = time / maxTime;

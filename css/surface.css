@@ -1437,20 +1437,30 @@
       flex-shrink: 0;
     }
     #transport-scrubber {
-      width: clamp(70px, 10vw, 130px);
+      width: clamp(86px, 12vw, 150px);
       flex-shrink: 1;
-      min-width: 60px;
-      height: 4px;
+      min-width: 72px;
+      height: 18px;
+      margin: 0;
+      padding: 0;
       -webkit-appearance: none;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 2px;
+      appearance: none;
+      background: transparent;
+      touch-action: none;
       outline: none;
       cursor: pointer;
     }
+    #transport-scrubber::-webkit-slider-runnable-track {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: 2px;
+    }
     #transport-scrubber::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 10px;
-      height: 10px;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      margin-top: -4px;
       border-radius: 50%;
       background: var(--brass);
       box-shadow: 0 0 6px var(--brass);

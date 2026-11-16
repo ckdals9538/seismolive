@@ -126,13 +126,15 @@ export class PedestrianRoutingEngine {
     this.buildingOBBs = options.buildingOBBs || null;
     this.customWalkGraph = options.customWalkGraph || null;
     this.elevationSampler = options.elevationSampler || null;
+    this.waterPolygons = options.waterPolygons || [];
+    this.waterways = options.waterways || [];
     this.initializeDefaultCampusGraph();
   }
 
   /**
    * Toggle obstacle-aware real OpenStreetMap campus/regional routing (OBB visibility + A*).
    */
-  setRealMapRouting({ enabled = true, buildingOBBs = null, customWalkGraph = undefined, elevationSampler = undefined } = {}) {
+  setRealMapRouting({ enabled = true, buildingOBBs = null, customWalkGraph = undefined, elevationSampler = undefined, waterPolygons = undefined, waterways = undefined } = {}) {
     this.useRealMapRouting = Boolean(enabled);
     if (buildingOBBs !== null) {
       this.buildingOBBs = buildingOBBs;
@@ -142,6 +144,12 @@ export class PedestrianRoutingEngine {
     }
     if (elevationSampler !== undefined) {
       this.elevationSampler = elevationSampler;
+    }
+    if (waterPolygons !== undefined) {
+      this.waterPolygons = waterPolygons || [];
+    }
+    if (waterways !== undefined) {
+      this.waterways = waterways || [];
     }
   }
 
@@ -718,10 +726,30 @@ export class PedestrianRoutingEngine {
     const isWheelchair = options.mobilityProfile === USER_MOBILITY_PROFILE.WHEELCHAIR_USER;
     const excludeStairs = Boolean(options.excludeStairs) || isWheelchair;
     const conn = f.connector || {};
-    const fp = conn.footwayPos || this.nodes.get(f.defaultOutdoorEgressNodeId)?.localPos || [73.68, -0.15, -41.98];
+    const fp = conn.footwayPos || this.nodes.get(f.defaultOutdoorEgressNodeId)?.localPos || [0, 0, 0];
     const startXZ = options.startXZ || [fp[0], fp[2]];
     const shelterLC = f.shelter?.localCenter;
-    const goalXZ = options.goalXZ || (shelterLC ? [shelterLC[0], shelterLC[2]] : [222.89, 196.71]);
+    if (!shelterLC && !options.goalXZ) {
+      return Object.freeze({
+        found: false,
+        totalDistanceMeters: 0,
+        totalStairsDistanceMeters: 0,
+        hasStairs: false,
+        stairFlightCount: 0,
+        isStepFree: false,
+        isWheelchairPassable: false,
+        isWheelchairVerified: false,
+        pathType: 'NONE',
+        replanned: false,
+        replanReason: '확인 가능한 목적지(대피 후보)가 없어 대피 경로를 산출하지 않았습니다.',
+        failSafeGuidance: '주변 안전 공간 또는 공식 대피소 정보를 확인할 수 없습니다. 현장 상황을 직접 살피며 건물 낙하물 이격 거리를 확보하십시오.',
+        nodes: [],
+        edges: [],
+        hazardAlerts: ['DESTINATION_UNAVAILABLE: No confirmed or conditional destination facility available.'],
+        unverifiedSegments: []
+      });
+    }
+    const goalXZ = options.goalXZ || [shelterLC[0], shelterLC[2]];
     const centerXZ = options.originCentroidXZ || [
       f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
       f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
@@ -735,12 +763,16 @@ export class PedestrianRoutingEngine {
       buildingOBBs: options.buildingOBBs ?? this.buildingOBBs,
       customWalkGraph: options.customWalkGraph ?? this.customWalkGraph,
       elevationSampler: options.elevationSampler ?? this.elevationSampler,
-      targetShelterId: f.shelter?.shelterId || 'SHELTER_HANYANG_STADIUM',
+      targetShelterId: f.shelter?.shelterId || f.shelter?.officialId || 'DESTINATION_SHELTER',
       originCentroidXZ: centerXZ,
       originExclusionRadius: options.originExclusionRadius ?? 52.0,
       seismicDebrisAware: options.seismicDebrisAware !== false,
       blockedEdges: new Set([...this.blockedEdges, ...(options.blockedEdges || [])]),
-      avoidPolygons: activeAvoidPolygons
+      avoidPolygons: activeAvoidPolygons,
+      waterPolygons: options.waterPolygons ?? this.waterPolygons ?? [],
+      waterways: options.waterways ?? this.waterways ?? [],
+      penalizeEdgeKeys: options.penalizeEdgeKeys || null,
+      overlapPenaltyMultiplier: options.overlapPenaltyMultiplier || undefined
     });
 
     if (!sol.found) {
@@ -826,7 +858,45 @@ export class PedestrianRoutingEngine {
     });
   }
 
+  /**
+   * Compute Primary, Step-Free, and a Genuine Graph-Based Alternative Route (Section 4-4).
+   */
+  findAlternativeRoutes(options = {}) {
+    const primary = this.findOutdoorShortestPath(options);
+    const stepFree = this.findOutdoorStepFreePath(options);
+    if (!primary.found) {
+      return { primaryRoute: primary, stepFreeRoute: stepFree, alternativeRoute: primary };
+    }
+    const overlapKeys = new Set(
+      (primary.edges || []).map(e => (e.edgeId || '').replace(/^OSM_/, '').replace('->OSM_', '->'))
+    );
+    const alt = this.findMapBasedOptimalRoute({
+      ...options,
+      excludeStairs: false,
+      penalizeEdgeKeys: overlapKeys,
+      overlapPenaltyMultiplier: 2.6
+    });
+    return {
+      primaryRoute: primary,
+      stepFreeRoute: stepFree,
+      alternativeRoute: alt.found ? alt : null
+    };
+  }
+
   findCompleteIndoorOutdoorPath(originRoomId = null, options = {}) {
+    if (this.facility?.hasIndoorData === false || Object.keys(this.facility?.indoorGraphs || {}).length === 0) {
+      const outdoorLeg = this.findMapBasedOptimalRoute(options);
+      return Object.freeze({
+        ...outdoorLeg,
+        hasIndoorData: false,
+        indoorScope: this.facility?.indoorScope || 'HEIGHT_ONLY_3D',
+        unverifiedSegments: Object.freeze([
+          ...(outdoorLeg.unverifiedSegments || []),
+          '실내 평면도·층별 대피로 미확보 (건물 외곽 출구 기준 안내)'
+        ])
+      });
+    }
+
     const lookupRoomId = originRoomId || this.facility?.defaultRoomId || 'ROOM_301';
     let room = null;
     for (const floorGraph of Object.values(this.facility?.indoorGraphs || {})) {

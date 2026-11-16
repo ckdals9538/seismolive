@@ -92,21 +92,96 @@ console.log('1. Real OSM 0.6 JSON Compilation (Hanyang/Wangsimni) + Concave OBB 
   assert(collisions === 0, `1.6: Shortest evacuation route avoids ALL unrelated context OBB buildings (collisions=${collisions})`);
 }
 
+import { localENUToLatLon } from '../js/response/NationwideKoreaSpatialEngine.js';
+
+function createRealStructuredOsmFixture(lat0, lon0, label) {
+  const elements = [];
+  const nodeByKey = new Map();
+  let nextId = 200000;
+  const getOrCreateNodeId = (e, n) => {
+    const key = `${e}_${n}`;
+    if (nodeByKey.has(key)) return nodeByKey.get(key);
+    const ll = localENUToLatLon(e, n, lat0, lon0);
+    const nid = nextId++;
+    elements.push({ type: 'node', id: nid, lat: ll.lat, lon: ll.lon });
+    nodeByKey.set(key, nid);
+    return nid;
+  };
+  const pushWay = (ptsEN, tags, close = false, shareIntersections = false) => {
+    const nodeIds = [];
+    for (const [e, n] of ptsEN) {
+      if (shareIntersections) {
+        nodeIds.push(getOrCreateNodeId(e, n));
+      } else {
+        const ll = localENUToLatLon(e, n, lat0, lon0);
+        const nid = nextId++;
+        elements.push({ type: 'node', id: nid, lat: ll.lat, lon: ll.lon });
+        nodeIds.push(nid);
+      }
+    }
+    if (close && nodeIds.length > 0) nodeIds.push(nodeIds[0]);
+    const wid = nextId++;
+    elements.push({ type: 'way', id: wid, nodes: nodeIds, tags });
+  };
+
+  // Connected road/footway network sharing intersection node IDs (authentic OSM topology)
+  const xs = [-360, -180, -40, 110, 260];
+  const ys = [-240, -100, 40, 180];
+  for (const y of ys) pushWay(xs.map(x => [x, y]), { highway: y === 40 ? 'secondary' : 'footway' }, false, true);
+  for (const x of xs) pushWay(ys.map(y => [x, y]), { highway: x === 110 ? 'secondary' : 'footway' }, false, true);
+
+  const blocks = [
+    [-110, -30, 48, 28, 16, `${label} 시청 주변 상업동`],
+    [-110, 110, 46, 32, 14, `${label} 주거 블록`],
+    [35, -30, 52, 30, 18, `${label} 공공 청사`],
+    [35, 110, 44, 30, 15, `${label} 도서관`]
+  ];
+  for (const [cx, cy, w, d, h, name] of blocks) {
+    pushWay(
+      [[cx - w * 0.5, cy - d * 0.5], [cx + w * 0.5, cy - d * 0.5], [cx + w * 0.5, cy + d * 0.5], [cx - w * 0.5, cy + d * 0.5]],
+      { building: 'yes', height: String(h), name },
+      true
+    );
+  }
+  pushWay(
+    [[145, -15], [245, -15], [245, 95], [145, 95]],
+    { leisure: 'pitch', name: `${label} 공설 운동장` },
+    true
+  );
+  return { elements };
+}
+
 // ----------------------------------------------------------------------------
-// 2. Nationwide Korea Benchmark Regions (Gyeongju, Pohang, Yangyang, Buan, Busan)
+// 2. Nationwide Korea Benchmark Regions (Honest Offline Insufficiency + Fixture Routing)
 // ----------------------------------------------------------------------------
-console.log('\n2. Nationwide Korea Regions + Dynamic Building Click Rerouting');
+console.log('\n2. Nationwide Korea Regions + Honest Offline Insufficiency + Dynamic Building Click Rerouting');
 {
   for (const reg of KOREA_BENCHMARK_REGIONS.filter(r => !r.isHanyangDefault)) {
-    const pkg = await loadRegionalSpatialPackage(reg.lat, reg.lon, {
+    // Offline with no OSM elements MUST NOT fabricate fake buildings or shelters
+    const offlinePkg = await loadRegionalSpatialPackage(reg.lat, reg.lon, {
       regionId: reg.id,
       name: reg.name,
       shortName: reg.shortName,
       offlineOnly: true
     });
     assert(
+      offlinePkg.obbLodCounts.fullCount === 0 &&
+      offlinePkg.sheltersAndFacilities.length === 0 &&
+      offlinePkg.initialFacilityPackage === null &&
+      offlinePkg.dataCompleteness === 'INSUFFICIENT',
+      `2.0 (${reg.shortName}): Offline with no OSM honestly reports INSUFFICIENT (0 fake buildings/shelters)`
+    );
+
+    const fixtureOsm = createRealStructuredOsmFixture(reg.lat, reg.lon, reg.shortName);
+    const pkg = await loadRegionalSpatialPackage(reg.lat, reg.lon, {
+      regionId: reg.id,
+      name: reg.name,
+      shortName: reg.shortName,
+      osmJsonOverride: fixtureOsm
+    });
+    assert(
       pkg.obbLodCounts.fullCount >= 4 && pkg.sheltersAndFacilities.length >= 1,
-      `2.1 (${reg.shortName}): Loaded ${pkg.obbLodCounts.fullCount} OBBs & shelter "${pkg.sheltersAndFacilities[0].name}"`
+      `2.1 (${reg.shortName}): Loaded ${pkg.obbLodCounts.fullCount} OBBs & candidate "${pkg.sheltersAndFacilities[0].name}"`
     );
 
     const engine = new PedestrianRoutingEngine({
@@ -123,17 +198,22 @@ console.log('\n2. Nationwide Korea Regions + Dynamic Building Click Rerouting');
   }
 
   // Test Direct 3D Building Click Factory
-  const gyeongjuPkg = await loadRegionalSpatialPackage(35.8347, 129.2190, { regionId: 'gyeongju', offlineOnly: true });
+  const gyeongjuReg = KOREA_BENCHMARK_REGIONS.find(r => r.id === 'gyeongju');
+  const gyeongjuPkg = await loadRegionalSpatialPackage(gyeongjuReg.lat, gyeongjuReg.lon, {
+    regionId: 'gyeongju',
+    osmJsonOverride: createRealStructuredOsmFixture(gyeongjuReg.lat, gyeongjuReg.lon, '경주')
+  });
   const clickedDyn = buildDynamicFacilityFromPoint({
     buildingId: 'CLICKED_TEST_99',
     name: '경주 클릭 건물 A',
-    east_m: -160,
-    north_m: 90,
+    east_m: -110,
+    north_m: 110,
     width_m: 32,
     depth_m: 22,
     yaw_rad: 0.2,
     height_m: 15,
-    anchor: { lat: 35.8347, lon: 129.2190, h: 42 },
+    hasIndoorData: false,
+    anchor: { lat: gyeongjuReg.lat, lon: gyeongjuReg.lon, h: 42 },
     walkGraph: gyeongjuPkg.walkGraph,
     buildingOBBs: gyeongjuPkg.obbBuildingsFloat32,
     shelter: gyeongjuPkg.sheltersAndFacilities[0]

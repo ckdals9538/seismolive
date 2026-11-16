@@ -188,7 +188,7 @@ export class HanyangResponseAdapter {
     const footprint = this.facility.footprintMeters || BLDG_212_OSM_FOOTPRINT_METERS;
     const hFloor = this.config.floorHeightMeters;
     const baseY = this.facility.groundElevationY ?? 0.0;
-    const interiorTargetFloor = this.facility.defaultFloor ?? 3;
+    const interiorTargetFloor = this.facility.hasIndoorData === false ? null : (this.facility.defaultFloor ?? 3);
 
     for (let level = 1; level <= this.config.totalLevels; level++) {
       const floorGroup = new THREE.Group();
@@ -479,8 +479,15 @@ export class HanyangResponseAdapter {
     } = options;
 
     const elevated = waypoints.map(p => new THREE.Vector3(p.x, p.y + elevOffset, p.z));
-    const curve = new THREE.CatmullRomCurve3(elevated, false, 'catmullrom', 0.12);
-    const tubularSegments = Math.max(24, Math.min(180, elevated.length * 6));
+    // Exact piecewise-linear path geometry matching calculated graph coordinates (Section 4-3)
+    const curve = new THREE.CurvePath();
+    for (let i = 1; i < elevated.length; i++) {
+      if (elevated[i - 1].distanceToSquared(elevated[i]) > 1e-4) {
+        curve.add(new THREE.LineCurve3(elevated[i - 1], elevated[i]));
+      }
+    }
+    if (curve.curves.length === 0) return;
+    const tubularSegments = Math.max(24, Math.min(220, curve.curves.length * 4));
 
     const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, 8, false);
     const tubeMat = new THREE.MeshBasicMaterial({
@@ -705,9 +712,12 @@ export class HanyangResponseAdapter {
    * Shelter Representation (Athletics Track & Central Pitch Polygon or Configured Shelter Bounds).
    */
   buildShelterRepresentation() {
-    const shelter = this.facility.shelter || {};
+    if (!this.facility?.shelter || !this.facility.shelter.localCenter) {
+      return;
+    }
+    const shelter = this.facility.shelter;
     const names = this.facility.routeDisplayNames || {};
-    const lc = shelter.localCenter || this.router.nodes.get(this.facility.defaultOutdoorTargetNodeId)?.localPos || [226.75, -13.50, 218.17];
+    const lc = shelter.localCenter;
     const center = new THREE.Vector3(lc[0], lc[1], lc[2]);
     const trackRadiusX = shelter.trackRadiusX ?? 40.0;
     const trackRadiusZ = shelter.trackRadiusZ ?? 65.0;
@@ -923,6 +933,27 @@ export class HanyangResponseAdapter {
     this.buildShelterRepresentation();
     this.highlightFloor(this.config.selectedFloor);
     this.setRouteDisplay(this.config.activeRoute || 'ALL');
+  }
+
+  /**
+   * Clear active facility & evacuation route geometry when switching to unavailable/outside-impact regions.
+   */
+  clearVisuals() {
+    while (this.rootGroup.children.length > 0) {
+      this.rootGroup.remove(this.rootGroup.children[0]);
+    }
+    this.disposables.forEach(item => {
+      if (item && typeof item.dispose === 'function') item.dispose();
+    });
+    this.disposables.length = 0;
+    this.floorGroups.clear();
+    this.routePolylines = { SHORTEST: [], STEP_FREE: [] };
+    this.pathGroup = new THREE.Group();
+    this.pathGroup.name = 'PedestrianPathsGroup';
+    this.shelterGroup = new THREE.Group();
+    this.shelterGroup.name = 'ShelterGroup';
+    this.rootGroup.add(this.pathGroup);
+    this.rootGroup.add(this.shelterGroup);
   }
 
   /**

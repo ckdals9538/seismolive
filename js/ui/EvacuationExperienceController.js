@@ -41,9 +41,20 @@ import {
   evaluatePathProgressState
 } from '../response/SeismicImpactContext.js';
 import {
+  SCENARIO_TYPES,
+  IMPACT_ZONE_STATUS,
+  CANDIDATE_STATUS
+} from '../response/ResponseDomainTypes.js';
+import {
+  LocationProvider,
+  HazardProvider
+} from '../response/SpatialDataProviders.js';
+import {
   KOREA_BENCHMARK_REGIONS,
+  PRESET_EARTHQUAKE_SCENARIOS,
   HANYANG_SHELTER_JUSTIFICATION,
   POST_ARRIVAL_SAFETY_PROTOCOLS,
+  evaluateRegionalHazard,
   geocodeKoreaQuery,
   loadRegionalSpatialPackage
 } from '../response/NationwideKoreaSpatialEngine.js';
@@ -96,46 +107,66 @@ export function renderEvacuationHudMarkup(mountRoot) {
             <span>▾</span>
           </button>
 
-          <div id="region-search-popover" aria-label="대한민국 지역 검색 및 전환">
+          <div id="region-search-popover" aria-label="분석 위치 및 지진 시나리오 설정">
             <form class="region-search-form" id="korea-region-search-form">
               <input type="search" id="korea-region-search-input" class="region-search-input"
-                placeholder="국내 지명·주소 검색 (예: 경주, 해운대, 강남역)" aria-label="국내 지명 검색" />
+                placeholder="지명 또는 위도,경도 (예: 속초 또는 38.207, 128.592)" aria-label="지명 또는 좌표 입력" />
               <button type="submit" class="region-search-submit">이동</button>
+              <button type="button" class="gps-locate-btn" id="btn-locate-me" title="현재 브라우저 GPS 위치 기준 분석">현위치</button>
             </form>
             <div id="region-search-results"></div>
-            <div class="lab-title">국내 주요 지진·도심 기준 권역</div>
+            <div class="lab-title">국내 기준 지역</div>
             <div class="region-chips-grid" id="region-chips-grid"></div>
+
+            <div class="lab-title" style="margin-top:6px;">지진 시나리오 구분 (관측 · 교육용 · 사료)</div>
+            <div class="scenario-mode-row" id="scenario-preset-list"></div>
+            <div class="custom-quake-grid" aria-label="사용자 지정 가상 지진">
+              <input type="number" step="0.001" id="custom-epi-lat" class="custom-quake-input" placeholder="진앙 위도 (예: 38.245)" aria-label="진앙 위도" />
+              <input type="number" step="0.001" id="custom-epi-lon" class="custom-quake-input" placeholder="진앙 경도 (예: 128.695)" aria-label="진앙 경도" />
+              <input type="number" step="0.1" min="2.0" max="9.0" id="custom-mag" class="custom-quake-input" value="5.4" placeholder="규모 M" aria-label="지진 규모" />
+              <input type="number" step="1" min="1" max="300" id="custom-depth" class="custom-quake-input" value="12" placeholder="깊이 km" aria-label="진원 깊이" />
+            </div>
+            <div style="display:flex; gap:6px; margin-top:4px;">
+              <button type="button" class="region-search-submit" style="flex:1;" id="btn-apply-custom-quake">가상 단층 적용</button>
+              <button type="button" class="gps-locate-btn" id="btn-snap-local-quake" title="현재 분석 위치 북동측 5km 가상 진앙 설정">현지역 근거리 설정</button>
+            </div>
           </div>
         </div>
       </div>
 
       <div class="header-eyebrow">
         <span class="live-dot"></span>
-        <span>SEISMOLIVE · 국지 지진 대응 안내</span>
+        <span>SEISMOLIVE · 위치 기반 지진 대응 엔진</span>
       </div>
-      <h1 class="header-route-headline" id="evac-route-headline">제1공학관(212동) → 한양대 대운동장 (737.9 m)</h1>
+      <h1 class="header-route-headline" id="evac-route-headline">제1공학관(212동) → 한양대 대운동장</h1>
       <div class="header-quake-impact" id="quake-impact-summary">
         <div class="quake-line">
-          <span class="quake-tag" id="quake-provenance-tag">진앙 기준 확인</span>
+          <span class="quake-tag" id="quake-provenance-tag">시나리오 확인</span>
           <span id="quake-origin-line">진앙 거리·방위 산출 중...</span>
         </div>
         <div class="impact-sub" id="quake-impact-line">현재 위치 영향 평가 중...</div>
+      </div>
+      <div id="data-quality-strip">
+        <span class="dq-badge" id="dq-completeness-badge">공간 데이터 평가 중</span>
+        <span class="dq-badge" id="dq-destination-badge">목적지 상태 평가 중</span>
+        <span id="dq-limitation-summary">실제 데이터 출처 확인 중...</span>
       </div>
     </header>
 
     <div id="exhibition-bar">
       <div class="top-capsule">
         <button type="button" class="ctrl-btn" id="btn-stage-local4km" title="광역 지형·진앙 방향 조망">광역 4km</button>
-        <button type="button" class="ctrl-btn active" id="btn-stage-campus" title="내 건물·대피동선·대피소 전체 조망">캠퍼스 동선</button>
-        <button type="button" class="ctrl-btn" id="btn-stage-bldg" title="출발 건물 구조 확인">내 건물</button>
+        <button type="button" class="ctrl-btn active" id="btn-stage-campus" title="내 위치·대피동선·주변 공간 전체 조망">도시/지역 동선</button>
+        <button type="button" class="ctrl-btn" id="btn-stage-bldg" title="출발 지점 구조 확인">내 건물</button>
         <span class="top-divider"></span>
         <button type="button" class="ctrl-btn active" id="btn-route-shortest" title="가장 빠른 최단 경로 우선 표시">최단 경로</button>
-        <button type="button" class="ctrl-btn" id="btn-route-stepfree" title="계단·낙하위험을 피하는 무단차 우회 경로 표시">무단차 우회</button>
+        <button type="button" class="ctrl-btn" id="btn-route-stepfree" title="계단·위험지대 회피 우회 경로 표시">무단차/우회</button>
+        <button type="button" class="ctrl-btn" id="btn-route-alt" title="보행망 기반 대체 경로 전환" style="display:none;">대체 경로</button>
         <span class="top-divider"></span>
         <button type="button" class="ctrl-btn" id="btn-theme-toggle" title="야간 모놀리스 ↔ 주간 지도 테마 전환">주간 지도</button>
         <button type="button" class="ctrl-btn active" id="btn-toggle-rules" title="동선 안전수칙 팝업 켜기/끄기">수칙 팝업</button>
         <span class="top-divider"></span>
-        <button type="button" class="ctrl-btn" id="btn-dev-lab-toggle" title="시뮬레이션 조건·현장실측 F-01~F-06·전시 궤도 개발자 실험실">개발자 실험실 ▾</button>
+        <button type="button" class="ctrl-btn" id="btn-dev-lab-toggle" title="현장검증·시나리오·공간진단 개발자 실험실">개발자 실험실 ▾</button>
       </div>
 
       <aside id="dev-lab-drawer" aria-label="개발자 실험실 및 현장 검증 도구">
@@ -252,6 +283,7 @@ export function renderEvacuationHudMarkup(mountRoot) {
           </div>
           <span class="dock-click-hint" id="dock-click-hint">지도 위 3D 건물을 클릭해 출발 위치 변경 가능</span>
         </div>
+        <div class="candidate-pills-row" id="candidate-pills-row" aria-label="목적지 후보 선택"></div>
 
         <div class="dock-controls-row">
           <button type="button" class="play-route-btn" id="btn-walk-play" title="내 대피 동선 따라가기 재생/일시정지">
@@ -287,9 +319,42 @@ export class EvacuationExperienceController {
 
     this.activeVisualTheme = options.initialTheme === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
     this.activeRegionId = 'seoul_hanyang';
-    this.activeSpatialPkg = HANYANG_LOCAL_4KM_PACKAGE;
+    this.activeSpatialPkg = {
+      ...HANYANG_LOCAL_4KM_PACKAGE,
+      isHanyangNative: true,
+      initialFacilityPackage: DEFAULT_HANYANG_FACILITY_PACKAGE,
+      dataCompleteness: 'SUFFICIENT',
+      dataLimitations: [
+        '제1공학관(212동)은 파일럿 3층 실내망(PROVISIONAL 현장 검증 대상)을 포함합니다.',
+        '701동 HIT 및 104동 백남학술정보관은 실측 외곽 기반 출발점이며 상세 전층 평면도는 미포함입니다.'
+      ],
+      destinationAssessment: {
+        candidates: (HANYANG_LOCAL_4KM_PACKAGE.sheltersAndFacilities || []).map(s => ({
+          ...s,
+          candidateStatus: HANYANG_SHELTER_JUSTIFICATION[s.id] ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL,
+          justification: HANYANG_SHELTER_JUSTIFICATION[s.id] || s.justification || null
+        })),
+        primaryCandidate: HANYANG_LOCAL_4KM_PACKAGE.sheltersAndFacilities?.[0] || null,
+        overallStatus: CANDIDATE_STATUS.CONFIRMED,
+        limitations: '공식 지진옥외대피장소(OA-21060) 개방 여부 및 현장 접근로는 재난 당시 안전 점검을 우선하십시오.'
+      }
+    };
     this.activeWalkGraph = HANYANG_CAMPUS_WALK_GRAPH;
     this.activeRegionInfo = KOREA_BENCHMARK_REGIONS[0];
+    this.locationProvider = new LocationProvider({
+      lat: KOREA_BENCHMARK_REGIONS[0].lat,
+      lon: KOREA_BENCHMARK_REGIONS[0].lon,
+      label: KOREA_BENCHMARK_REGIONS[0].name
+    });
+    this.activeScenarioSpec = {
+      ...PRESET_EARTHQUAKE_SCENARIOS[0],
+      epicenterLat: KOREA_BENCHMARK_REGIONS[0].scenarioEvent.epicenterLat,
+      epicenterLon: KOREA_BENCHMARK_REGIONS[0].scenarioEvent.epicenterLon
+    };
+    this.activeImpactEval = null;
+    this.selectedCandidateIndex = 0;
+    this.alternativeRoutes = [];
+    this.activeAltRouteIndex = 0;
     this.activeFacilityId = 'BLDG_212_ENG1';
     this.activeFacilityPkg = DEFAULT_HANYANG_FACILITY_PACKAGE;
     this.activeShelterJustification = HANYANG_SHELTER_JUSTIFICATION['OA-21060'];
@@ -302,6 +367,7 @@ export class EvacuationExperienceController {
     this.walkPlaying = options.autoPlay !== false;
     this.followCameraEnabled = false;
     this.safetyPopupDismissed = false;
+    this._isScrubbingRoute = false;
     this.activeSeismicCtx = null;
     this.activeCheckpoints = [];
     this.hoveredBuilding = null;
@@ -316,7 +382,7 @@ export class EvacuationExperienceController {
 
     // Local 3D spatial layer anchored inside localWorldGroup so Single-Canvas isolates cleanly
     this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
-      spatialPackage: HANYANG_LOCAL_4KM_PACKAGE,
+      spatialPackage: this.activeSpatialPkg,
       theme: this.activeVisualTheme
     });
 
@@ -345,6 +411,9 @@ export class EvacuationExperienceController {
         CAMPUS_OVERVIEW: HANYANG_LOCAL_SPATIAL_VIEWPOINTS.CAMPUS_OVERVIEW
       })
     });
+    if (this._onWindowResizeSync && typeof window !== 'undefined') {
+      window.removeEventListener('resize', this._onWindowResizeSync);
+    }
     if (this.domElement) {
       this.camTransition.attachUserInterruptListeners(this.domElement);
     }
@@ -363,6 +432,7 @@ export class EvacuationExperienceController {
 
     if (this.mountRoot) {
       this._renderRegionBenchmarkChips();
+      this._renderScenarioPresets();
       this._bindDomEvents();
       this._bindCanvasRaycastEvents();
     }
@@ -377,11 +447,19 @@ export class EvacuationExperienceController {
       this.controls.addEventListener('start', this._onControlStart);
     }
 
-    // Default clean ready state
+    const stageBtn = this._el('btn-stage-campus');
+    if (stageBtn) stageBtn.textContent = this.activeSpatialPkg?.isHanyangNative ? '캠퍼스 동선' : '도시/지역 동선';
+    // Default clean ready state: decouple Seoul/Hanyang drill from 1681 Yangyang
     this.applyVisualTheme(this.activeVisualTheme);
     this.uiAdapter.setUserFloor(3);
     this.uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
-    this.loadAndBindSeismicEvent(options.initialEventId || 'hist_1681_0626');
+    if (options.initialEventId) {
+      this.loadAndBindSeismicEvent(options.initialEventId);
+    } else {
+      this.applyScenarioSpec(this.activeScenarioSpec, { skipBrief: true });
+    }
+    this._renderDataQualityStrip();
+    this._renderCandidatePills();
     this.renderUI();
     this._syncPlayButton();
     this._syncFollowButton();
@@ -459,6 +537,272 @@ export class EvacuationExperienceController {
     this.localWorldGroup.add(this.shelterSetbackGroup);
   }
 
+  _renderScenarioPresets() {
+    const row = this._el('scenario-preset-list');
+    if (!row) return;
+    const typeLabel = t => (
+      t === SCENARIO_TYPES.OBSERVED_EVENT ? '관측' :
+      t === SCENARIO_TYPES.HISTORICAL_RECORD ? '사료' : '교육'
+    );
+    row.innerHTML = PRESET_EARTHQUAKE_SCENARIOS.map(sc => `
+      <button type="button" class="scenario-tab-btn ${this.activeScenarioSpec?.id === sc.id ? 'active' : ''}" data-scenario-id="${sc.id}">
+        [${typeLabel(sc.scenarioType)}] ${sc.title.split('(')[0].trim()}
+      </button>
+    `).join('');
+    row.querySelectorAll('[data-scenario-id]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sc = PRESET_EARTHQUAKE_SCENARIOS.find(s => s.id === btn.dataset.scenarioId);
+        if (sc) {
+          this.applyScenarioSpec(sc, { skipBrief: false });
+        }
+      });
+    });
+  }
+
+  _syncCustomQuakeInputs(hazardEval) {
+    if (!hazardEval) return;
+    const latEl = this._el('custom-epi-lat');
+    const lonEl = this._el('custom-epi-lon');
+    const magEl = this._el('custom-mag');
+    const depEl = this._el('custom-depth');
+    if (latEl && Number.isFinite(hazardEval.epicenterLat)) latEl.value = hazardEval.epicenterLat.toFixed(4);
+    if (lonEl && Number.isFinite(hazardEval.epicenterLon)) lonEl.value = hazardEval.epicenterLon.toFixed(4);
+    if (magEl && typeof hazardEval.magnitude === 'number') magEl.value = String(hazardEval.magnitude);
+    if (depEl && typeof hazardEval.depthKm === 'number') depEl.value = String(hazardEval.depthKm);
+  }
+
+  /**
+   * Apply any independent OBSERVED_EVENT, EDUCATIONAL_SYNTHETIC, or HISTORICAL_RECORD
+   * earthquake against the currently analyzed location, checking IMPACT_ZONE vs OUTSIDE_IMPACT_ZONE.
+   */
+  applyScenarioSpec(scenarioSpec, opts = {}) {
+    if (!scenarioSpec) return null;
+    this.activeScenarioSpec = { ...scenarioSpec };
+    const anchor = this.activeSpatialPkg?.metadata?.anchor || {
+      lat: this.activeRegionInfo?.lat ?? 37.555815,
+      lon: this.activeRegionInfo?.lon ?? 127.045053
+    };
+    const evaluated = evaluateRegionalHazard(this.activeScenarioSpec, anchor.lat, anchor.lon);
+    this.activeImpactEval = evaluated.impactAssessment;
+    this._syncCustomQuakeInputs(evaluated);
+
+    const compassLabel = Number.isFinite(evaluated.azimuthDeg)
+      ? `${Math.round(evaluated.azimuthDeg)}° 방위`
+      : '방위 미상';
+    const typeBadge =
+      evaluated.scenarioType === SCENARIO_TYPES.OBSERVED_EVENT ? '실제 계기 관측 사건 (OBSERVED)' :
+      evaluated.scenarioType === SCENARIO_TYPES.HISTORICAL_RECORD ? '역사 문헌 사료 (HISTORICAL · 불확실성 포함)' :
+      '교육용 인공 시나리오 (SYNTHETIC)';
+
+    this.activeSeismicCtx = {
+      eventId: evaluated.id,
+      scenarioType: evaluated.scenarioType,
+      titleKo: evaluated.title,
+      provenanceBadge: typeBadge,
+      magSummary: evaluated.magnitudeText || (evaluated.magnitude !== null ? `M${evaluated.magnitude}` : '규모 미상'),
+      compassDirKo: compassLabel,
+      distanceKm: evaluated.distanceKm,
+      bearingDeg: evaluated.azimuthDeg,
+      epicenterLat: evaluated.epicenterLat,
+      epicenterLon: evaluated.epicenterLon,
+      pWaveEtaSec: evaluated.pArrivalSec,
+      sWaveEtaSec: evaluated.sArrivalSec,
+      impactAssessment: evaluated.impactAssessment
+    };
+
+    this.localSpatialLayer.setEpicenterContext(this.activeSeismicCtx);
+    this._renderScenarioPresets();
+
+    const impStatus = evaluated.impactAssessment?.impactStatus || IMPACT_ZONE_STATUS.UNKNOWN;
+    const isOutsideImpact =
+      impStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE ||
+      impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY;
+
+    if (isOutsideImpact) {
+      this._enterOutsideImpactState(evaluated);
+    } else if (!this.activeSpatialPkg?.initialFacilityPackage && !this.activeSpatialPkg?.isHanyangNative) {
+      this._enterUnavailableDestinationState(this.activeSpatialPkg);
+    } else {
+      const destMeta = this.activeFacilityPkg?.shelter;
+      this.uiAdapter.setRegionContext({
+        impactStatus: impStatus,
+        destinationStatus: destMeta ? (destMeta.destinationStatus || (this.activeSpatialPkg.isHanyangNative ? 'CONFIRMED' : 'CONDITIONAL')) : 'UNAVAILABLE',
+        destinationName: destMeta?.officialName || destMeta?.name || null,
+        regionLabel: this.activeRegionInfo?.shortName || this.activeRegionInfo?.name || null,
+        facilityName: this.activeFacilityPkg?.buildingMetadata?.name || null,
+        hasIndoorData: Boolean(this.activeSpatialPkg?.isHanyangNative && this.activeFacilityPkg?.buildingMetadata?.id === 'BLDG_212_ENG1')
+      });
+      this.hanyangAdapter.setRouteDisplay(this.uiAdapter.preferredRouteMode || 'ALL');
+      if (!opts.skipBrief) {
+        this.enterWithSeismicBrief({ durationMs: 2000 });
+      }
+    }
+
+    this._renderDataQualityStrip();
+    this._renderEarthquakeImpactHeader();
+    this.renderUI();
+    return evaluated;
+  }
+
+  _enterOutsideImpactState(evaluatedQuake) {
+    if (this.briefTimerId) {
+      clearTimeout(this.briefTimerId);
+      this.briefTimerId = null;
+    }
+    this._el('seismic-brief-banner')?.classList.remove('is-active');
+    this.walkPlaying = false;
+    this.routeProgressT = 0;
+    this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
+    this.walkerGroup.visible = false;
+    this.shelterSetbackGroup.visible = false;
+    this.hanyangAdapter.setRouteDisplay('NONE');
+
+    this.uiAdapter.setRegionContext({
+      impactStatus: evaluatedQuake.impactAssessment?.impactStatus || IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE,
+      destinationStatus: this.activeSpatialPkg?.destinationAssessment?.overallStatus || CANDIDATE_STATUS.CONDITIONAL,
+      regionLabel: this.activeRegionInfo?.shortName || this.activeRegionInfo?.name || null,
+      hasIndoorData: false
+    });
+
+    const scrub = this._el('route-scrubber');
+    if (scrub) { scrub.value = '0'; scrub.disabled = true; }
+    const remEl = this._el('dock-remaining-dist');
+    const etaEl = this._el('dock-walk-eta');
+    if (remEl) remEl.textContent = '현 위치 영향권 외';
+    if (etaEl) etaEl.textContent = `진앙 거리 ${evaluatedQuake.distanceKm ?? '--'} km`;
+    this._syncPlayButton();
+  }
+
+  _enterUnavailableDestinationState(pkg) {
+    if (this.briefTimerId) {
+      clearTimeout(this.briefTimerId);
+      this.briefTimerId = null;
+    }
+    this._el('seismic-brief-banner')?.classList.remove('is-active');
+    this.walkPlaying = false;
+    this.routeProgressT = 0;
+    this.activeFacilityPkg = null;
+    this.activeFacilityId = 'UNAVAILABLE';
+    this.alternativeRoutes = [];
+    this.walkerGroup.visible = false;
+    this.shelterSetbackGroup.visible = false;
+    this.hanyangAdapter.clearVisuals();
+    this.hanyangAdapter.setRouteDisplay('NONE');
+    this.localSpatialLayer.setActiveOriginFacility(pkg?.defaultOriginMeta || null);
+
+    this.uiAdapter.setRegionContext({
+      impactStatus: this.activeImpactEval?.impactStatus || IMPACT_ZONE_STATUS.EDUCATIONAL_DRILL,
+      destinationStatus: pkg?.destinationAssessment?.overallStatus || CANDIDATE_STATUS.UNAVAILABLE,
+      destinationName: null,
+      regionLabel: this.activeRegionInfo?.shortName || this.activeRegionInfo?.name || null,
+      facilityName: pkg?.defaultOriginMeta?.name || null,
+      hasIndoorData: false
+    });
+
+    const scrub = this._el('route-scrubber');
+    if (scrub) { scrub.value = '0'; scrub.disabled = true; }
+    const remEl = this._el('dock-remaining-dist');
+    const etaEl = this._el('dock-walk-eta');
+    if (remEl) remEl.textContent = '경로 산출 불가';
+    if (etaEl) etaEl.textContent = '확인된 목적지·보행망 부족';
+    this._syncPlayButton();
+    this._renderCandidatePills();
+    this._renderDataQualityStrip();
+  }
+
+  _renderDataQualityStrip() {
+    const pkg = this.activeSpatialPkg;
+    const compEl = this._el('dq-completeness-badge');
+    const destEl = this._el('dq-destination-badge');
+    const limEl = this._el('dq-limitation-summary');
+    if (!compEl && !destEl && !limEl) return;
+
+    const comp = pkg?.dataCompleteness || (pkg?.isHanyangNative ? 'SUFFICIENT' : 'PARTIAL');
+    if (compEl) {
+      compEl.textContent = comp === 'SUFFICIENT' ? '데이터 충분' : comp === 'PARTIAL' ? '데이터 부분 확보' : '데이터 부족 (INSUFFICIENT)';
+      compEl.className = `dq-badge ${comp === 'INSUFFICIENT' ? 'is-insufficient' : comp === 'PARTIAL' ? 'is-conditional' : ''}`;
+    }
+    const destStatus = pkg?.destinationAssessment?.overallStatus || (pkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.UNKNOWN);
+    if (destEl) {
+      destEl.textContent =
+        destStatus === CANDIDATE_STATUS.CONFIRMED ? '대피지 확인(CONFIRMED)' :
+        destStatus === CANDIDATE_STATUS.CONDITIONAL ? '조건부 후보(현장 확인 필요)' :
+        destStatus === CANDIDATE_STATUS.UNKNOWN ? '목적지 미확인(UNKNOWN)' :
+        '대피 후보 없음(UNAVAILABLE)';
+      destEl.className = `dq-badge ${(destStatus === CANDIDATE_STATUS.UNAVAILABLE || destStatus === CANDIDATE_STATUS.UNKNOWN) ? 'is-insufficient' : destStatus === CANDIDATE_STATUS.CONDITIONAL ? 'is-conditional' : ''}`;
+    }
+    if (limEl) {
+      const firstLim = pkg?.dataLimitations?.[0] || this.activeImpactEval?.limitations || '';
+      limEl.textContent = firstLim;
+    }
+  }
+
+  _renderCandidatePills() {
+    const row = this._el('candidate-pills-row');
+    if (!row) return;
+    const cands = this.activeSpatialPkg?.sheltersAndFacilities || [];
+    if (cands.length === 0) {
+      row.innerHTML = `<span style="font-size:10px; color:var(--evac-muted);">반경 내 확인 가능한 대피 목적지 후보 없음</span>`;
+      return;
+    }
+    row.innerHTML = cands.slice(0, 4).map((c, idx) => {
+      const st = c.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
+      const stTxt = st === CANDIDATE_STATUS.CONFIRMED ? '확인' : st === CANDIDATE_STATUS.CONDITIONAL ? '조건부' : '불가';
+      const distTxt = Number.isFinite(c.dimensions?.distanceMeters) ? ` · ${c.dimensions.distanceMeters}m` : '';
+      return `
+        <button type="button" class="candidate-pill-btn ${idx === this.selectedCandidateIndex ? 'active' : ''}" data-cand-idx="${idx}" ${st === CANDIDATE_STATUS.UNAVAILABLE ? 'disabled' : ''}>
+          ${c.name}<span class="candidate-status-tag">[${stTxt}${distTxt}]</span>
+        </button>
+      `;
+    }).join('');
+    row.querySelectorAll('[data-cand-idx]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.selectDestinationCandidate(Number(btn.dataset.candIdx));
+      });
+    });
+  }
+
+  selectDestinationCandidate(candIdx) {
+    const cands = this.activeSpatialPkg?.sheltersAndFacilities || [];
+    const target = cands[candIdx];
+    if (!target || target.candidateStatus === CANDIDATE_STATUS.UNAVAILABLE) return null;
+    this.selectedCandidateIndex = candIdx;
+    const orig = this.activeFacilityPkg?.dynamicOriginMeta || this.activeSpatialPkg?.defaultOriginMeta || {
+      id: this.activeFacilityId || 'DYNAMIC_ORIGIN',
+      name: this.activeFacilityPkg?.buildingMetadata?.name || '출발 위치',
+      east_m: this.activeFacilityPkg?.connector?.doorPos?.[0] ?? 0,
+      north_m: -(this.activeFacilityPkg?.connector?.doorPos?.[2] ?? 0),
+      width_m: 18,
+      depth_m: 18,
+      yaw_rad: 0,
+      height_m: 18
+    };
+
+    const anchor = this.activeSpatialPkg?.metadata?.anchor || { lat: 37.555815, lon: 127.045053, h: 20 };
+    const dynPkg = buildDynamicFacilityFromPoint({
+      buildingId: orig.id,
+      name: orig.name,
+      east_m: orig.east_m,
+      north_m: orig.north_m,
+      width_m: orig.width_m || 18,
+      depth_m: orig.depth_m || 18,
+      yaw_rad: orig.yaw_rad || 0,
+      height_m: orig.height_m || 18,
+      hasIndoorData: false,
+      anchor,
+      walkGraph: this.activeWalkGraph,
+      buildingOBBs: this.activeSpatialPkg.obbBuildingsFloat32,
+      waterPolygons: this.activeSpatialPkg.terrainAndHydrology?.waterPolygons || [],
+      waterways: this.activeSpatialPkg.terrainAndHydrology?.waterways || [],
+      shelter: target,
+      destinationStatus: target.candidateStatus || CANDIDATE_STATUS.CONDITIONAL,
+      elevationSampler: (e, n) => sampleGridHeightAt(this.activeSpatialPkg.terrainGrid, e, n)
+    });
+    this.switchToDynamicFacility(dynPkg, { snapStage: false, autoPlay: true });
+    this._renderCandidatePills();
+    return target;
+  }
+
   _renderRegionBenchmarkChips() {
     const grid = this._el('region-chips-grid');
     if (!grid) return;
@@ -481,6 +825,17 @@ export class EvacuationExperienceController {
   }
 
   async _handleRegionSearchSubmit(query) {
+    const parsedCoord = LocationProvider.parseCoordinateInput(query);
+    if (parsedCoord) {
+      this._el('region-search-popover')?.classList.remove('open');
+      this._el('btn-region-switcher')?.classList.remove('open');
+      return this.switchToRegion(parsedCoord.lat, parsedCoord.lon, {
+        regionId: `COORD_${parsedCoord.lat.toFixed(3)}_${parsedCoord.lon.toFixed(3)}`,
+        name: `지정 좌표 (${parsedCoord.lat.toFixed(4)}°N, ${parsedCoord.lon.toFixed(4)}°E)`,
+        shortName: `${parsedCoord.lat.toFixed(3)}, ${parsedCoord.lon.toFixed(3)}`
+      });
+    }
+
     const resultsEl = this._el('region-search-results');
     if (resultsEl) {
       resultsEl.innerHTML = `<div style="font-size:10.5px; color:var(--evac-muted); padding:4px 2px;">검색 중...</div>`;
@@ -488,7 +843,7 @@ export class EvacuationExperienceController {
     const hits = await geocodeKoreaQuery(query);
     if (!resultsEl) return;
     if (!hits || hits.length === 0) {
-      resultsEl.innerHTML = `<div style="font-size:10.5px; color:var(--evac-muted); padding:4px 2px;">검색 결과 없음 (예: 경주, 포항, 부산 해운대)</div>`;
+      resultsEl.innerHTML = `<div style="font-size:10.5px; color:var(--evac-muted); padding:4px 2px;">검색 결과 없음 (예: 속초, 경주, 또는 38.207, 128.592)</div>`;
       return;
     }
     resultsEl.innerHTML = hits.map((h, idx) => `
@@ -518,54 +873,55 @@ export class EvacuationExperienceController {
   async switchToRegion(lat, lon, opts = {}) {
     const labelEl = this._el('region-active-label');
     if (labelEl) labelEl.textContent = `${opts.shortName || opts.name || '지역'} 불러오는 중...`;
+    this.locationProvider.setUserSelectedLocation(lat, lon, opts.shortName || opts.name || '선택 지역');
 
     const pkg = await loadRegionalSpatialPackage(lat, lon, opts);
     this.activeRegionId = pkg.regionInfo?.id || opts.regionId || 'custom_kr';
     this.activeRegionInfo = pkg.regionInfo || KOREA_BENCHMARK_REGIONS[0];
     this.activeSpatialPkg = pkg;
-    this.activeWalkGraph = pkg.walkGraph || HANYANG_CAMPUS_WALK_GRAPH;
+    this.activeWalkGraph = pkg.walkGraph || { nodes: [], edges: [] };
+    this.selectedCandidateIndex = 0;
 
     this.localSpatialLayer.setSpatialPackage(pkg);
     this.router.setRealMapRouting({
       enabled: true,
       buildingOBBs: pkg.obbBuildingsFloat32,
       customWalkGraph: this.activeWalkGraph,
+      waterPolygons: pkg.terrainAndHydrology?.waterPolygons || [],
+      waterways: pkg.terrainAndHydrology?.waterways || [],
       elevationSampler: (e, n) => sampleGridHeightAt(pkg.terrainGrid, e, n)
     });
 
     if (labelEl) labelEl.textContent = this.activeRegionInfo.shortName || this.activeRegionInfo.name;
-    this._renderRegionBenchmarkChips();
+    const stageBtn = this._el('btn-stage-campus');
+    if (stageBtn) stageBtn.textContent = pkg.isHanyangNative ? '캠퍼스 동선' : '도시/지역 동선';
+    const personalBtn = this._el('btn-stage-personal');
+    if (personalBtn) {
+      personalBtn.disabled = !pkg.isHanyangNative;
+      personalBtn.title = pkg.isHanyangNative ? '3층 파일럿 실내 진입 확인' : '범용 지역은 실내 평면도 미제공 (Section 8)';
+    }
 
-    // Update origin pills & active shelter for Hanyang vs Nationwide dynamic regions
+    this._renderRegionBenchmarkChips();
+    this._renderCandidatePills();
+    this._renderDataQualityStrip();
+
+    // Update origin pills & active destination OR cleanly clear visuals if data is insufficient
     if (pkg.isHanyangNative) {
-      this.switchFacilityPackage('BLDG_212_ENG1', { skipBrief: false });
+      this.switchFacilityPackage('BLDG_212_ENG1', { skipBrief: true });
       this._toggleHanyangOriginButtons(true);
-    } else {
+    } else if (pkg.initialFacilityPackage) {
       const firstShelter = pkg.sheltersAndFacilities?.[0] || null;
       this.activeShelterJustification = firstShelter?.justification || null;
-      this.switchToDynamicFacility(pkg.initialFacilityPackage, { skipBrief: false });
-      this._toggleHanyangOriginButtons(false, pkg.initialFacilityPackage?.buildingMetadata?.name);
+      this.switchToDynamicFacility(pkg.initialFacilityPackage, { skipBrief: true });
+      this._toggleHanyangOriginButtons(false, pkg.initialFacilityPackage?.buildingMetadata?.name || '출발 위치');
+    } else {
+      this._toggleHanyangOriginButtons(false, pkg.defaultOriginMeta?.name || '확인된 출발지 없음');
+      this._enterUnavailableDestinationState(pkg);
     }
 
-    // Bind region seismic event context smoothly
-    const sc = this.activeRegionInfo.scenarioEvent;
-    if (sc) {
-      this.activeSeismicCtx = {
-        eventId: sc.id,
-        titleKo: sc.title,
-        provenanceBadge: pkg.isHanyangNative ? '역사 실록 기반 시나리오' : '대한민국 권역 지진 시나리오',
-        magSummary: sc.magnitudeText,
-        compassDirKo: `${Math.round(sc.azimuthDeg)}° 방위`,
-        distanceKm: sc.distanceKm,
-        bearingDeg: sc.azimuthDeg,
-        pWaveEtaSec: sc.pArrivalSec,
-        sWaveEtaSec: sc.sArrivalSec
-      };
-      this.localSpatialLayer.setEpicenterContext(this.activeSeismicCtx);
-      this._renderEarthquakeImpactHeader();
-    }
-
-    this.enterWithSeismicBrief({ durationMs: 2200 });
+    // Decoupled hazard evaluation: use region's default or preserve explicit user scenario if provided
+    const scToApply = opts.customScenario || this.activeRegionInfo.scenarioEvent || this.activeScenarioSpec;
+    this.applyScenarioSpec(scToApply, { skipBrief: !pkg.initialFacilityPackage });
     return pkg;
   }
 
@@ -645,7 +1001,10 @@ export class EvacuationExperienceController {
    * Switch to any dynamic 3D building picked on the map or loaded nationwide (피드백 5 & 6).
    */
   switchToDynamicFacility(facilityPkg, opts = {}) {
-    if (!facilityPkg) return null;
+    if (!facilityPkg) {
+      this._enterUnavailableDestinationState(this.activeSpatialPkg);
+      return null;
+    }
     this.activeFacilityPkg = facilityPkg;
     this.activeFacilityId = facilityPkg.buildingMetadata?.id || 'DYNAMIC_ORIGIN';
     const shelterId = facilityPkg.shelter?.officialId || 'PRIMARY_SHELTER';
@@ -657,8 +1016,37 @@ export class EvacuationExperienceController {
       null;
 
     this.uiAdapter.setFacilityPackage(facilityPkg);
-    this.uiAdapter.setUserFloor(facilityPkg.defaultFloor ?? 1);
+    const hasIndoorData = Boolean(
+      this.activeSpatialPkg?.isHanyangNative && this.activeFacilityId === 'BLDG_212_ENG1'
+    );
+    this.uiAdapter.setUserFloor(hasIndoorData ? (facilityPkg.defaultFloor ?? 3) : 1);
     this.uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
+
+    // Query optional edge-penalized alternative routes if pedestrian router supports it
+    this.alternativeRoutes = [];
+    this.activeAltRouteIndex = 0;
+    if (typeof this.router?.findAlternativeRoutes === 'function' && facilityPkg.outdoorGraph?.edges?.length > 0) {
+      const altBundle = this.router.findAlternativeRoutes();
+      if (Array.isArray(altBundle)) {
+        this.alternativeRoutes = altBundle.filter(r => r && r.found);
+      } else if (altBundle && typeof altBundle === 'object') {
+        const list = [];
+        if (altBundle.primaryRoute?.found) list.push(altBundle.primaryRoute);
+        if (
+          altBundle.alternativeRoute?.found &&
+          JSON.stringify(altBundle.alternativeRoute.waypoints3D) !== JSON.stringify(altBundle.primaryRoute?.waypoints3D)
+        ) {
+          list.push(altBundle.alternativeRoute);
+        }
+        this.alternativeRoutes = list;
+      }
+    }
+    const altBtn = this._el('btn-route-alt');
+    if (altBtn) {
+      altBtn.style.display = this.alternativeRoutes.length > 1 ? 'inline-block' : 'none';
+      altBtn.classList.remove('active');
+      altBtn.textContent = '대체 경로';
+    }
 
     const vps = this.activeSpatialPkg.viewpoints || HANYANG_LOCAL_SPATIAL_VIEWPOINTS;
     this.camTransition.setFacilityViewpoints(withExtendedFar({
@@ -672,12 +1060,16 @@ export class EvacuationExperienceController {
       name: facilityPkg.buildingMetadata?.name || '출발 건물',
       east_m: (facilityPkg.connector?.doorPos?.[0] ?? 0),
       north_m: -(facilityPkg.connector?.doorPos?.[2] ?? 0),
-      height_m: 18
+      height_m: 18,
+      hasIndoorData
     };
-    this.localSpatialLayer.setActiveOriginFacility(originMeta);
+    this.localSpatialLayer.setActiveOriginFacility({ ...originMeta, hasIndoorData });
     if (this.activeSeismicCtx) {
       this.localSpatialLayer.setEpicenterContext(this.activeSeismicCtx);
     }
+
+    const scrub = this._el('route-scrubber');
+    if (scrub) scrub.disabled = false;
 
     const originGroup = this._el('origin-select-group');
     if (originGroup && this.activeSpatialPkg.isHanyangNative) {
@@ -767,6 +1159,18 @@ export class EvacuationExperienceController {
   }
 
   async loadAndBindSeismicEvent(eventId) {
+    // Route catalog presets cleanly through HazardProvider so impact radius checks apply universally
+    const presetMap = {
+      hist_2016_gyeongju: 'KMA-2016-GYEONGJU',
+      hist_2017_pohang: 'KMA-2017-POHANG',
+      hist_2024_buan: 'KMA-2024-BUAN',
+      hist_1681_0626: 'HIST-1681-YANGYANG'
+    };
+    if (presetMap[eventId]) {
+      const matched = PRESET_EARTHQUAKE_SCENARIOS.find(s => s.id === presetMap[eventId]);
+      if (matched) return this.applyScenarioSpec(matched, { skipBrief: false });
+    }
+
     let usgsFeatures = null;
     if (eventId && eventId.startsWith('us')) {
       try {
@@ -777,7 +1181,21 @@ export class EvacuationExperienceController {
         }
       } catch (_) {}
     }
-    this.activeSeismicCtx = resolveActiveSeismicEvent(eventId, { usgsFeatures });
+    const resolved = resolveActiveSeismicEvent(eventId, { usgsFeatures });
+    if (resolved && Number.isFinite(resolved.lat) && Number.isFinite(resolved.lon)) {
+      return this.applyScenarioSpec({
+        id: resolved.eventId,
+        scenarioType: eventId?.startsWith('hist_1681') ? SCENARIO_TYPES.HISTORICAL_RECORD : SCENARIO_TYPES.OBSERVED_EVENT,
+        title: resolved.titleKo,
+        epicenterLat: resolved.lat,
+        epicenterLon: resolved.lon,
+        magnitude: resolved.mag ?? null,
+        depthKm: resolved.depthKm ?? null,
+        originText: resolved.provenanceBadge || '관측·카탈로그 사건'
+      }, { skipBrief: true });
+    }
+
+    this.activeSeismicCtx = resolved;
     this.localSpatialLayer.setEpicenterContext(this.activeSeismicCtx);
     this._renderEarthquakeImpactHeader();
     return this.activeSeismicCtx;
@@ -786,36 +1204,54 @@ export class EvacuationExperienceController {
   _renderEarthquakeImpactHeader() {
     if (!this.activeSeismicCtx) return;
     const g = this.uiAdapter.lastGuidance;
-    const pkg = this.activeFacilityPkg || getFacilityPackageById(this.activeFacilityId);
-    const rawName = pkg.buildingMetadata?.name?.split('(')[0]?.trim() || '출발 건물';
-    const unitNo = pkg.buildingMetadata?.unitNumber;
+    const pkg = this.activeFacilityPkg;
+    const regionLabel = this.activeRegionInfo?.shortName || this.activeRegionInfo?.name || '분석 지역';
+    const rawName = pkg?.buildingMetadata?.name?.split('(')[0]?.trim() || this.activeSpatialPkg?.defaultOriginMeta?.name || regionLabel;
+    const unitNo = pkg?.buildingMetadata?.unitNumber;
     const displayOrigin = unitNo ? `${rawName}(${unitNo}동)` : rawName;
-    const shelterName = pkg.shelter?.officialName || this.activeSpatialPkg.sheltersAndFacilities?.[0]?.name || '한양대 대운동장';
+    const shelterName = pkg?.shelter?.officialName || this.activeSpatialPkg?.sheltersAndFacilities?.[0]?.name || null;
     const activeTotalDist = g?.replanStatus?.totalDistanceMeters
       || (this.uiAdapter.preferredRouteMode === 'STEP_FREE'
-        ? pkg.routeBaselines?.PATH_STEP_FREE_DETOUR?.targetLengthMeters
-        : pkg.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters)
-      || 737.9;
+        ? pkg?.routeBaselines?.PATH_STEP_FREE_DETOUR?.targetLengthMeters
+        : pkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters)
+      || null;
+
+    const impStatus = this.activeImpactEval?.impactStatus;
+    const isOutside = impStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE || impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY;
 
     const hl = this._el('evac-route-headline');
     if (hl) {
-      hl.textContent = `${displayOrigin} → ${shelterName} (${activeTotalDist} m · 도보 약 ${Math.max(1, Math.ceil(activeTotalDist / 72))}분)`;
+      if (isOutside) {
+        hl.textContent = `${regionLabel} · 현 위치 영향권 외 (거리 ${this.activeSeismicCtx.distanceKm ?? '--'} km)`;
+      } else if (!pkg || !shelterName || !activeTotalDist) {
+        hl.textContent = `${displayOrigin} · 확인된 대피 경로·목적지 미확보`;
+      } else {
+        hl.textContent = `${displayOrigin} → ${shelterName} (${activeTotalDist} m · 도보 약 ${Math.max(1, Math.ceil(activeTotalDist / 72))}분)`;
+      }
     }
     const dockTarget = this._el('dock-shelter-target');
-    if (dockTarget) dockTarget.textContent = shelterName;
+    if (dockTarget) {
+      dockTarget.textContent = isOutside
+        ? '영향권 외 · 대피 불필요'
+        : (shelterName || '확인된 대피 후보 없음');
+    }
 
     const tagEl = this._el('quake-provenance-tag');
     if (tagEl) tagEl.textContent = this.activeSeismicCtx.provenanceBadge || '지진 정보';
     const origEl = this._el('quake-origin-line');
     if (origEl) {
-      origEl.textContent = `${this.activeSeismicCtx.titleKo} (${this.activeSeismicCtx.magSummary}) · 여기서 ${this.activeSeismicCtx.compassDirKo} ${this.activeSeismicCtx.distanceKm ?? '--'} km (${this.activeSeismicCtx.bearingDeg ?? '--'}°)`;
+      origEl.textContent = `${this.activeSeismicCtx.titleKo} (${this.activeSeismicCtx.magSummary}) · 현 위치 기준 ${this.activeSeismicCtx.compassDirKo} ${this.activeSeismicCtx.distanceKm ?? '--'} km`;
     }
-    const actionSnippet = g?.canMove
-      ? `현재 지반 흔들림 멈춤 · ${g.replanStatus?.isStepFree ? '무단차 우회 대피 가능' : '보행 대피 가능'}`
-      : '진동/차단 감지 · 즉시 현 위치 엄폐 대기';
     const impEl = this._el('quake-impact-line');
     if (impEl) {
-      impEl.textContent = `이론상 P파 ${this.activeSeismicCtx.pWaveEtaSec ?? '--'}s / S파 ${this.activeSeismicCtx.sWaveEtaSec ?? '--'}s 도달 권역 · ${actionSnippet}`;
+      if (this.activeImpactEval?.explanationKo) {
+        impEl.textContent = `${this.activeImpactEval.explanationKo} (이론 P파 ${this.activeSeismicCtx.pWaveEtaSec ?? '--'}s / S파 ${this.activeSeismicCtx.sWaveEtaSec ?? '--'}s)`;
+      } else {
+        const actionSnippet = g?.canMove
+          ? `지반 흔들림 없음 · ${g.replanStatus?.isStepFree ? '우회 경로 안내' : '보행 대피 가능'}`
+          : '현재 이동 안내 보류 · 주변 안전 먼저 확인';
+        impEl.textContent = `이론상 P파 ${this.activeSeismicCtx.pWaveEtaSec ?? '--'}s / S파 ${this.activeSeismicCtx.sWaveEtaSec ?? '--'}s · ${actionSnippet}`;
+      }
     }
   }
 
@@ -878,26 +1314,39 @@ export class EvacuationExperienceController {
   }
 
   _refreshCheckpointsAndMilestones() {
-    const pkg = this.activeFacilityPkg || getFacilityPackageById(this.activeFacilityId);
+    const pkg = this.activeFacilityPkg;
     const g = this.uiAdapter.lastGuidance;
+    const msRow = this._el('milestones-row');
+
+    if (!pkg || !pkg.shelter || (this.activeImpactEval?.impactStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE) || (this.activeImpactEval?.impactStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY)) {
+      this.activeCheckpoints = [];
+      if (msRow) msRow.innerHTML = '';
+      this._updateSafetyRuleForProgress();
+      return;
+    }
+
     const isStepFree = Boolean(g?.replanStatus?.isStepFree || this.uiAdapter.preferredRouteMode === 'STEP_FREE');
-    const shortestLen = pkg.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters || 737.9;
-    const stepFreeLen = pkg.routeBaselines?.PATH_STEP_FREE_DETOUR?.targetLengthMeters || 855.1;
+    const shortestLen = pkg.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters || g?.replanStatus?.totalDistanceMeters || 0;
+    const stepFreeLen = pkg.routeBaselines?.PATH_STEP_FREE_DETOUR?.targetLengthMeters || shortestLen;
+    const isHanyangNative = Boolean(this.activeSpatialPkg?.isHanyangNative);
+    const hasIndoorData = Boolean(isHanyangNative && this.activeFacilityId === 'BLDG_212_ENG1');
 
     const unitNum = pkg.buildingMetadata?.unitNumber;
-    const facLabel = unitNum ? `${unitNum}동` : (pkg.buildingMetadata?.name || '출발 건물');
+    const facLabel = unitNum ? `${unitNum}동` : (pkg.buildingMetadata?.name || this.activeRegionInfo?.shortName || '출발 위치');
     this.activeCheckpoints = buildEvacuationSafetyCheckpoints({
       facilityName: facLabel,
-      floor: this.uiAdapter.context?.user?.floor ?? (pkg.defaultFloor ?? 1),
-      room: (this.uiAdapter.context?.user?.room || '1F').replace('ROOM_', '') + '호',
-      shelterName: pkg.shelter?.officialName || '지정 대피장소',
+      regionLabel: this.activeRegionInfo?.shortName || this.activeRegionInfo?.name || facLabel,
+      floor: hasIndoorData ? (this.uiAdapter.context?.user?.floor ?? (pkg.defaultFloor ?? 3)) : 1,
+      room: hasIndoorData ? ((this.uiAdapter.context?.user?.room || '1F').replace('ROOM_', '') + '호') : '',
+      shelterName: pkg.shelter?.officialName || pkg.shelter?.name || '개활 대피 후보',
       shortestMeters: shortestLen,
       stepFreeMeters: stepFreeLen,
       isStepFree,
+      isCampusRegion: isHanyangNative,
+      hasIndoorData,
       hasObstacles: Boolean(this.hazardPolyActive || g?.replanStatus?.isReplanned)
     });
 
-    const msRow = this._el('milestones-row');
     if (msRow) {
       msRow.innerHTML = this.activeCheckpoints.map((cp, idx) => `
         <button type="button" class="milestone-btn" data-cp-idx="${idx}" data-cp-t="${cp.tAnchor}">
@@ -922,43 +1371,61 @@ export class EvacuationExperienceController {
     popupEl.classList.toggle('is-hidden', this.safetyPopupDismissed || hideForBrief);
 
     const g = this.uiAdapter.lastGuidance;
-    const isArrived = this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED || this.routeProgressT >= 0.996;
+    const impStatus = this.activeImpactEval?.impactStatus;
+    const isOutside = impStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE || impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY;
+    const isArrived = !isOutside && Boolean(this.activeFacilityPkg) && (this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED || this.routeProgressT >= 0.996);
     popupEl.classList.toggle('is-arrived', isArrived && Boolean(g?.canMove));
 
-    if (g && !g.canMove) {
-      this._el('sr-step-meta').textContent = '긴급 대처 · 이동 금지';
-      this._el('sr-headline').textContent = g.phaseHeadline;
-      this._el('sr-body').textContent = g.primaryAction;
+    if (isOutside || !this.activeFacilityPkg || (g && (!g.canMove || !g.canNavigate))) {
+      const noDest = !this.activeFacilityPkg || g?.decisionMeta?.destinationStatus === CANDIDATE_STATUS.UNAVAILABLE || g?.decisionMeta?.destinationStatus === CANDIDATE_STATUS.UNKNOWN;
+      this._el('sr-step-meta').textContent = isOutside
+        ? (impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY ? '사료 참고 · 현재 경보 아님' : '현 위치 영향권 외 · 이동 불필요')
+        : (noDest ? '데이터/후보 미확인 · 임의 경로 없음' : '긴급 대처 · 이동 보류');
+      this._el('sr-headline').textContent = isOutside
+        ? (impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY ? '역사 기록 참고 시나리오입니다' : '현 위치는 직접 영향 반경 밖입니다')
+        : (g?.phaseHeadline || '대피 후보 · 경로 판단 불가 (데이터 부족)');
+      this._el('sr-body').textContent = isOutside
+        ? (this.activeImpactEval?.explanationKo || g?.primaryAction || '')
+        : (noDest ? (this.activeSpatialPkg?.dataLimitations?.[0] || g?.primaryAction || '확인 가능한 보행망/대피소 데이터가 부족하여 임의 경로를 표시하지 않습니다.') : (g?.primaryAction || ''));
       const warnEl = this._el('sr-caution');
-      warnEl.textContent = g.warnings[0] || '흔들림이 멈출 때까지 승강기를 이용하지 마십시오.';
-      warnEl.classList.add('is-critical');
+      warnEl.textContent = isOutside
+        ? (this.activeImpactEval?.limitations || '진앙 부근 지역으로 이동해 대응 상황을 분석할 수 있습니다.')
+        : (g?.warnings?.[0] || '공식 대피소 표지 및 건물 외벽 낙하물 안전을 직접 확인하십시오.');
+      warnEl.classList.toggle('is-critical', !isOutside && Boolean(g && !g.canMove));
       return;
     }
 
     if (isArrived) {
-      const pkg = this.activeFacilityPkg || getFacilityPackageById(this.activeFacilityId);
-      const shelterName = pkg.shelter?.officialName || this.activeSpatialPkg.sheltersAndFacilities?.[0]?.name || '지정 옥외 대피장소';
-      const just = this.activeShelterJustification || HANYANG_SHELTER_JUSTIFICATION['OA-21060'];
-      this._el('sr-step-meta').textContent = `STEP 05 · 대피소 도착 완료 (100%)`;
-      this._el('sr-headline').textContent = `${shelterName} 안전 권역 도달`;
-      this._el('sr-body').textContent = '이동 단계가 종료되었습니다. 이제 아래 선정 근거와 도착 후 안전 행동 수칙을 확인하십시오.';
+      const pkg = this.activeFacilityPkg;
+      const shelterName = pkg?.shelter?.officialName || this.activeSpatialPkg?.sheltersAndFacilities?.[0]?.name || '대피 후보';
+      const shelterCand = this.activeSpatialPkg?.sheltersAndFacilities?.[this.selectedCandidateIndex] || this.activeSpatialPkg?.sheltersAndFacilities?.[0];
+      const just = this.activeShelterJustification || shelterCand?.justification || null;
+      const candStatus = shelterCand?.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
+
+      this._el('sr-step-meta').textContent = candStatus === CANDIDATE_STATUS.CONFIRMED
+        ? 'STEP 05 · 대피소 도착 완료 (100%)'
+        : 'STEP 05 · 개활 후보 지점 도착 · 현장 확인 필요 (100%)';
+      this._el('sr-headline').textContent = `${shelterName} 도달`;
+      this._el('sr-body').textContent = candStatus === CANDIDATE_STATUS.CONFIRMED
+        ? '보행 이동 단계가 종료되었습니다. 아래 선정 근거와 도착 후 안전 행동 수칙을 확인하십시오.'
+        : '조건부 개활 후보 지점에 도달했습니다. 공식 대피소 표지와 현장 개방·위험 상태를 직접 확인하십시오.';
       const warnEl = this._el('sr-caution');
-      warnEl.textContent = just?.hazardCaveat || '여진 발생 가능성이 있으므로 주변 전신주·외벽으로부터 충분히 떨어져 대기하십시오.';
+      warnEl.textContent = just?.hazardCaveat || '여진 발생 가능성이 있으므로 주변 전신주·외벽으로부터 건물 높이 1/2 이상 떨어져 대기하십시오.';
       warnEl.classList.remove('is-critical');
 
       // Populate Educational Shelter Selection Reasons + Interactive Post-Arrival Safety Protocols (피드백 4)
       const metricsEl = this._el('arrival-metrics-strip');
       if (metricsEl) {
         metricsEl.innerHTML = `
-          <span class="arrival-metric-item">개활 면적 <strong>${just?.areaSqMeters ? just.areaSqMeters.toLocaleString() + '㎡' : '--'}</strong></span>
-          <span class="arrival-metric-item">수용 추정 <strong>${just?.capacityEstimate ? just.capacityEstimate.toLocaleString() + '명' : '--'}</strong></span>
-          <span class="arrival-metric-item">건물 이격 반경 <strong>${just?.clearanceRadiusMeters ? just.clearanceRadiusMeters + 'm' : '--'}</strong></span>
-          <span class="arrival-metric-item">출처 <strong>${just?.provenanceLabel || '현장 확인 권장'}</strong></span>
+          <span class="arrival-metric-item">개활 면적 <strong>${just?.areaSqMeters ? just.areaSqMeters.toLocaleString() + '㎡' : '미확인'}</strong></span>
+          <span class="arrival-metric-item">수용 추정 <strong>${just?.capacityEstimate ? just.capacityEstimate.toLocaleString() + '명' : '미확인'}</strong></span>
+          <span class="arrival-metric-item">건물 이격 반경 <strong>${just?.clearanceRadiusMeters ? just.clearanceRadiusMeters + 'm' : '미확인'}</strong></span>
+          <span class="arrival-metric-item">판정 상태 <strong>${just?.provenanceLabel || candStatus}</strong></span>
         `;
       }
       const whyEl = this._el('arrival-why-text');
       if (whyEl) {
-        whyEl.textContent = `선정 근거: ${just?.selectionReason || '인접 건축물 붕괴 낙하물 반경 밖의 충분한 개활 공터입니다.'}`;
+        whyEl.textContent = `선정 근거: ${just?.selectionReason || '인접 건축물 붕괴 낙하물 반경 밖의 보행 연결 가능 개활 후보입니다.'}`;
       }
       const protoRow = this._el('arrival-protocol-row');
       if (protoRow) {
@@ -978,7 +1445,7 @@ export class EvacuationExperienceController {
     }
 
     if (!prog && this.activeCheckpoints.length) {
-      const totalD = g?.replanStatus?.totalDistanceMeters || 737.9;
+      const totalD = g?.replanStatus?.totalDistanceMeters || 0;
       prog = evaluatePathProgressState(this.activeCheckpoints, this.routeProgressT, totalD);
     }
     const cp = prog?.activeCheckpoint || this.activeCheckpoints[0];
@@ -1016,20 +1483,29 @@ export class EvacuationExperienceController {
   }
 
   _updateSafetyRuleForProgress() {
-    if (!this.activeCheckpoints.length) return;
     const g = this.uiAdapter.lastGuidance;
-    const pkg = this.activeFacilityPkg || getFacilityPackageById(this.activeFacilityId);
+    const impStatus = this.activeImpactEval?.impactStatus;
+    const isOutside = impStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE || impStatus === IMPACT_ZONE_STATUS.HISTORICAL_REFERENCE_ONLY;
+
+    if (!this.activeCheckpoints.length || !this.activeFacilityPkg || isOutside) {
+      this._renderSafetyRuleCard(null);
+      for (const mesh of this.milestoneMeshes) mesh.visible = false;
+      this.shelterSetbackGroup.visible = false;
+      return;
+    }
+
     const totalDist = g?.replanStatus?.totalDistanceMeters
-      || (this.uiAdapter.preferredRouteMode === 'STEP_FREE' ? 855.1 : 737.9);
+      || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
+      || 0;
     const prog = evaluatePathProgressState(this.activeCheckpoints, this.routeProgressT, totalDist);
     const cp = prog.activeCheckpoint;
 
     const remEl = this._el('dock-remaining-dist');
     const etaEl = this._el('dock-walk-eta');
     const scrubber = this._el('route-scrubber');
-    if (remEl) remEl.textContent = prog.normalizedT >= 0.996 ? '대피소 도착 완료' : `잔여 ${prog.remainingMeters} m`;
+    if (remEl) remEl.textContent = prog.normalizedT >= 0.996 ? '목적지 도착 완료' : `잔여 ${prog.remainingMeters} m`;
     if (etaEl) etaEl.textContent = prog.normalizedT >= 0.996 ? `총 ${prog.totalMeters} m 이동` : `약 ${prog.remainingMinutes}분 (${prog.totalMeters} m 중)`;
-    if (scrubber) scrubber.value = String(Math.round(prog.normalizedT * 1000));
+    if (scrubber && !this._isScrubbingRoute) scrubber.value = String(Math.round(prog.normalizedT * 1000));
 
     this._qAll('.milestone-btn').forEach(btn => {
       const idx = Number(btn.dataset.cpIdx);
@@ -1135,16 +1611,17 @@ export class EvacuationExperienceController {
 
   applyTimelineStep(tSec) {
     this.beginActiveEvacuation();
-    const pkg = this.activeFacilityPkg || getFacilityPackageById(this.activeFacilityId);
+    const pkg = this.activeFacilityPkg;
+    const hasIndoorData = Boolean(this.activeSpatialPkg?.isHanyangNative && this.activeFacilityId === 'BLDG_212_ENG1');
     if (tSec === 0) {
-      this.setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION);
+      this.setCameraStage(hasIndoorData ? CAMERA_STAGES.PERSONAL_LOCATION : CAMERA_STAGES.CAMPUS_OVERVIEW);
       this.uiAdapter.resetRouteObstacles();
       this.uiAdapter.setAftershock(false);
       this.uiAdapter.setUserLocation({
-        locationType: 'INDOOR',
+        locationType: hasIndoorData ? 'INDOOR' : 'OUTDOOR',
         buildingId: this.activeFacilityId,
-        floor: pkg.defaultFloor ?? 3,
-        room: pkg.defaultRoomId || 'ROOM_301',
+        floor: hasIndoorData ? (pkg?.defaultFloor ?? 3) : 1,
+        room: hasIndoorData ? (pkg?.defaultRoomId || 'ROOM_301') : null,
         certainty: LOCATION_CERTAINTY.MANUAL_EXACT
       });
       this.uiAdapter.updateStationMotion(0.22, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
@@ -1152,19 +1629,25 @@ export class EvacuationExperienceController {
       this.setCameraStage(CAMERA_STAGES.BUILDING_INSPECTION);
       this.uiAdapter.resetRouteObstacles();
       this.uiAdapter.setAftershock(false);
-      this.uiAdapter.setUserFloor(pkg.defaultFloor ?? 3);
+      this.uiAdapter.setUserFloor(hasIndoorData ? (pkg?.defaultFloor ?? 3) : 1);
       this.uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
     } else if (tSec === 67) {
       this.setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW);
       this.uiAdapter.setAftershock(false);
       this.uiAdapter.updateStationMotion(0.01, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
-      this.uiAdapter.reportLinkObstacle('NODE_STAIR1_TOP->NODE_STAIR1_BOT', LINK_STATE.SUSPECTED, {
-        source: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT,
-        detail: '1층 연결 계단 균열 및 파편 목격 제보'
-      });
+      const firstOutdoorEdge = pkg?.outdoorGraph?.edges?.[0];
+      const obstacleEdgeId = hasIndoorData
+        ? 'NODE_STAIR1_TOP->NODE_STAIR1_BOT'
+        : (firstOutdoorEdge ? `${firstOutdoorEdge.source}->${firstOutdoorEdge.target}` : null);
+      if (obstacleEdgeId) {
+        this.uiAdapter.reportLinkObstacle(obstacleEdgeId, LINK_STATE.SUSPECTED, {
+          source: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT,
+          detail: hasIndoorData ? '1층 연결 계단 균열 및 파편 목격 제보' : '보행 경로 구간 낙하물·장애 제보'
+        });
+      }
       this.uiAdapter.reassess();
     } else if (tSec === 110) {
-      this.setCameraStage(CAMERA_STAGES.PERSONAL_LOCATION);
+      this.setCameraStage(hasIndoorData ? CAMERA_STAGES.PERSONAL_LOCATION : CAMERA_STAGES.CAMPUS_OVERVIEW);
       this.uiAdapter.setAftershock(true);
       this.uiAdapter.updateStationMotion(0.16, Date.now(), DATA_PROVENANCE_SOURCE.SIMULATED_SCENARIO);
     }
@@ -1191,11 +1674,27 @@ export class EvacuationExperienceController {
     return this.hazardPolyActive;
   }
 
+  _syncResponsiveTopBarOffset() {
+    if (typeof window === 'undefined') return;
+    const bar = this._el('exhibition-bar');
+    const hdr = this._el('evac-header-overlay');
+    if (!bar || !hdr) return;
+    if (window.innerWidth <= 960) {
+      const rect = hdr.getBoundingClientRect();
+      if (rect.height > 20) {
+        bar.style.top = `${Math.round(rect.bottom + 8)}px`;
+      }
+    } else {
+      bar.style.top = '';
+    }
+  }
+
   renderUI() {
     const g = this.uiAdapter.lastGuidance;
     if (!g) return;
     this._renderEarthquakeImpactHeader();
     this._refreshCheckpointsAndMilestones();
+    this._syncResponsiveTopBarOffset();
 
     const canMoveEl = this._el('meta-can-move');
     if (canMoveEl) {
@@ -1252,6 +1751,88 @@ export class EvacuationExperienceController {
       e.preventDefault();
       const val = this._el('korea-region-search-input')?.value || '';
       if (val.trim()) this._handleRegionSearchSubmit(val);
+    });
+
+    // Location GPS + Custom Earthquake Scenario Controls
+    this._el('btn-locate-me')?.addEventListener('click', async () => {
+      const btn = this._el('btn-locate-me');
+      if (btn) btn.textContent = '위치 확인 중...';
+      const pos = await this.locationProvider.detectBrowserLocation();
+      if (btn) btn.textContent = '현위치';
+      if (pos.ok) {
+        this._el('region-search-popover')?.classList.remove('open');
+        this._el('btn-region-switcher')?.classList.remove('open');
+        await this.switchToRegion(pos.lat, pos.lon, {
+          regionId: 'USER_GPS_CURRENT',
+          name: `현재 GPS 위치 (${pos.lat.toFixed(4)}°N, ${pos.lon.toFixed(4)}°E)`,
+          shortName: '내 현재 위치(GPS)'
+        });
+      } else {
+        const resEl = this._el('region-search-results');
+        if (resEl) {
+          resEl.innerHTML = `<div style="font-size:10.5px; color:#fb7185; padding:4px 2px;">${pos.error || '위치 권한을 확인할 수 없습니다.'}</div>`;
+        }
+      }
+    });
+
+    this._el('btn-snap-local-quake')?.addEventListener('click', () => {
+      const anchor = this.activeSpatialPkg?.metadata?.anchor || {
+        lat: this.activeRegionInfo?.lat ?? 37.555815,
+        lon: this.activeRegionInfo?.lon ?? 127.045053
+      };
+      this.applyScenarioSpec({
+        id: 'SYNTH-LOCAL-SNAP',
+        scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+        title: `${this.activeRegionInfo?.shortName || '현위치'} 근거리 가상 지진 (교육용)`,
+        epicenterLat: Number((anchor.lat + 0.032).toFixed(4)),
+        epicenterLon: Number((anchor.lon + 0.045).toFixed(4)),
+        magnitude: Number(this._el('custom-mag')?.value || 5.2),
+        depthKm: Number(this._el('custom-depth')?.value || 10),
+        originText: '분석 지점 북동측 약 5.4km 인근 가상 진앙'
+      }, { skipBrief: false });
+    });
+
+    this._el('btn-apply-custom-quake')?.addEventListener('click', () => {
+      const anchor = this.activeSpatialPkg?.metadata?.anchor || { lat: 37.555815, lon: 127.045053 };
+      const latVal = parseFloat(this._el('custom-epi-lat')?.value || '');
+      const lonVal = parseFloat(this._el('custom-epi-lon')?.value || '');
+      const magVal = parseFloat(this._el('custom-mag')?.value || '5.2');
+      const depthVal = parseFloat(this._el('custom-depth')?.value || '10');
+      const epiLat = Number.isFinite(latVal) && latVal >= -90 && latVal <= 90 ? latVal : anchor.lat + 0.032;
+      const epiLon = Number.isFinite(lonVal) && lonVal >= -180 && lonVal <= 180 ? lonVal : anchor.lon + 0.045;
+      const mag = Number.isFinite(magVal) ? Math.max(1.0, Math.min(9.5, magVal)) : 5.2;
+      const depthKm = Number.isFinite(depthVal) ? Math.max(0, Math.min(700, depthVal)) : 10;
+
+      this._el('region-search-popover')?.classList.remove('open');
+      this._el('btn-region-switcher')?.classList.remove('open');
+      this.applyScenarioSpec({
+        id: 'SYNTH-CUSTOM-USER',
+        scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
+        title: `사용자 설정 가상 지진 M${mag.toFixed(1)} (교육용 합성)`,
+        epicenterLat: epiLat,
+        epicenterLon: epiLon,
+        magnitude: mag,
+        depthKm,
+        originText: `지정 진앙 (${epiLat.toFixed(4)}°N, ${epiLon.toFixed(4)}°E)`
+      }, { skipBrief: false });
+    });
+
+    this._el('btn-route-alt')?.addEventListener('click', () => {
+      if (!this.alternativeRoutes || this.alternativeRoutes.length <= 1) return;
+      this.activeAltRouteIndex = (this.activeAltRouteIndex + 1) % this.alternativeRoutes.length;
+      const alt = this.alternativeRoutes[this.activeAltRouteIndex];
+      const altBtn = this._el('btn-route-alt');
+      if (altBtn) {
+        altBtn.classList.toggle('active', this.activeAltRouteIndex > 0);
+        altBtn.textContent = this.activeAltRouteIndex > 0 ? `대체 경로 #${this.activeAltRouteIndex + 1} (${alt.totalDistanceMeters}m)` : '대체 경로';
+      }
+      if (alt && Array.isArray(alt.waypoints3D) && alt.waypoints3D.length >= 2) {
+        this.hanyangAdapter.routePolylines.SHORTEST = alt.waypoints3D;
+        this.uiAdapter.setPreferredRouteMode('SHORTEST');
+        this.routeProgressT = 0.02;
+        this._updateSafetyRuleForProgress();
+        this.renderUI();
+      }
     });
 
     // Seismic Brief Start
@@ -1327,12 +1908,15 @@ export class EvacuationExperienceController {
       if (drawer) drawer.style.display = isOpen ? 'none' : 'block';
     });
 
+    const p31Authority = this.activeSpatialPkg?.isHanyangNative
+      ? '성동소방서·한양대 합동 점검반 (리허설)'
+      : '관할 재난안전 합동 점검반 (리허설)';
     const p31MsgEl = this._el('p31-audit-message');
     this._el('btn-p31-drill-approve')?.addEventListener('click', () => {
       const res = this.uiAdapter.ingestFieldSurveyPacket(buildSimulatedDrillSurveyPacket('COMPLIANT', this.activeFacilityId), {
         approve: true,
         approvalMetadata: {
-          approvedByAuthority: '성동소방서·한양대 합동 점검반 (리허설)',
+          approvedByAuthority: p31Authority,
           approvalDocumentRef: `DRILL-PASS-${this.activeFacilityId}`,
           approvedAt: new Date().toISOString()
         }
@@ -1348,7 +1932,7 @@ export class EvacuationExperienceController {
       const res = this.uiAdapter.ingestFieldSurveyPacket(buildSimulatedDrillSurveyPacket('NON_COMPLIANT_GRATING', this.activeFacilityId), {
         approve: true,
         approvalMetadata: {
-          approvedByAuthority: '성동소방서·한양대 합동 점검반 (리허설)',
+          approvedByAuthority: p31Authority,
           approvalDocumentRef: `DRILL-FAIL-${this.activeFacilityId}`,
           approvedAt: new Date().toISOString()
         }
@@ -1375,6 +1959,7 @@ export class EvacuationExperienceController {
 
     // Route Player & Replay (피드백 4 non-looping)
     this._el('btn-walk-play')?.addEventListener('click', () => {
+      if (!this.activeFacilityPkg || this.activeImpactEval?.impactStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE) return;
       this.beginActiveEvacuation();
       if (this.routeProgressT >= 0.996) {
         this.routeProgressT = 0.0;
@@ -1388,6 +1973,7 @@ export class EvacuationExperienceController {
       this._updateSafetyRuleForProgress();
     });
     this._el('btn-replay-route')?.addEventListener('click', () => {
+      if (!this.activeFacilityPkg) return;
       this.routeProgressT = 0.0;
       this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
       this.shelterSetbackGroup.visible = false;
@@ -1397,18 +1983,61 @@ export class EvacuationExperienceController {
     });
     this._el('btn-follow-cam')?.addEventListener('click', () => {
       this.followCameraEnabled = !this.followCameraEnabled;
-      if (this.followCameraEnabled && !this.walkPlaying) {
+      if (this.followCameraEnabled && !this.walkPlaying && this.activeFacilityPkg) {
         this.beginActiveEvacuation();
       }
       this._syncFollowButton();
     });
-    this._el('route-scrubber')?.addEventListener('input', e => {
-      const nextT = Number(e.target.value) / 1000;
-      this.beginActiveEvacuation();
-      this.walkPlaying = false;
-      this._syncPlayButton();
-      this.setRouteProgress(nextT, this.followCameraEnabled);
-    });
+
+    // Fix BUG 1 Part 2: Route scrubber lock + clean pause/seek across dragging & edge jumps
+    const routeScrubber = this._el('route-scrubber');
+    if (routeScrubber) {
+      const startRouteScrub = () => {
+        this._isScrubbingRoute = true;
+        this.walkPlaying = false;
+        if (this.briefTimerId) {
+          clearTimeout(this.briefTimerId);
+          this.briefTimerId = null;
+        }
+        this._el('seismic-brief-banner')?.classList.remove('is-active');
+        this._syncPlayButton();
+      };
+      const applyRouteScrub = e => {
+        if (!this.activeFacilityPkg) return;
+        const raw = Number(e?.target?.value ?? routeScrubber.value);
+        if (!Number.isFinite(raw)) return;
+        this.walkPlaying = false;
+        if (this.briefTimerId) {
+          clearTimeout(this.briefTimerId);
+          this.briefTimerId = null;
+        }
+        this._el('seismic-brief-banner')?.classList.remove('is-active');
+        this._syncPlayButton();
+        this.setRouteProgress(raw / 1000, this.followCameraEnabled);
+      };
+      const endRouteScrub = () => {
+        this._isScrubbingRoute = false;
+      };
+      routeScrubber.addEventListener('pointerdown', startRouteScrub);
+      routeScrubber.addEventListener('mousedown', startRouteScrub);
+      routeScrubber.addEventListener('touchstart', startRouteScrub, { passive: true });
+      routeScrubber.addEventListener('input', applyRouteScrub);
+      routeScrubber.addEventListener('change', e => {
+        applyRouteScrub(e);
+        endRouteScrub();
+      });
+      routeScrubber.addEventListener('pointerup', endRouteScrub);
+      routeScrubber.addEventListener('pointercancel', endRouteScrub);
+      routeScrubber.addEventListener('blur', endRouteScrub);
+      this._onWindowRouteScrubEnd = () => {
+        endRouteScrub();
+      };
+      this._onWindowResizeSync = () => this._syncResponsiveTopBarOffset();
+      if (typeof window !== 'undefined') {
+        window.addEventListener('pointerup', this._onWindowRouteScrubEnd);
+        window.addEventListener('resize', this._onWindowResizeSync);
+      }
+    }
 
     this._el('btn-compass-north')?.addEventListener('click', () => {
       if (!this.controls || !this.camera) return;
@@ -1497,7 +2126,8 @@ export class EvacuationExperienceController {
         }
       }
 
-      const primaryShelter = this.activeSpatialPkg.sheltersAndFacilities?.[0] || null;
+      const primaryShelter = this.activeSpatialPkg.sheltersAndFacilities?.[this.selectedCandidateIndex] ||
+        this.activeSpatialPkg.sheltersAndFacilities?.[0] || null;
       const dynPkg = buildDynamicFacilityFromPoint({
         buildingId: picked.buildingId,
         name: picked.name,
@@ -1507,10 +2137,14 @@ export class EvacuationExperienceController {
         depth_m: picked.depth_m,
         yaw_rad: picked.yaw_rad,
         height_m: picked.height_m,
+        hasIndoorData: false,
         anchor: this.activeSpatialPkg.metadata?.anchor || { lat: 37.555815, lon: 127.045053, h: 42 },
         walkGraph: this.activeWalkGraph,
         buildingOBBs: this.activeSpatialPkg.obbBuildingsFloat32,
+        waterPolygons: this.activeSpatialPkg.terrainAndHydrology?.waterPolygons || [],
+        waterways: this.activeSpatialPkg.terrainAndHydrology?.waterways || [],
         shelter: primaryShelter,
+        destinationStatus: primaryShelter?.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? 'CONFIRMED' : 'CONDITIONAL'),
         elevationSampler: (east, north) => sampleGridHeightAt(this.activeSpatialPkg.terrainGrid, east, north)
       });
       this.switchToDynamicFacility(dynPkg, { snapStage: false, autoPlay: true });
@@ -1552,7 +2186,7 @@ export class EvacuationExperienceController {
     this.walkerGroup.visible = canShowWalker;
 
     if (canShowWalker) {
-      if (this.walkPlaying && this.experiencePhase === EXPERIENCE_PHASES.EVACUATION_ACTIVE) {
+      if (this.walkPlaying && !this._isScrubbingRoute && this.experiencePhase === EXPERIENCE_PHASES.EVACUATION_ACTIVE) {
         const nextT = this.routeProgressT + dt * 0.045;
         if (nextT >= 0.996) {
           // 피드백 4: STOP cleanly at shelter arrival instead of infinite jarring loop
@@ -1568,14 +2202,16 @@ export class EvacuationExperienceController {
             this._prevStepId = prevId;
             this._updateSafetyRuleForProgress();
           } else {
-            const totalD = guidance.replanStatus?.totalDistanceMeters || 737.9;
+            const totalD = guidance.replanStatus?.totalDistanceMeters
+              || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
+              || 0;
             const prog = evaluatePathProgressState(this.activeCheckpoints, this.routeProgressT, totalD);
             const remEl = this._el('dock-remaining-dist');
             const etaEl = this._el('dock-walk-eta');
             const scrub = this._el('route-scrubber');
             if (remEl) remEl.textContent = `잔여 ${prog.remainingMeters} m`;
             if (etaEl) etaEl.textContent = `약 ${prog.remainingMinutes}분 (${prog.totalMeters} m 중)`;
-            if (scrub) scrub.value = String(Math.round(this.routeProgressT * 1000));
+            if (scrub && !this._isScrubbingRoute) scrub.value = String(Math.round(this.routeProgressT * 1000));
           }
         }
       }
@@ -1621,7 +2257,9 @@ export class EvacuationExperienceController {
         const sx = (this._walkerProjVec.x * 0.5 + 0.5) * vw;
         const sy = (-this._walkerProjVec.y * 0.5 + 0.5) * vh;
         if (inFront && sx > 40 && sx < vw - 40 && sy > 70 && sy < vh - 165) {
-          const totalD = guidance.replanStatus?.totalDistanceMeters || 737.9;
+          const totalD = guidance.replanStatus?.totalDistanceMeters
+            || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
+            || 0;
           const remM = Math.max(0, Math.round((1 - this.routeProgressT) * totalD));
           walkerCalloutEl.style.display = 'inline-flex';
           walkerCalloutEl.textContent = (this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED || remM <= 10)
@@ -1663,6 +2301,12 @@ export class EvacuationExperienceController {
 
   dispose() {
     if (this.briefTimerId) clearTimeout(this.briefTimerId);
+    if (this._onWindowRouteScrubEnd && typeof window !== 'undefined') {
+      window.removeEventListener('pointerup', this._onWindowRouteScrubEnd);
+    }
+    if (this._onWindowResizeSync && typeof window !== 'undefined') {
+      window.removeEventListener('resize', this._onWindowResizeSync);
+    }
     if (this.domElement) {
       this.domElement.removeEventListener('pointerdown', this._onPointerDown);
       this.domElement.removeEventListener('pointermove', this._onPointerMove);

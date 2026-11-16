@@ -214,8 +214,14 @@ export class SituationAssessmentEngine {
     }
 
     // ------------------------------------------------------------------------
-    // 5. 전술적 행동 판정 매트릭스 (Tactical Decision Matrix)
+    // 5. 전술적 행동 판정 매트릭스 (Tactical Decision Matrix - Region Agnostic)
     // ------------------------------------------------------------------------
+    const facilityName = spatial.facilityName || user.buildingName || '현 건물';
+    const destinationName = spatial.destinationName || spatial.shelterName || '인근 확인된 안전 공터·대피장소';
+    const impactStatus = disaster.impactStatus || spatial.impactStatus || null;
+    const isOutsideImpactZone = impactStatus === 'OUTSIDE_IMPACT_ZONE' && !isShakingActive && !hasAftershock;
+    const isDestinationMissing = spatial.destinationStatus === 'UNAVAILABLE' || spatial.destinationStatus === 'UNKNOWN';
+
     let primaryAction = '';
     let secondaryAction = null;
     let urgency = ASSESSMENT_URGENCY.CAUTION;
@@ -223,8 +229,18 @@ export class SituationAssessmentEngine {
     let canMove = true;
     let canNavigate = true;
 
+    // CASE 0: 사용자 위치가 지진 영향권 외 (실제 원거리 지진 등)
+    if (isOutsideImpactZone) {
+      urgency = ASSESSMENT_URGENCY.STABLE;
+      tacticalState = RESPONSE_STATES.S2_POST_SHAKING_ASSESSMENT;
+      canMove = true;
+      canNavigate = false;
+      primaryAction = '현재 위치는 해당 지진의 직접 영향권 밖으로 평가되었습니다. 불필요한 옥외 대피를 권고하지 않으며, 공식 기상청·재난특보를 확인하십시오.';
+      secondaryAction = '특정 진앙 피해 지역을 점검하려면 상단 지역 선택기에서 진앙 인근 위치로 전환하십시오.';
+      rationale.push('지진 영향권 외 판정: 원거리 지진에 대한 거짓 대피 경로 생성을 억제합니다.');
+    }
     // CASE 1: 실내 흔들림 진행 중 (또는 여진 발생)
-    if (isIndoor && (isShakingActive || hasAftershock)) {
+    else if (isIndoor && (isShakingActive || hasAftershock)) {
       urgency = ASSESSMENT_URGENCY.IMMEDIATE;
       tacticalState = RESPONSE_STATES.S1_SHAKING;
       canMove = false;
@@ -253,16 +269,16 @@ export class SituationAssessmentEngine {
 
       if (isShakingActive) {
         primaryAction = '가방이나 손으로 머리를 보호하고, 건물 외벽과 유리창에서 최소 10m 이상 떨어지십시오.';
-        secondaryAction = '넓은 공터나 대운동장 방향으로 이동하십시오.';
+        secondaryAction = `${destinationName} 등 넓은 개활 안전 공간 방향으로 이동하십시오.`;
         canMove = true;
-        canNavigate = true;
+        canNavigate = !isDestinationMissing;
         rationale.push('실외 진동 감지: 외벽 타일 및 유리창 낙하 반경 회피 조치');
       } else {
-        primaryAction = '넓은 공터나 지정 대피소(한양대 대운동장)로 질서 있게 이동하십시오.';
+        primaryAction = `${destinationName} 등 확인 가능한 개활 공간 방향으로 질서 있게 이동하십시오.`;
         secondaryAction = '주변 담장, 옹벽, 전신주 주변을 피하십시오.';
         canMove = true;
-        canNavigate = true;
-        rationale.push('실외 피난 보행: 낙하 위험원 회피 및 옥외 대피소 집결');
+        canNavigate = !isDestinationMissing;
+        rationale.push('실외 보행: 낙하 위험원 회피 및 개활 대피 공간 집결');
       }
     }
     // CASE 3: 출구/복도/계단 복합 차단 상황 (화재 유무에 따른 분기)
@@ -274,7 +290,7 @@ export class SituationAssessmentEngine {
 
       if (hasReportedFire) {
         primaryAction = '탈출로가 차단되었습니다. 화재 연기가 들어오지 않도록 옷가지나 물로 문틈을 막고 창가에서 구조를 요청하십시오.';
-        secondaryAction = '119에 현재 위치(제1공학관 ' + (user.floor ? user.floor + '층' : '내부') + ')를 알리고 창밖으로 수건을 흔드십시오.';
+        secondaryAction = `119에 현재 위치(${facilityName} ${user.floor ? user.floor + '층' : '내부'})를 알리고 창밖으로 신호를 보내십시오.`;
         urgency = ASSESSMENT_URGENCY.IMMEDIATE;
         rationale.push('화재 의심 보고 접수 및 출구 차단: 유독가스 유입 차단 실내 격리 방어 및 긴급 구조 요청');
       } else {
@@ -316,7 +332,7 @@ export class SituationAssessmentEngine {
       canMove = false; // 보조 인력 확보 전 계단 단독 이동 불가
       canNavigate = false;
       rationale.push('휠체어 이용자: 지진 중 승강기 탑승 금지 규정 및 계단 단차 이동 불가에 따른 보조 지원 대기');
-      warnings.push('제1공학관 3층에서 1층 출구까지 계단 단차가 존재하여 단독 휠체어 피난이 불가능합니다.');
+      warnings.push(`${facilityName} 내부에서 외부 출구까지 단차/계단이 존재할 경우 단독 휠체어 이동이 어렵습니다.`);
       neededForNextAssessment.push('피난 보조인 확보 여부');
     }
     // CASE 6: 진동 종료 직후 정상 점검 및 이동 결정 (Default Indoor Stable)
@@ -325,14 +341,24 @@ export class SituationAssessmentEngine {
       urgency = ASSESSMENT_URGENCY.HIGH;
       canMove = true;
       const hasFloor = user.floor !== null && user.floor !== undefined;
-      canNavigate = locationCertainty !== LOCATION_CERTAINTY.UNKNOWN &&
-                    locationCertainty !== LOCATION_CERTAINTY.BUILDING_ONLY &&
-                    hasFloor;
+      const indoorKnown = spatial.hasIndoorData !== false;
+      canNavigate = !isDestinationMissing && (
+        !indoorKnown || (
+          locationCertainty !== LOCATION_CERTAINTY.UNKNOWN &&
+          locationCertainty !== LOCATION_CERTAINTY.BUILDING_ONLY &&
+          hasFloor
+        )
+      );
 
-      primaryAction = '출구 쪽 문을 열어 탈출로를 확보하고, 머리를 보호하며 비상계단을 향해 이동하십시오.';
+      primaryAction = indoorKnown
+        ? '출구 쪽 문을 열어 탈출로를 확보하고, 머리를 보호하며 비상계단을 향해 이동하십시오.'
+        : '건물 출구 방향을 먼저 확인한 뒤 외벽 낙하물을 피해 외부 보행로로 나오십시오(실내 도면 미확보).';
       secondaryAction = '전열기 코드를 뽑고 가스 밸브를 잠근 후 이동하십시오.';
       rationale.push('지반 흔들림 안정화: 문틀 변형 방지를 위한 개방 및 질서 있는 외부 피난 착수');
       warnings.push('엘리베이터는 절대 탑승하지 말고 반드시 계단을 이용하십시오.');
+      if (isDestinationMissing) {
+        warnings.push('주변에 확인 가능한 대피 후보 시설 또는 보행 네트워크가 부족하여 경로를 산출할 수 없습니다.');
+      }
     }
     // CASE 7: 위치 불명 상태 (Unknown Context)
     else {

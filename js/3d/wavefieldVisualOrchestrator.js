@@ -262,6 +262,32 @@ export class WavefieldVisualOrchestrator {
   }
 
   /**
+   * Deterministically seek wavefield timeline to an exact timestamp (works while paused or playing)
+   * @param {number} targetSec
+   */
+  seekToTime(targetSec) {
+    const t = Math.max(0.0, Number.isFinite(Number(targetSec)) ? Number(targetSec) : 0.0);
+    this.seismicTime = t;
+    if (this.uniforms?.u_seismicTime) {
+      this.uniforms.u_seismicTime.value = t;
+    }
+
+    if (t < 0.2) this.stagingPhase = 'ACTIVATION';
+    else if (t < 4.0) this.stagingPhase = 'P_WAVE';
+    else if (t < 10.0) this.stagingPhase = 'S_WAVE';
+    else if (t < 25.0) this.stagingPhase = 'SURFACE_WAVE';
+    else this.stagingPhase = 'AFTERMATH';
+
+    if (this.subscribers.size > 0) {
+      this.notifySubscribers('FRAME_PULSE', {
+        seismicTime: this.seismicTime,
+        stagingPhase: this.stagingPhase
+      });
+    }
+    return this.seismicTime;
+  }
+
+  /**
    * Subscription interface for Living Typography and Audio Synthesizer
    */
   subscribe(callback) {

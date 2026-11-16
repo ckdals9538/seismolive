@@ -520,7 +520,19 @@ export class LocalSpatialMapLayer {
     this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
     this._epicenterRayMat = null;
     this._epicenterWaveArcs = [];
-    this._activeOriginMeta = { id: 'BLDG_212_ENG1', title: '내 위치 · 제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 };
+    const initOrig = this.pkg?.defaultOriginMeta || (this.pkg?.isHanyangNative !== false && this.pkg?.metadata?.packageId?.includes('HANYANG')
+      ? { id: 'BLDG_212_ENG1', name: '제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 }
+      : null);
+    this._activeOriginMeta = initOrig
+      ? {
+          id: initOrig.id || 'DYNAMIC_ORIGIN',
+          title: `내 위치 · ${initOrig.name || '분석 지점'}`,
+          east_m: initOrig.east_m ?? 0,
+          north_m: initOrig.north_m ?? 0,
+          height_m: initOrig.height_m ?? 18,
+          hasBuilding: initOrig.originHasBuilding !== false
+        }
+      : { id: 'ANALYSIS_ORIGIN', title: '분석 기준 지점', east_m: 0, north_m: 0, height_m: 0, hasBuilding: false };
 
     this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
     this.chunkManager = options.chunkManager || new SpatialChunkManager();
@@ -642,17 +654,27 @@ export class LocalSpatialMapLayer {
     this.hazardPolygonGroup = new THREE.Group();
     this.hazardPolygonGroup.name = 'HazardAvoidPolygonsGroup';
 
-    const origMeta = newSpatialPackage.defaultOriginMeta || newSpatialPackage.namedBuildings?.[0];
+    const origMeta = newSpatialPackage.defaultOriginMeta || newSpatialPackage.namedBuildings?.[0] || null;
     if (origMeta) {
       this._activeOriginMeta = {
         id: origMeta.id || 'DYNAMIC_ORIGIN',
         title: `내 위치 · ${origMeta.name || '출발 건물'}`,
         east_m: origMeta.east_m ?? 0,
         north_m: origMeta.north_m ?? 0,
-        height_m: origMeta.height_m ?? 18
+        height_m: origMeta.height_m ?? 18,
+        hasBuilding: origMeta.originHasBuilding !== false
       };
+    } else if (newSpatialPackage.isHanyangNative) {
+      this._activeOriginMeta = { id: 'BLDG_212_ENG1', title: '내 위치 · 제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5, hasBuilding: true };
     } else {
-      this._activeOriginMeta = { id: 'BLDG_212_ENG1', title: '내 위치 · 제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 };
+      this._activeOriginMeta = {
+        id: 'ANALYSIS_ORIGIN',
+        title: newSpatialPackage.dataCompleteness === 'INSUFFICIENT' ? '분석 위치 · 데이터 부족' : '분석 기준 위치',
+        east_m: 0,
+        north_m: 0,
+        height_m: 0,
+        hasBuilding: false
+      };
     }
 
     this._buildLocalLighting();
@@ -1122,10 +1144,18 @@ export class LocalSpatialMapLayer {
 
     const shelters = this.pkg.sheltersAndFacilities || [];
     for (const s of shelters) {
-      const isPrimary = s.category === 'PRIMARY_SHELTER';
+      const isPrimary = s.category === 'PRIMARY_SHELTER' && s.candidateStatus !== 'UNAVAILABLE';
+      const isConditional = s.candidateStatus === 'CONDITIONAL';
+      const isUnavailable = s.candidateStatus === 'UNAVAILABLE';
       const isMedical = s.category === 'MEDICAL_CENTER';
-      const color = isPrimary ? 0xe2e8f0 : (isMedical ? 0x94a3b8 : 0x64748b);
-      const groundY = isPrimary ? s.positionThree[1] : this._sampleTerrainHeight(s.east_m, s.north_m);
+      const color = isUnavailable
+        ? 0x475569
+        : isConditional
+          ? (isPrimary ? 0xfbbf24 : 0x94a3b8)
+          : (isPrimary ? 0xe2e8f0 : (isMedical ? 0x94a3b8 : 0x64748b));
+      const groundY = Number.isFinite(s.positionThree?.[1])
+        ? s.positionThree[1]
+        : this._sampleTerrainHeight(s.east_m, s.north_m);
 
       const sGroup = new THREE.Group();
       sGroup.name = `FacilityPin_${s.id}`;
@@ -1135,7 +1165,7 @@ export class LocalSpatialMapLayer {
         color,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: isPrimary ? 0.65 : 0.45
+        opacity: isUnavailable ? 0.22 : isPrimary ? 0.65 : 0.45
       }));
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.y = 0.35;
@@ -1144,12 +1174,12 @@ export class LocalSpatialMapLayer {
       // Subtle vertical architectural plumb line (non-glowing, thin slate/ivory line)
       const lineGeo = this._track(new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0.35, 0),
-        new THREE.Vector3(0, isPrimary ? 26.0 : 20.0, 0)
+        new THREE.Vector3(0, isUnavailable ? 12.0 : isPrimary ? 26.0 : 20.0, 0)
       ]));
       const lineMat = this._track(new THREE.LineBasicMaterial({
         color,
         transparent: true,
-        opacity: isPrimary ? 0.68 : 0.48
+        opacity: isUnavailable ? 0.28 : isPrimary ? 0.68 : 0.48
       }));
       sGroup.add(new THREE.Line(lineGeo, lineMat));
 
@@ -1182,9 +1212,10 @@ export class LocalSpatialMapLayer {
 
         const baseE = -halfExtentMeters + (i / nx) * span;
         const baseN = -halfExtentMeters + (j / nz) * span;
-        // Skip buildings/egress core & Stadium oval
-        if (Math.hypot(baseE - 52, baseN - 74) < 75) continue;
-        if (Math.hypot(baseE - 226.75, baseN + 218.17) < 85) continue;
+        // Skip active origin facility & primary destination clearance around open plaza
+        if (this._activeOriginMeta && Math.hypot(baseE - this._activeOriginMeta.east_m, baseN - this._activeOriginMeta.north_m) < 42) continue;
+        const primaryShelter = (this.pkg.sheltersAndFacilities || [])[0];
+        if (primaryShelter && Math.hypot(baseE - primaryShelter.east_m, baseN - primaryShelter.north_m) < 60) continue;
 
         const samples = 2;
         for (let s = 0; s < samples; s++) {
@@ -1356,8 +1387,8 @@ export class LocalSpatialMapLayer {
     // Bearing: 0 deg = North (-Z), 90 deg = East (+X)
     const dirX = Math.sin(rad);
     const dirZ = -Math.cos(rad);
-    const ox = this._activeOriginMeta.east_m || 52.0;
-    const oz = -(this._activeOriginMeta.north_m || 74.0);
+    const ox = this._activeOriginMeta?.east_m ?? 0;
+    const oz = -(this._activeOriginMeta?.north_m ?? 0);
 
     if (!this._epicenterRayMat) {
       this._epicenterRayMat = this._track(new THREE.LineDashedMaterial({
@@ -1420,14 +1451,28 @@ export class LocalSpatialMapLayer {
    * Update active building ("내 위치 · 출발지") label anchor and mask overlapping solid
    * InstancedMesh building box so the active wireframe & floorplan display cleanly without Z-fighting.
    */
-  setActiveOriginFacility({ id, name, east_m, north_m, height_m }) {
-    this._activeOriginMeta = {
-      id: id || 'BLDG_212_ENG1',
-      title: `내 위치 · ${name || '제1공학관'}`,
-      east_m: east_m ?? 52.0,
-      north_m: north_m ?? 74.0,
-      height_m: height_m ?? 21.5
-    };
+  setActiveOriginFacility(originSpec) {
+    if (!originSpec) {
+      this._activeOriginMeta = {
+        id: 'ANALYSIS_ORIGIN',
+        title: '분석 기준 위치',
+        east_m: 0,
+        north_m: 0,
+        height_m: 0,
+        hasBuilding: false
+      };
+    } else {
+      const { id, name, east_m, north_m, height_m, originHasBuilding, hasIndoorData } = originSpec;
+      this._activeOriginMeta = {
+        id: id || 'DYNAMIC_ORIGIN',
+        title: `내 위치 · ${name || '지정 위치'}`,
+        east_m: east_m ?? 0,
+        north_m: north_m ?? 0,
+        height_m: height_m ?? 18.0,
+        hasBuilding: originHasBuilding !== false,
+        hasIndoorData: Boolean(hasIndoorData)
+      };
+    }
 
     if (this.instancedBuildings && this._buildingDataRef) {
       const data = this._buildingDataRef;
@@ -1436,6 +1481,8 @@ export class LocalSpatialMapLayer {
       const maskCenterE = this._activeOriginMeta.east_m;
       const maskCenterN = this._activeOriginMeta.north_m;
       const isDefault212 = this._activeOriginMeta.id === 'BLDG_212_ENG1';
+      const shouldMaskBuilding = Boolean(this._activeOriginMeta.hasBuilding && !isDefault212);
+      const maskRadius = this._activeOriginMeta.hasIndoorData ? 32.0 : 12.0;
       const dummy = new THREE.Object3D();
 
       for (let i = 0; i < total; i++) {
@@ -1447,7 +1494,7 @@ export class LocalSpatialMapLayer {
         const yaw = data[base + 4];
         const h = data[base + 5];
         const groundY = (grounds && i < grounds.length) ? grounds[i] : this._sampleTerrainHeight(e, n);
-        const overlapsOrigin = !isDefault212 && Math.hypot(e - maskCenterE, n - maskCenterN) < 42.0;
+        const overlapsOrigin = shouldMaskBuilding && Math.hypot(e - maskCenterE, n - maskCenterN) < maskRadius;
 
         dummy.position.set(e, overlapsOrigin ? -500 : groundY + h * 0.5, -n);
         dummy.rotation.set(0, yaw, 0);
@@ -1539,69 +1586,113 @@ export class LocalSpatialMapLayer {
     this.labelAnchors = [];
     const orig = this._activeOriginMeta;
 
-    // 1. User Origin Facility ("내 위치 · 출발지")
-    const origGroundY = this._sampleTerrainHeight(orig.east_m, orig.north_m);
-    this.labelAnchors.push({
-      id: orig.id,
-      title: orig.title,
-      subtitle: '출발지 · 대피 안내 시작',
-      category: 'TARGET_BUILDING',
-      provisional: false,
-      priority: 100,
-      worldPos: new THREE.Vector3(orig.east_m, origGroundY + orig.height_m + 8.0, -orig.north_m)
-    });
+    // 1. User Origin Facility / Analysis Point
+    if (orig) {
+      const origGroundY = this._sampleTerrainHeight(orig.east_m, orig.north_m);
+      this.labelAnchors.push({
+        id: orig.id,
+        title: orig.title.replace(/^내 위치\s*·\s*/, ''),
+        subtitle: orig.hasBuilding ? '출발지 · 현재 위치' : (this.pkg?.dataCompleteness === 'INSUFFICIENT' ? '데이터 부족 (실제 건물 미확인)' : '야외 기준 위치'),
+        category: 'TARGET_BUILDING',
+        provisional: !orig.hasBuilding,
+        priority: 100,
+        worldPos: new THREE.Vector3(orig.east_m, origGroundY + (orig.height_m || 0) + 8.0, -orig.north_m)
+      });
+    }
 
-    // 2. Primary Shelter Destination & Key Regional Hubs
+    // 2. Primary Destination Candidate & Regional Hubs (reflecting honest confirmation tier)
     for (const s of (this.pkg.sheltersAndFacilities || [])) {
       const isPrimary = s.category === 'PRIMARY_SHELTER';
-      const baseY = isPrimary ? s.positionThree[1] : this._sampleTerrainHeight(s.east_m, s.north_m);
+      const status = s.candidateStatus || (this.pkg?.isHanyangNative ? 'CONFIRMED' : 'CONDITIONAL');
+      if (status === 'UNAVAILABLE' && !isPrimary) continue;
+      const baseY = Number.isFinite(s.positionThree?.[1])
+        ? s.positionThree[1]
+        : this._sampleTerrainHeight(s.east_m, s.north_m);
+      const isConditional = status === 'CONDITIONAL';
+      const titlePrefix = status === 'UNAVAILABLE'
+        ? '접근 불가 후보 · '
+        : isConditional
+          ? (isPrimary ? '개활 대피 후보(미확정) · ' : '후보 · ')
+          : (isPrimary ? '대피소 · ' : '');
+      const capText = s.justification?.capacityEstimate
+        ? `약 ${Number(s.justification.capacityEstimate).toLocaleString()}명(추정)`
+        : '';
+      const defaultSub = isConditional
+        ? `조건부 후보 · 개방 현장 확인 필요${capText ? ` · ${capText}` : ''}`
+        : (s.subtitle || (isPrimary ? `대피 목적지${capText ? ` · ${capText}` : ''}` : ''));
+
       this.labelAnchors.push({
         id: s.id,
-        title: isPrimary ? `대피소 · ${s.name}` : s.name,
-        subtitle: isPrimary ? '최종 안전 목적지 · 7,425명(추정)' : s.subtitle,
+        title: `${titlePrefix}${s.name}`,
+        subtitle: defaultSub,
         category: s.category,
-        provisional: false,
+        provisional: isConditional || status === 'UNAVAILABLE',
         priority: isPrimary ? 98 : 68,
         worldPos: new THREE.Vector3(s.positionThree[0], baseY + 22.0, s.positionThree[2])
       });
     }
 
-    // 3. Natural Hydrology Whisper Labels (borderless map geography)
-    this.labelAnchors.push(
-      {
-        id: 'HYDRO_JUNGNANGCHEON',
-        title: '중랑천',
-        subtitle: '',
-        category: 'WATERWAY_GEO',
-        provisional: false,
-        priority: 72,
-        worldPos: new THREE.Vector3(780.0, -14.0, 560.0)
-      },
-      {
-        id: 'HYDRO_HANGANG',
-        title: '한강',
-        subtitle: '',
-        category: 'WATERWAY_GEO',
-        provisional: false,
-        priority: 71,
-        worldPos: new THREE.Vector3(-420.0, -16.0, 1780.0)
+    // 3. Natural Hydrology Whisper Labels (strictly Hanyang-specific OR derived from actual OSM waterways)
+    const isHanyangPkg = Boolean(this.pkg?.isHanyangNative || String(this.pkg?.metadata?.packageId || '').includes('HANYANG'));
+    if (isHanyangPkg) {
+      this.labelAnchors.push(
+        {
+          id: 'HYDRO_JUNGNANGCHEON',
+          title: '중랑천',
+          subtitle: '',
+          category: 'WATERWAY_GEO',
+          provisional: false,
+          priority: 72,
+          worldPos: new THREE.Vector3(780.0, -14.0, 560.0)
+        },
+        {
+          id: 'HYDRO_HANGANG',
+          title: '한강',
+          subtitle: '',
+          category: 'WATERWAY_GEO',
+          provisional: false,
+          priority: 71,
+          worldPos: new THREE.Vector3(-420.0, -16.0, 1780.0)
+        }
+      );
+    } else {
+      const seenWaterNames = new Set();
+      for (const w of (this.pkg.terrainAndHydrology?.waterways || [])) {
+        if (!w.name || w.name === '하천' || seenWaterNames.has(w.name)) continue;
+        const pts = w.pointsEN || [];
+        if (pts.length === 0) continue;
+        const mid = pts[Math.floor(pts.length * 0.5)];
+        if (!mid) continue;
+        seenWaterNames.add(w.name);
+        this.labelAnchors.push({
+          id: `HYDRO_${w.id}`,
+          title: w.name,
+          subtitle: '수계 (보행 주의)',
+          category: 'WATERWAY_GEO',
+          provisional: false,
+          priority: 70,
+          worldPos: new THREE.Vector3(mid[0], this._sampleTerrainHeight(mid[0], mid[1]) + 2.5, -mid[1])
+        });
+        if (seenWaterNames.size >= 3) break;
       }
-    );
+    }
 
-    // 4. Secondary Named Context Landmarks (only displayed when zoomed into campus)
+    // 4. Secondary Named Context Landmarks
     for (const b of (this.pkg.namedBuildings || [])) {
-      const matchesOrigin = b.id === orig.id ||
+      const matchesOrigin = orig && (
+        b.id === orig.id ||
         (orig.id === 'BLDG_701_HIT' && b.id === 'CTX_HIT') ||
-        (orig.id === 'BLDG_104_PAIKNAM' && b.id === 'CTX_PAIKNAM');
+        (orig.id === 'BLDG_104_PAIKNAM' && b.id === 'CTX_PAIKNAM')
+      );
       if (b.isTargetBuilding || matchesOrigin || b.id === 'CTX_HYUHOSP_MAIN') continue;
       this.labelAnchors.push({
         id: b.id,
         title: b.name,
         subtitle: '',
-        category: b.category,
+        category: b.category || 'URBAN_BUILDING',
         provisional: false,
         priority: Math.min(62, b.priority || 52),
-        worldPos: new THREE.Vector3(b.east_m, this._sampleTerrainHeight(b.east_m, b.north_m) + b.height_m + 5.0, -b.north_m)
+        worldPos: new THREE.Vector3(b.east_m, this._sampleTerrainHeight(b.east_m, b.north_m) + (b.height_m || 10) + 5.0, -b.north_m)
       });
     }
   }
@@ -1630,6 +1721,10 @@ export class LocalSpatialMapLayer {
    * Stream adjacent 3km x 3km spatial tiles based on focal camera/target XZ position (Tier 2.2).
    */
   updateSpatialChunks(posOrCamera, options = {}) {
+    // Only skip Hanyang chunks when explicitly in a non-Hanyang nationwide OSM region
+    if (this.pkg?.isHanyangNative === false) {
+      return { loadedKeys: [], unloadedKeys: [] };
+    }
     const pos = posOrCamera?.position || posOrCamera || { x: 0, z: 0 };
     const status = this.chunkManager.updateForPosition(pos.x || 0, pos.z || 0, options);
 

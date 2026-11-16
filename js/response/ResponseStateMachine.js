@@ -240,7 +240,10 @@ export class ResponseStateMachine {
   /**
    * Get formatted behavioral instructions for current state.
    */
-  getCurrentInstruction() {
+  getCurrentInstruction(ctx = {}) {
+    const destName = ctx.destinationName || '지정 대피장소';
+    const regionLabel = ctx.regionLabel || '도심 보행로';
+    const controlLabel = ctx.controlCenterLabel || '119 또는 관할 재난안전대책본부';
     switch (this.currentState) {
       case RESPONSE_STATES.S1_SHAKING:
         if (this.context.userReport.requiresWheelchair) {
@@ -277,33 +280,33 @@ export class ResponseStateMachine {
         };
       case RESPONSE_STATES.S4_EXTERIOR_EGRESS:
         return {
-          title: '건물 탈출 및 위험반경 이탈 — 1층 남동측 비상구',
-          coreAction: '외벽 타일·유리창 낙하 구역 신속 이탈 (20m 이상)',
-          details: '1층 남동측 비상구를 통과한 후 건물 외벽으로부터 즉시 20m 이상 떨어지십시오. 머리 위를 지속적으로 주시하십시오.',
+          title: '건물 탈출 및 외벽 위험반경 이탈 — 1층 비상구',
+          coreAction: '외벽 타일·유리창 낙하 구역 신속 이탈 (건물 높이 이상 이격)',
+          details: '1층 출구를 통과한 후 건물 외벽으로부터 즉시 충분히 떨어지십시오. 머리 위를 지속적으로 주시하십시오.',
           bannedAction: '건물 직하부에 머무르거나 소지품을 줍기 위해 정지 금지',
           sourceTag: DATA_PROVENANCE_SOURCE.ESTIMATED_PROVISIONAL
         };
       case RESPONSE_STATES.S5_PEDESTRIAN_TRANSIT:
         return {
-          title: '옥외 보행 이동 — 캠퍼스 대피로 보행',
-          coreAction: '안내된 경로를 따라 대운동장으로 이동',
-          details: '담장, 옹벽, 전신주, 변압기로부터 거리를 유지하고 이동하십시오. 부상자나 휠체어 이용자는 무단차 우회로를 따르십시오.',
+          title: `옥외 보행 이동 — ${regionLabel} 대피 경로`,
+          coreAction: `안내된 경로를 따라 ${destName} 방향으로 이동`,
+          details: '담장, 옹벽, 전신주, 변압기로부터 거리를 유지하고 이동하십시오. 계단/단차 회피 시 경사로 우회로를 따르십시오.',
           bannedAction: '좁은 골목길이나 차량 통행로 중앙 보행 금지',
           sourceTag: DATA_PROVENANCE_SOURCE.ESTIMATED_PROVISIONAL
         };
       case RESPONSE_STATES.S6_SHELTER_ARRIVAL:
         return {
-          title: '대피소 안착 및 2차 대응 — 한양대 대운동장',
-          coreAction: '운동장 중앙 잔디 구역 안착 및 공식 정보 청취',
-          details: '스탠드 주변 낙하 위험 구역을 피해 필드 중앙으로 이동하십시오. 라디오나 안전안내문자를 통해 공식 지침을 따르십시오.',
-          bannedAction: '임의로 실내 건물로 재진입 금지',
+          title: `목적지 도달 및 2차 대응 — ${destName}`,
+          coreAction: '개활 안전 구역 집결 및 공식 정보 청취',
+          details: '주변 건물·전신주 낙하 위험 구역을 피해 개활지 중앙으로 이동하십시오. 라디오나 재난문자로 공식 지침을 따르십시오.',
+          bannedAction: '임의로 손상된 실내 건물로 재진입 금지',
           sourceTag: DATA_PROVENANCE_SOURCE.OFFICIAL_DISASTER_INFO
         };
       case RESPONSE_STATES.SHELTER_IN_PLACE:
         return {
           title: '실내 잔류 및 고립 방호 — 탈출로 차단 상황',
           coreAction: '문틈 밀폐, 위치 신호 발신 및 구조 대기',
-          details: '문틀 변형이나 연기로 복도가 막혔습니다. 옷이나 커튼으로 문틈을 막고, 119 및 캠퍼스 상황실에 위치를 알리십시오. (주의: 본 조치는 탈출로 차단 시 질식 및 낙하 위험을 회피하기 위한 비상 고립 대응일 뿐이며, 건물의 내진 안전성이나 붕괴 방지를 보장하는 상태가 아닙니다.)',
+          details: `문틀 변형이나 연기로 복도가 막혔습니다. 옷이나 커튼으로 문틈을 막고, ${controlLabel}에 위치를 알리십시오. (주의: 본 조치는 탈출로 차단 시 질식 및 낙하 위험을 회피하기 위한 비상 고립 대응일 뿐이며, 건물의 내진 안전성이나 붕괴 방지를 보장하는 상태가 아닙니다.)`,
           bannedAction: '연기가 찬 복도로 맹목적 돌진 금지 (질식 위험)',
           sourceTag: DATA_PROVENANCE_SOURCE.USER_FIELD_REPORT
         };

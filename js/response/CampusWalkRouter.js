@@ -20,7 +20,32 @@ import { REAL_OSM_BUILDINGS_FLAT } from './HanyangRealSpatialPayload.js';
 
 const GRAPH_ADJ_CACHE = new WeakMap();
 
-function getOrCompileWalkAdjacency(walkGraph) {
+export const WALK_ROUTING_WEIGHTS = Object.freeze({
+  distanceBase: 1.0,
+  walkwaySurfaceMultipliers: Object.freeze({
+    footway: 1.0,
+    pedestrian: 0.96,
+    living_street: 1.0,
+    steps: 1.15,
+    path: 1.05,
+    cycleway: 1.06,
+    service: 1.12,
+    residential: 1.12,
+    secondary: 1.24,
+    primary: 1.28,
+    crossing: 1.04
+  }),
+  uphillGainPerMeter: 0.35,
+  steepRampAccessibleSlopeThreshold: 0.14,
+  steepRampAccessiblePenalty: 1.35,
+  debrisRiskMultiplierGain: 0.14,
+  bridgeInspectionMultiplier: 1.08,
+  alternativeEdgePenalty: 2.6,
+  maxStartSnapMeters: 260,
+  maxGoalSnapMeters: 260
+});
+
+export function getOrCompileWalkAdjacency(walkGraph) {
   const source = walkGraph || HANYANG_CAMPUS_WALK_GRAPH;
   if (GRAPH_ADJ_CACHE.has(source)) {
     return GRAPH_ADJ_CACHE.get(source);
@@ -29,13 +54,15 @@ function getOrCompileWalkAdjacency(walkGraph) {
   const edges = source.edges || [];
   const adj = Array.from({ length: nodes.length }, () => []);
   for (let idx = 0; idx < edges.length; idx++) {
-    const [u, v, dist, hw, hasStairs, debrisRisk] = edges[idx];
+    const [u, v, dist, hw, hasStairs, debrisRisk, isBridge, isCrossing] = edges[idx];
     const nu = nodes[u];
     const nv = nodes[v];
     if (!nu || !nv) continue;
     const dy = (nv[3] ?? 0) - (nu[3] ?? 0);
-    adj[u].push({ to: v, dist, dy, hw, hasStairs: !!hasStairs, debrisRisk: debrisRisk ?? 0, edgeKey: `${nu[0]}->${nv[0]}` });
-    adj[v].push({ to: u, dist, dy: -dy, hw, hasStairs: !!hasStairs, debrisRisk: debrisRisk ?? 0, edgeKey: `${nv[0]}->${nu[0]}` });
+    const bridgeFlag = Boolean(isBridge || hw === 'bridge');
+    const crossFlag = Boolean(isCrossing || hw === 'crossing');
+    adj[u].push({ to: v, dist, dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nu[0]}->${nv[0]}` });
+    adj[v].push({ to: u, dist, dy: -dy, hw, hasStairs: !!hasStairs, isBridge: bridgeFlag, isCrossing: crossFlag, debrisRisk: debrisRisk ?? 0, edgeKey: `${nv[0]}->${nu[0]}` });
   }
   const compiled = { nodes, edges, adj };
   GRAPH_ADJ_CACHE.set(source, compiled);
@@ -196,11 +223,48 @@ function isSegmentClearOfOBBs(aXZ, bXZ, obstaclesOBB, marginMeters = 0.25) {
  * Guarantees any segment between startXZ and goalXZ smoothly walks around obstructing
  * 3D building boxes instead of piercing them.
  */
-export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], marginMeters = 1.6) {
-  if (!obstaclesOBB || obstaclesOBB.length === 0) {
+export function isSegmentClearOfWaterXZ(aXZ, bXZ, waterPolygons = [], waterways = []) {
+  const samples = 5;
+  for (let s = 0; s <= samples; s++) {
+    const t = s / samples;
+    const px = aXZ[0] + (bXZ[0] - aXZ[0]) * t;
+    const pz = aXZ[1] + (bXZ[1] - aXZ[1]) * t;
+    const pn = -pz;
+    for (const item of waterPolygons || []) {
+      const poly = item?.outer || item;
+      if (Array.isArray(poly) && poly.length >= 3 && pointInPoly2D(px, pn, poly)) {
+        return false;
+      }
+    }
+    // Also reject unbridged crossing over wide waterway ribbons (>18m)
+    if (s > 0 && s < samples) {
+      for (const w of waterways || []) {
+        const halfW = (w?.widthMeters || 14) * 0.45;
+        if (halfW < 8 || !Array.isArray(w.pointsEN)) continue;
+        for (let k = 0; k < w.pointsEN.length - 1; k++) {
+          const [e0, n0] = w.pointsEN[k];
+          const [e1, n1] = w.pointsEN[k + 1];
+          const vx = e1 - e0, vy = n1 - n0;
+          const len2 = vx * vx + vy * vy || 1;
+          const proj = Math.max(0, Math.min(1, ((px - e0) * vx + (pn - n0) * vy) / len2));
+          const dist = Math.hypot(px - (e0 + proj * vx), pn - (n0 + proj * vy));
+          if (dist < halfW) return false;
+        }
+      }
+    }
+  }
+  return true;
+}
+
+export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], marginMeters = 1.6, waterPolygons = [], waterways = []) {
+  const isClear = (a, b) =>
+    isSegmentClearOfOBBs(a, b, obstaclesOBB, 0.22) &&
+    (waterPolygons.length === 0 && waterways.length === 0 ? true : isSegmentClearOfWaterXZ(a, b, waterPolygons, waterways));
+
+  if ((!obstaclesOBB || obstaclesOBB.length === 0) && waterPolygons.length === 0 && waterways.length === 0) {
     return [startXZ, goalXZ];
   }
-  if (isSegmentClearOfOBBs(startXZ, goalXZ, obstaclesOBB, 0.25)) {
+  if (isClear(startXZ, goalXZ)) {
     return [startXZ, goalXZ];
   }
 
@@ -210,13 +274,12 @@ export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], margi
   const minZ = Math.min(startXZ[1], goalXZ[1]) - 120;
   const maxZ = Math.max(startXZ[1], goalXZ[1]) + 120;
 
-  const localOBBs = obstaclesOBB.filter(
+  const localOBBs = (obstaclesOBB || []).filter(
     ob => ob.east_m >= minX && ob.east_m <= maxX && (-ob.north_m) >= minZ && (-ob.north_m) <= maxZ
   );
 
   const vertices = [startXZ];
   for (const ob of localOBBs) {
-    // Only add corners of buildings close enough to affect the corridor
     if (!doesSegmentIntersectOBBXZ(startXZ, goalXZ, ob, 36.0)) continue;
     const corners = getExpandedOBBCornersXZ(ob, marginMeters);
     for (const c of corners) {
@@ -253,6 +316,7 @@ export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], margi
     for (let v = 0; v < n; v++) {
       if (v === u || visited[v]) continue;
       if (!isSegmentClearOfOBBs(vertices[u], vertices[v], localOBBs, 0.2)) continue;
+      if ((waterPolygons.length > 0 || waterways.length > 0) && !isSegmentClearOfWaterXZ(vertices[u], vertices[v], waterPolygons, waterways)) continue;
       const stepD = Math.hypot(vertices[v][0] - vertices[u][0], vertices[v][1] - vertices[u][1]);
       const tentative = dist[u] + stepD;
       if (tentative < dist[v]) {
@@ -265,7 +329,7 @@ export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], margi
   }
 
   if (prev[goalIdx] === -1) {
-    return [startXZ, goalXZ];
+    return null; // Reject uncrossable OBB/water barriers instead of returning a pierced straight line!
   }
   const chain = [];
   for (let cur = goalIdx; cur !== -1; cur = prev[cur]) {
@@ -276,20 +340,7 @@ export function findVisibilityDetourXZ(startXZ, goalXZ, obstaclesOBB = [], margi
 }
 
 function getHighwayWalkMultiplier(hw) {
-  switch (hw) {
-    case 'footway':
-    case 'pedestrian':
-    case 'living_street':
-    case 'steps':
-      return 1.0;
-    case 'path':
-    case 'cycleway':
-      return 1.05;
-    case 'service':
-      return 1.12;
-    default:
-      return 1.24;
-  }
+  return WALK_ROUTING_WEIGHTS.walkwaySurfaceMultipliers[hw] ?? 1.24;
 }
 
 /**
@@ -324,7 +375,13 @@ export function solveCampusWalkGraph(options = {}) {
     originCentroidXZ = startXZ,
     seismicDebrisAware = true,
     blockedEdges = null,
-    avoidPolygons = null
+    avoidPolygons = null,
+    waterPolygons = [],
+    waterways = [],
+    penalizeEdgeKeys = null,
+    overlapPenaltyMultiplier = WALK_ROUTING_WEIGHTS.alternativeEdgePenalty,
+    maxStartSnapMeters = WALK_ROUTING_WEIGHTS.maxStartSnapMeters,
+    maxGoalSnapMeters = WALK_ROUTING_WEIGHTS.maxGoalSnapMeters
   } = options;
 
   const activeAvoid = Array.isArray(avoidPolygons) ? avoidPolygons.filter(p => p && Array.isArray(p.polygonXZ)) : [];
@@ -353,7 +410,7 @@ export function solveCampusWalkGraph(options = {}) {
 
   const { nodes, adj } = customWalkGraph ? getOrCompileWalkAdjacency(customWalkGraph) : CAMPUS_GRAPH_ADJ;
   if (nodes.length === 0) {
-    return { found: false, totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
+    return { found: false, reason: 'NO_WALKABLE_NETWORK_NODES', totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
   }
 
   const obstacles = normalizeOBBList(buildingOBBs, originCentroidXZ, originExclusionRadius)
@@ -364,29 +421,33 @@ export function solveCampusWalkGraph(options = {}) {
       return Math.hypot(dx, dz) > 22.0;
     });
 
-  // Select top candidate walkable entry nodes sorted by distance from startXZ, preferring clear LOS
+  // Select candidate walkable entry nodes sorted by distance from startXZ within snap tolerance
   const startCands = nodes
     .map((nd, idx) => ({
       idx,
       xz: [nd[1], -nd[2]],
       dist: Math.hypot(nd[1] - startXZ[0], -nd[2] - startXZ[1])
     }))
+    .filter(c => c.dist <= maxStartSnapMeters)
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 12);
 
-  // Select nearest target node on shelter perimeter
-  let goalIdx = 0;
-  let bestGoalDist = 1e18;
-  for (let i = 0; i < nodes.length; i++) {
-    const d = Math.hypot(nodes[i][1] - goalXZ[0], -nodes[i][2] - goalXZ[1]);
-    if (d < bestGoalDist) {
-      bestGoalDist = d;
-      goalIdx = i;
-    }
-  }
-  const targetNodeXZ = [nodes[goalIdx][1], -nodes[goalIdx][2]];
+  // Select candidate goal perimeter nodes reachable cleanly from shelter
+  const goalCands = nodes
+    .map((nd, idx) => ({
+      idx,
+      xz: [nd[1], -nd[2]],
+      dist: Math.hypot(nd[1] - goalXZ[0], -nd[2] - goalXZ[1])
+    }))
+    .filter(c => c.dist <= maxGoalSnapMeters)
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 5);
 
-  const runAStarFromPortal = (portalIdx) => {
+  if (startCands.length === 0 || goalCands.length === 0) {
+    return { found: false, reason: 'ORIGIN_OR_GOAL_OUT_OF_GRAPH_RANGE', totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
+  }
+
+  const runAStarFromPortal = (portalIdx, goalIdx, targetNodeXZ) => {
     const n = nodes.length;
     const dist = new Float64Array(n).fill(1e18);
     const fScore = new Float64Array(n).fill(1e18);
@@ -421,18 +482,26 @@ export function solveCampusWalkGraph(options = {}) {
         if (obstacles.length > 0 && !isSegmentClearOfOBBs(uXZ, vXZ, obstacles, -0.02)) {
           continue;
         }
+        if ((waterPolygons.length > 0 || waterways.length > 0) && !edge.isBridge &&
+          !isSegmentClearOfWaterXZ(uXZ, vXZ, waterPolygons, waterways)) {
+          continue;
+        }
         if (activeAvoid.length > 0 && segHitsAvoidPoly(uXZ[0], uXZ[1], vXZ[0], vXZ[1])) {
           continue;
         }
 
         let mult = getHighwayWalkMultiplier(edge.hw);
-        if (excludeStairs && edge.dist > 1.0 && Math.abs(edge.dy) / edge.dist > 0.14) {
-          mult *= 1.35; // Penalize steep ungraded ramps when computing accessible detour
+        if (edge.isBridge) mult *= WALK_ROUTING_WEIGHTS.bridgeInspectionMultiplier;
+        if (excludeStairs && edge.dist > 1.0 && Math.abs(edge.dy) / edge.dist > WALK_ROUTING_WEIGHTS.steepRampAccessibleSlopeThreshold) {
+          mult *= WALK_ROUTING_WEIGHTS.steepRampAccessiblePenalty;
         }
         if (seismicDebrisAware && edge.debrisRisk > 0) {
-          mult *= (1.0 + edge.debrisRisk * 0.14);
+          mult *= (1.0 + edge.debrisRisk * WALK_ROUTING_WEIGHTS.debrisRiskMultiplierGain);
         }
-        const uphill = Math.max(0, edge.dy) * 0.35;
+        if (penalizeEdgeKeys && penalizeEdgeKeys.has(edge.edgeKey)) {
+          mult *= overlapPenaltyMultiplier;
+        }
+        const uphill = Math.max(0, edge.dy) * WALK_ROUTING_WEIGHTS.uphillGainPerMeter;
         const nextCost = dist[u] + edge.dist * mult + uphill;
 
         if (nextCost < dist[edge.to]) {
@@ -447,7 +516,6 @@ export function solveCampusWalkGraph(options = {}) {
 
     if (dist[goalIdx] >= 1e17) return null;
 
-    // Reconstruct raw graph edges
     const rawEdges = [];
     for (let cur = goalIdx; cur !== portalIdx; cur = prevNode[cur]) {
       const e = prevEdge[cur];
@@ -456,29 +524,46 @@ export function solveCampusWalkGraph(options = {}) {
       rawEdges.push({ uNd, vNd, edge: e });
     }
     rawEdges.reverse();
-    return { portalIdx, rawEdges, graphCost: dist[goalIdx] };
+    return { portalIdx, goalIdx, targetNodeXZ, rawEdges, graphCost: dist[goalIdx] };
   };
 
-  // Pick candidate portal yielding shortest valid doorway + walkable graph route
+  // Pick valid (portal, goal) pair avoiding buildings and non-bridge water crossings
   let bestSolution = null;
-  for (const cand of startCands) {
-    const sol = runAStarFromPortal(cand.idx);
-    if (!sol) continue;
-    const portalChainXZ = findVisibilityDetourXZ(startXZ, cand.xz, obstacles, 1.5);
-    let portalLen = 0;
-    for (let i = 0; i < portalChainXZ.length - 1; i++) {
-      portalLen += Math.hypot(portalChainXZ[i + 1][0] - portalChainXZ[i][0], portalChainXZ[i + 1][1] - portalChainXZ[i][1]);
+  for (const gCand of goalCands) {
+    const goalIngressChainXZ = findVisibilityDetourXZ(gCand.xz, goalXZ, obstacles, 1.4, waterPolygons, waterways);
+    if (!goalIngressChainXZ) continue;
+    let goalIngressLen = 0;
+    for (let i = 0; i < goalIngressChainXZ.length - 1; i++) {
+      goalIngressLen += Math.hypot(goalIngressChainXZ[i + 1][0] - goalIngressChainXZ[i][0], goalIngressChainXZ[i + 1][1] - goalIngressChainXZ[i][1]);
     }
-    const totalScore = sol.graphCost + portalLen * 1.4;
-    if (!bestSolution || totalScore < bestSolution.totalScore) {
-      bestSolution = { ...sol, portalChainXZ, portalLen, totalScore };
+
+    for (const sCand of startCands) {
+      const portalChainXZ = findVisibilityDetourXZ(startXZ, sCand.xz, obstacles, 1.5, waterPolygons, waterways);
+      if (!portalChainXZ) continue;
+      let portalLen = 0;
+      for (let i = 0; i < portalChainXZ.length - 1; i++) {
+        portalLen += Math.hypot(portalChainXZ[i + 1][0] - portalChainXZ[i][0], portalChainXZ[i + 1][1] - portalChainXZ[i][1]);
+      }
+
+      const sol = runAStarFromPortal(sCand.idx, gCand.idx, gCand.xz);
+      if (!sol) continue;
+
+      const totalScore = sol.graphCost + portalLen * 1.4 + goalIngressLen * 1.3;
+      if (!bestSolution || totalScore < bestSolution.totalScore) {
+        bestSolution = { ...sol, portalChainXZ, portalLen, goalIngressChainXZ, goalIngressLen, totalScore };
+      }
+      if (sCand.dist < 18.0 && portalChainXZ.length === 2 && gCand.dist < 25.0) break;
     }
-    if (cand.dist < 18.0 && portalChainXZ.length === 2) break;
+    if (bestSolution && bestSolution.goalIngressLen < 35.0) break;
   }
 
   if (!bestSolution) {
-    return { found: false, totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
+    return { found: false, reason: 'NO_COLLISION_FREE_PATH_FOUND', totalDistanceMeters: 0, totalStairsDistanceMeters: 0, hasStairs: false, stairFlightCount: 0, isStepFree: false, edges: [], waypoints3D: [] };
   }
+
+  const goalIdx = bestSolution.goalIdx;
+  const goalIngressChainXZ = bestSolution.goalIngressChainXZ;
+  const goalIngressLen = bestSolution.goalIngressLen;
 
   const elevateXZ = ([x, z]) => [
     Number(x.toFixed(2)),
@@ -536,15 +621,6 @@ export function solveCampusWalkGraph(options = {}) {
     });
   }
 
-  // Final ingress segment onto exact shelter center/perimeter goalXZ
-  const goalIngressChainXZ = findVisibilityDetourXZ(targetNodeXZ, goalXZ, obstacles, 1.4);
-  let goalIngressLen = 0;
-  for (let i = 0; i < goalIngressChainXZ.length - 1; i++) {
-    goalIngressLen += Math.hypot(
-      goalIngressChainXZ[i + 1][0] - goalIngressChainXZ[i][0],
-      goalIngressChainXZ[i + 1][1] - goalIngressChainXZ[i][1]
-    );
-  }
   if (goalIngressLen > 0.6) {
     outEdges.push({
       edgeId: `OSM_${nodes[goalIdx][0]}->SHELTER_INGRESS`,
@@ -572,6 +648,8 @@ export function solveCampusWalkGraph(options = {}) {
   }
 
   return {
+    portalIdx: bestSolution.portalIdx,
+    goalIdx: bestSolution.goalIdx,
     found: true,
     totalDistanceMeters: Number(totalDist.toFixed(1)),
     totalStairsDistanceMeters: Number(totalStairDist.toFixed(1)),
@@ -705,12 +783,16 @@ export function buildDynamicFacilityFromPoint({
   walkGraph = null,
   buildingOBBs = REAL_OSM_BUILDINGS_FLAT,
   shelter = null,
+  waterPolygons = [],
+  waterways = [],
+  indoorScope = 'HEIGHT_ONLY_3D',
   elevationSampler = sampleTerrainHeight
 } = {}) {
   const groundY = Number(((typeof elevationSampler === 'function' ? elevationSampler(east_m, north_m) : 0) || 0).toFixed(2));
-  const totalLevels = Math.max(2, Math.min(20, Math.round(height_m / 3.6)));
+  const totalLevels = Math.max(1, Math.min(30, Math.round(height_m / 3.6)));
   const floorHeightMeters = 3.6;
-  const defaultFloor = Math.min(totalLevels, Math.max(2, Math.round(totalLevels * 0.5)));
+  const hasIndoorData = indoorScope === 'PROVISIONAL_FLOORPLAN' || indoorScope === 'VERIFIED_INDOOR';
+  const defaultFloor = hasIndoorData ? Math.min(totalLevels, Math.max(2, Math.round(totalLevels * 0.5))) : 1;
   const targetY = groundY + (defaultFloor - 1) * floorHeightMeters;
 
   const centerX = east_m;
@@ -719,27 +801,31 @@ export function buildDynamicFacilityFromPoint({
   const corners = getExpandedOBBCornersXZ(obbObj, 0.0);
   const footprint = [...corners, corners[0]].map(p => Object.freeze([Number(p[0].toFixed(2)), Number(p[1].toFixed(2))]));
 
-  const shelterXZ = shelter?.localCenter
-    ? [shelter.localCenter[0], shelter.localCenter[2]]
-    : (shelter?.positionThree
-      ? [shelter.positionThree[0], shelter.positionThree[2]]
-      : (typeof shelter?.east_m === 'number' && typeof shelter?.north_m === 'number'
-        ? [shelter.east_m, -shelter.north_m]
-        : [222.89, 196.71]));
-  const shelterY = Number(
-    (shelter?.localCenter?.[1] ??
-      shelter?.positionThree?.[1] ??
-      (typeof elevationSampler === 'function' ? elevationSampler(shelterXZ[0], -shelterXZ[1]) : -13.5) ??
-      -13.5).toFixed(2)
+  const hasValidShelter = Boolean(
+    shelter && (shelter.localCenter || shelter.positionThree || (typeof shelter.east_m === 'number' && typeof shelter.north_m === 'number'))
   );
+  const shelterXZ = hasValidShelter
+    ? (shelter.localCenter
+      ? [shelter.localCenter[0], shelter.localCenter[2]]
+      : (shelter.positionThree
+        ? [shelter.positionThree[0], shelter.positionThree[2]]
+        : [shelter.east_m, -shelter.north_m]))
+    : null;
+  const shelterY = shelterXZ
+    ? Number(
+      (shelter?.localCenter?.[1] ??
+        shelter?.positionThree?.[1] ??
+        (typeof elevationSampler === 'function' ? elevationSampler(shelterXZ[0], -shelterXZ[1]) : groundY) ??
+        groundY).toFixed(2)
+    )
+    : groundY;
 
-  // Choose perimeter side closest to the shelter / nearest unobstructed walk node
   const sideMids = [0, 1, 2, 3].map(i => {
     const a = corners[i];
     const b = corners[(i + 1) % 4];
     const mx = (a[0] + b[0]) * 0.5;
     const mz = (a[1] + b[1]) * 0.5;
-    const outDist = Math.hypot(mx - shelterXZ[0], mz - shelterXZ[1]);
+    const outDist = shelterXZ ? Math.hypot(mx - shelterXZ[0], mz - shelterXZ[1]) : Math.hypot(mx - centerX, mz - centerZ);
     return { mx, mz, outDist };
   }).sort((a, b) => a.outDist - b.outDist);
   const doorXZ = [sideMids[0].mx, sideMids[0].mz];
@@ -749,29 +835,58 @@ export function buildDynamicFacilityFromPoint({
   const footwayXZ = [doorXZ[0] + (vecOutX / normOut) * 3.5, doorXZ[1] + (vecOutZ / normOut) * 3.5];
   const footwayY = Number(((typeof elevationSampler === 'function' ? elevationSampler(footwayXZ[0], -footwayXZ[1]) : groundY) + 0.25).toFixed(2));
 
-  const targetShelterId = shelter?.shelterId || shelter?.id || 'SHELTER_HANYANG_STADIUM';
-  const shortestSol = solveCampusWalkGraph({
-    startXZ: footwayXZ,
-    goalXZ: shelterXZ,
-    excludeStairs: false,
-    buildingOBBs,
-    customWalkGraph: walkGraph,
-    elevationSampler,
-    targetShelterId,
-    originCentroidXZ: [centerX, centerZ],
-    originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
-  });
-  const stepFreeSol = solveCampusWalkGraph({
-    startXZ: footwayXZ,
-    goalXZ: shelterXZ,
-    excludeStairs: true,
-    buildingOBBs,
-    customWalkGraph: walkGraph,
-    elevationSampler,
-    targetShelterId,
-    originCentroidXZ: [centerX, centerZ],
-    originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
-  });
+  const targetShelterId = shelter?.shelterId || shelter?.id || null;
+  const emptySol = { found: false, totalDistanceMeters: 0, hasStairs: false, edges: [], targetNodeId: null };
+  const shortestSol = hasValidShelter
+    ? solveCampusWalkGraph({
+      startXZ: footwayXZ,
+      goalXZ: shelterXZ,
+      excludeStairs: false,
+      buildingOBBs,
+      customWalkGraph: walkGraph,
+      elevationSampler,
+      targetShelterId,
+      waterPolygons,
+      waterways,
+      originCentroidXZ: [centerX, centerZ],
+      originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
+    })
+    : emptySol;
+  const stepFreeSol = hasValidShelter
+    ? solveCampusWalkGraph({
+      startXZ: footwayXZ,
+      goalXZ: shelterXZ,
+      excludeStairs: true,
+      buildingOBBs,
+      customWalkGraph: walkGraph,
+      elevationSampler,
+      targetShelterId,
+      waterPolygons,
+      waterways,
+      originCentroidXZ: [centerX, centerZ],
+      originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
+    })
+    : emptySol;
+
+  // Genuine distinct alternative path using edge-overlap penalty (only on real graph)
+  const usedShortKeys = new Set((shortestSol.edges || []).map(e => e.edgeId?.replace('OSM_', '').replace('->OSM_', '->')));
+  const altSol = (hasValidShelter && shortestSol.found)
+    ? solveCampusWalkGraph({
+      startXZ: footwayXZ,
+      goalXZ: shelterXZ,
+      excludeStairs: false,
+      buildingOBBs,
+      customWalkGraph: walkGraph,
+      elevationSampler,
+      targetShelterId,
+      waterPolygons,
+      waterways,
+      penalizeEdgeKeys: usedShortKeys,
+      overlapPenaltyMultiplier: WALK_ROUTING_WEIGHTS.alternativeEdgePenalty,
+      originCentroidXZ: [centerX, centerZ],
+      originExclusionRadius: Math.max(26.0, obbObj.boundR + 6.0)
+    })
+    : emptySol;
 
   const roomId = `ROOM_${defaultFloor}01`;
   const roomNodeId = `NODE_${roomId}`;
@@ -782,8 +897,10 @@ export function buildDynamicFacilityFromPoint({
   const targetNodeId = shortestSol.targetNodeId || stepFreeSol.targetNodeId || 'OSM_TARGET_INGRESS';
 
   const nodesMap = new Map();
-  nodesMap.set(outdoorEgressId, { id: outdoorEgressId, name: `${name} 출구 접속점`, localPos: Object.freeze([footwayXZ[0], footwayY, footwayXZ[1]]) });
-  nodesMap.set(targetNodeId, { id: targetNodeId, name: shelter?.officialName || shelter?.name || '대피소 진입점', localPos: Object.freeze([shelterXZ[0], shelterY, shelterXZ[1]]) });
+  nodesMap.set(outdoorEgressId, { id: outdoorEgressId, name: `${name} 외곽 출구 접속점`, localPos: Object.freeze([footwayXZ[0], footwayY, footwayXZ[1]]) });
+  if (hasValidShelter && shelterXZ) {
+    nodesMap.set(targetNodeId, { id: targetNodeId, name: shelter?.officialName || shelter?.name || '대피 후보 지점', localPos: Object.freeze([shelterXZ[0], shelterY, shelterXZ[1]]) });
+  }
 
   const edges = [];
   const ingest = (sol, tag) => {
@@ -802,23 +919,29 @@ export function buildDynamicFacilityFromPoint({
         isWheelchairPassable: !e.hasStairs,
         highway: e.highway || 'footway',
         hazardRisk: e.hazardRisk || (e.hasStairs ? 'HIGH' : 'LOW'),
-        branch: tag === 'S' ? 'SHORTEST' : 'STEP_FREE',
+        branch: tag === 'S' ? 'SHORTEST' : tag === 'A' ? 'ALTERNATIVE' : 'STEP_FREE',
         waypoints: Object.freeze((e.waypoints || []).map(wp => Object.freeze([...wp])))
       });
     });
   };
   ingest(shortestSol, 'S');
   ingest(stepFreeSol, 'F');
+  if (altSol.found && altSol.totalDistanceMeters !== shortestSol.totalDistanceMeters) {
+    ingest(altSol, 'A');
+  }
 
   const hwHalf = Math.max(8.0, Math.min(width_m, depth_m) * 0.35);
   return Object.freeze({
     packageId: `FACILITY_${buildingId}`,
+    hasIndoorData,
+    indoorScope,
+    dynamicOriginMeta: Object.freeze({ id: buildingId, name, east_m, north_m, height_m }),
     anchor: Object.freeze({ lat: anchor.lat, lon: anchor.lon, h: anchor.h ?? 42.0 }),
     buildingMetadata: Object.freeze({
       id: buildingId,
       name,
       unitNumber: unitNumber || '',
-      structureType: 'OSM 건물 동적 선택 (PROVISIONAL 실내)',
+      structureType: hasIndoorData ? '잠정 실내 공간 포함 건축물' : `외곽 3D 모델 (${indoorScope} · 실내 도면 미확보)`,
       levels: Object.freeze({ aboveGround: totalLevels, underground: 0 }),
       anchorCoordinates: Object.freeze({ lat: anchor.lat, lon: anchor.lon, ellipsoidalHeightMeters: anchor.h ?? 42.0 }),
       provenance: 'PARTIALLY_VERIFIED'
@@ -827,13 +950,13 @@ export function buildDynamicFacilityFromPoint({
     footprintMeters: Object.freeze(footprint),
     floorHeightMeters,
     totalLevels,
-    defaultFloor,
-    defaultRoomId: roomId,
-    defaultRoomNodeId: roomNodeId,
-    defaultExitNodeId: exitNodeId,
+    defaultFloor: hasIndoorData ? defaultFloor : null,
+    defaultRoomId: hasIndoorData ? roomId : null,
+    defaultRoomNodeId: hasIndoorData ? roomNodeId : outdoorEgressId,
+    defaultExitNodeId: hasIndoorData ? exitNodeId : outdoorEgressId,
     defaultOutdoorEgressNodeId: outdoorEgressId,
-    defaultOutdoorTargetNodeId: targetNodeId,
-    indoorGraphs: Object.freeze({
+    defaultOutdoorTargetNodeId: hasValidShelter ? targetNodeId : null,
+    indoorGraphs: hasIndoorData ? Object.freeze({
       [defaultFloor]: Object.freeze({
         floorId: `FLOOR_${defaultFloor}F`,
         levelIndex: defaultFloor,
@@ -850,15 +973,15 @@ export function buildDynamicFacilityFromPoint({
         stairwells: Object.freeze([{ stairwellId: 'STAIR_1F', landingNodeId: stairBotId, localPos: Object.freeze([doorXZ[0] - (vecOutX / normOut) * 2.5, groundY, doorXZ[1] - (vecOutZ / normOut) * 2.5]), provenance: 'PROVISIONAL' }]),
         exits: Object.freeze([{ exitId: 'EXIT_1F', name: '1층 출구 (잠정)', portalNodeId: exitNodeId, localPos: Object.freeze([doorXZ[0], groundY, doorXZ[1]]), provenance: 'PROVISIONAL' }])
       })
-    }),
-    indoorEdges: Object.freeze([
+    }) : Object.freeze({}),
+    indoorEdges: hasIndoorData ? Object.freeze([
       { source: roomNodeId, target: stairTopId, distance: Number(hwHalf.toFixed(1)), hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_PROVISIONAL' },
       { source: stairTopId, target: stairBotId, distance: Number(((defaultFloor - 1) * 8.4).toFixed(1)), hasStairs: true, isWheelchairPassable: false, edgeType: 'VERTICAL_STAIR_DESCENT' },
       { source: stairBotId, target: exitNodeId, distance: 4.5, hasStairs: false, isWheelchairPassable: true, edgeType: 'CORRIDOR_TO_EXIT' }
-    ]),
+    ]) : Object.freeze([]),
     connector: Object.freeze({
       connectorId: `CONN_${buildingId}`,
-      source: exitNodeId,
+      source: hasIndoorData ? exitNodeId : outdoorEgressId,
       target: outdoorEgressId,
       distance: 4.0,
       hasStairs: false,
@@ -870,15 +993,16 @@ export function buildDynamicFacilityFromPoint({
     }),
     outdoorGraph: Object.freeze({
       egressNodeId: outdoorEgressId,
-      targetNodeId,
+      targetNodeId: hasValidShelter ? targetNodeId : null,
       nodes: Object.freeze([...nodesMap.values()]),
       edges: Object.freeze(edges)
     }),
-    shelter: Object.freeze({
+    shelter: hasValidShelter ? Object.freeze({
       shelterId: targetShelterId,
-      officialId: shelter?.officialId || shelter?.id || 'OA-21060',
-      officialCode: shelter?.officialCode || shelter?.id || 'OA-21060',
-      officialName: shelter?.officialName || shelter?.name || '한양대학교 대운동장',
+      officialId: shelter?.officialId || shelter?.id || 'CONDITIONAL_SHELTER',
+      officialCode: shelter?.officialCode || shelter?.id || 'CONDITIONAL_SHELTER',
+      officialName: shelter?.officialName || shelter?.name || '확인 대피 후보',
+      candidateStatus: shelter?.candidateStatus || 'CONDITIONAL',
       ingressDistanceMeters: shelter?.ingressDistanceMeters ?? 15.0,
       localCenter: Object.freeze([shelterXZ[0], shelterY, shelterXZ[1]]),
       trackRadiusX: shelter?.trackRadiusX ?? 34.0,
@@ -886,13 +1010,14 @@ export function buildDynamicFacilityFromPoint({
       pitchHalfWidth: shelter?.pitchHalfWidth ?? 18.0,
       pitchHalfLength: shelter?.pitchHalfLength ?? 30.0,
       geometry: shelter?.geometry || Object.freeze({
-        areaSqMeters: shelter?.justification?.areaSqMeters || 14850,
-        capacityPeople: shelter?.justification?.capacityEstimate || 7425
+        areaSqMeters: shelter?.justification?.areaSqMeters || null,
+        capacityPeople: shelter?.justification?.capacityEstimate || null
       })
-    }),
+    }) : null,
     routeBaselines: Object.freeze({
-      PATH_SHORTEST_RAPID: Object.freeze({ name: `${name} 최단 경로`, targetLengthMeters: shortestSol.found ? shortestSol.totalDistanceMeters : 0, hasStairs: shortestSol.hasStairs, isWheelchairPassable: !shortestSol.hasStairs, provenance: 'PARTIALLY_VERIFIED' }),
-      PATH_STEP_FREE_DETOUR: Object.freeze({ name: `${name} 무단차 우회 경로`, targetLengthMeters: stepFreeSol.found ? stepFreeSol.totalDistanceMeters : 0, hasStairs: false, isWheelchairPassable: true, provenance: 'PARTIALLY_VERIFIED' })
+      PATH_SHORTEST_RAPID: Object.freeze({ name: `${name} 보행 경로`, targetLengthMeters: shortestSol.found ? shortestSol.totalDistanceMeters : 0, hasStairs: shortestSol.hasStairs, isWheelchairPassable: !shortestSol.hasStairs, provenance: 'PROVISIONAL' }),
+      PATH_STEP_FREE_DETOUR: Object.freeze({ name: `${name} 계단 회피 경로`, targetLengthMeters: stepFreeSol.found ? stepFreeSol.totalDistanceMeters : 0, hasStairs: false, isWheelchairPassable: true, provenance: 'PROVISIONAL' }),
+      PATH_ALTERNATIVE: Object.freeze({ name: `${name} 대체 보행 경로`, targetLengthMeters: altSol.found ? altSol.totalDistanceMeters : 0, hasStairs: altSol.hasStairs, isWheelchairPassable: !altSol.hasStairs, provenance: 'PROVISIONAL' })
     }),
     routeDisplayNames: Object.freeze({
       shortestLineName: `Path_Shortest_${buildingId}`,
