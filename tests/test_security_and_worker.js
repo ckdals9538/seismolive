@@ -208,6 +208,56 @@ try {
   globalThis.fetch = origFetch;
 }
 
+// 4.6: /api/shelters handles HTTP-200 MOIS header errors explicitly and supports LAT/LOT + nested items
+const origShelterFetch = globalThis.fetch;
+try {
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    header: { resultCode: '32', errorMsg: 'UNREGISTERED IP ERROR' },
+    body: null
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const errRes = await sheltersGet({
+    request: new Request('https://seismolive.ckdals9538.workers.dev/api/shelters?lat=37.557&lon=127.045'),
+    env: { MOIS_API_KEY: 'test_key' },
+    ctx: {}
+  });
+  const errBody = await errRes.json();
+  assert(
+    errBody.ok === false && errBody.status === 'UPSTREAM_API_ERROR' && errBody.resultCode === '32',
+    '4.6a: /api/shelters surfaces MOIS header.resultCode error instead of faking NONE_WITHIN_RADIUS'
+  );
+
+  globalThis.fetch = async () => new Response(JSON.stringify({
+    header: { resultCode: '00', resultMsg: 'NORMAL SERVICE' },
+    totalCount: 1,
+    body: {
+      items: [{
+        MNG_SN: 'SHLT_001',
+        VT_ACMD_FCLTY_NM: '성동구민종합체육센터 운동장',
+        RDNM_ADDR: '서울특별시 성동구 왕십리로 89',
+        LAT: '37.5495',
+        LOT: '127.0437',
+        AR: '4200',
+        ACEPTNC_NMPR: '3200'
+      }]
+    }
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  const okRes = await sheltersGet({
+    request: new Request('https://seismolive.ckdals9538.workers.dev/api/shelters?lat=37.557&lon=127.045&radiusM=2500'),
+    env: { MOIS_API_KEY: 'test_key' },
+    ctx: {}
+  });
+  const okBody = await okRes.json();
+  assert(
+    okBody.ok === true && okBody.status === 'OFFICIAL_LIVE' && okBody.shelters.length === 1 &&
+    okBody.shelters[0].name === '성동구민종합체육센터 운동장',
+    '4.6b: /api/shelters parses nested body.items with LAT/LOT fields into OFFICIAL_LIVE'
+  );
+} finally {
+  globalThis.fetch = origShelterFetch;
+}
+
 console.log('\n====================================================================');
 console.log(`SECURITY & WORKER HARDENING TESTS: ${passed} PASSED | ${failed} FAILED`);
 console.log('====================================================================');

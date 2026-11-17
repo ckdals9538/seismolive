@@ -309,7 +309,7 @@ export class LiveSeismicDataService {
 
     const res = await this._fetchJsonWithTimeout(
       `${this.apiBase}/api/shelters?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&radiusM=${encodeURIComponent(radiusM)}`,
-      opts.timeoutMs || 2200
+      opts.timeoutMs || 4500
     );
 
     const out = res?.ok
