@@ -826,8 +826,10 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
   }
   if (reachableCandidates.length === 0) {
     dataLimitations.push(facilityEval.limitations || '접근 가능한 확인된 대피소 또는 개활 안전 후보를 찾지 못했습니다.');
+  } else if ((opts.officialShelters || []).length > 0 || facilityEval.overallStatus === CANDIDATE_STATUS.CONFIRMED) {
+    dataLimitations.push('행정안전부 지진옥외대피장소 공식 지정 DB 연동이 확인되었으며, 재난 당시 실제 개방 및 진입로 안전 여부는 현장 확인이 필요합니다.');
   } else {
-    dataLimitations.push('공식 행정안전부 지진옥외대피장소 실시간 API 미연동 구간에서는 OSM 개활 공터·집결지 태그를 조건부(CONDITIONAL) 후보로 제시합니다.');
+    dataLimitations.push('공식 행정안전부 지진옥외대피장소 미확인 구간에서는 OSM 개활 공터·집결지 태그를 조건부(CONDITIONAL) 후보로 제시합니다.');
   }
   if (terrainGrid.provenance === 'SYNTHETIC_SLOPE_FALLBACK' || terrainGrid.provenance === 'DEFAULT_FLAT_GRID') {
     dataLimitations.push('실시간 DEM 고도 타일(Terrarium AWS) 미연결로 기본 표고 평면을 표시합니다.');
@@ -1167,7 +1169,7 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
     })();
 
     const shelterPromise = (!opts.offlineOnly && !opts.osmJsonOverride && typeof fetch === 'function')
-      ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 1600 })
+      ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 4500 })
       : Promise.resolve({ status: 'OFFLINE_OR_SKIPPED', shelters: [] });
 
     [terrainGrid, liveOsmJson, officialShelterRes] = await Promise.all([demPromise, osmPromise, shelterPromise]);
