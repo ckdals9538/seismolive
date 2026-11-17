@@ -64,11 +64,13 @@ function compactMoisRow(row, fallbackIdx) {
     return null;
   }
 
-  const rawId = row.MNG_SN ?? row.SN ?? row.EQUP_SN ?? row.REARE_NM ?? `MOIS_${fallbackIdx}`;
+  const rawId =
+    row.MNG_SN ?? row.SN ?? row.EQUP_SN ?? row.ACMD_SN ?? row.FCLTY_SN ?? row.VT_ACMD_FCLTY_SN ?? row.REARE_NM ?? `MOIS_${fallbackIdx}`;
   const rawName =
-    row.VT_ACMD_FCLTY_NM ?? row.SHLT_NM ?? row.SHNT_PLACE_NM ?? row.EQUP_NM ?? row.FACIL_NM ?? row.REARE_NM ?? '지진옥외대피장소';
-  const rawAddr =
-    row.RN_DTL_ADRES ?? row.DTL_ADRES ?? row.RDNM_ADDR ?? row.LNM_ADDR ?? row.LOCPLC_ADDR ?? row.ADRES ?? null;
+    row.VT_ACMDFCLTY_NM ?? row.VT_ACMD_FCLTY_NM ?? row.FCLTY_NM ?? row.SHLT_NM ?? row.SHNT_PLACE_NM ?? row.EQUP_NM ?? row.FACIL_NM ?? row.REARE_NM ?? '지진옥외대피장소';
+  const rnAddr = row.RN_DTL_ADRES || row.RONA_DADDR || row.RDNM_ADDR;
+  const lotFullAddr = [row.CTPRVN_NM, row.SGG_NM, row.EMD_NM, row.DTL_ADRES].filter(Boolean).join(' ').trim();
+  const rawAddr = rnAddr || lotFullAddr || row.DTL_ADRES || row.LNM_ADDR || row.LOCPLC_ADDR || row.ADRES || null;
   const areaM2 = Number(row.AR ?? row.FCLTY_AR ?? row.AR_VALUE);
   const cap = Number(row.ACEPTNC_NMPR ?? row.VT_ACMD_PSBL_NMPR ?? row.SHNT_PSBL_NMPR ?? row.USE_PSBL_NMPR);
 
@@ -100,7 +102,7 @@ async function fetchCachedMoisDataset(request, env, ctx) {
   if (!apiKey) return { ok: false, status: 'OFFICIAL_API_KEY_REQUIRED', rows: [] };
 
   const reqOrigin = new URL(request.url).origin;
-  const upstreamKey = new Request(`${reqOrigin}/__edge_cache/mois-upstream-shelters-v2`, { method: 'GET' });
+  const upstreamKey = new Request(`${reqOrigin}/__edge_cache/mois-upstream-shelters-v3`, { method: 'GET' });
   const cacheStorage = typeof caches !== 'undefined' && caches?.default ? caches.default : null;
 
   if (cacheStorage) {
@@ -217,7 +219,7 @@ export async function onRequestGet({ request, env, ctx }) {
   const qLat = lat.toFixed(2);
   const qLon = lon.toFixed(2);
   const qRad = Math.round(radiusM / 100) * 100;
-  const cacheKeyUrl = `${url.origin}/__edge_cache/shelters-v2?lat=${qLat}&lon=${qLon}&radiusM=${qRad}`;
+  const cacheKeyUrl = `${url.origin}/__edge_cache/shelters-v3?lat=${qLat}&lon=${qLon}&radiusM=${qRad}`;
 
   return withEdgeCache({
     request,

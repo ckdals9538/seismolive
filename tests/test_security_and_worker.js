@@ -233,8 +233,8 @@ try {
     body: {
       items: [{
         MNG_SN: 'SHLT_001',
-        VT_ACMD_FCLTY_NM: '성동구민종합체육센터 운동장',
-        RDNM_ADDR: '서울특별시 성동구 왕십리로 89',
+        VT_ACMDFCLTY_NM: '성동구민종합체육센터 운동장',
+        RN_DTL_ADRES: '서울특별시 성동구 왕십리로 89',
         LAT: '37.5495',
         LOT: '127.0437',
         AR: '4200',
