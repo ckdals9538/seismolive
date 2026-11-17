@@ -266,16 +266,16 @@
     word-break: keep-all;
   }
 
-  /* Clean Portrait Phone Grid (Zero Letterbox Bars) */
+  /* Clean Portrait Phone Grid (Zero Letterbox Bars, Zero PDF Shadow Artifacts) */
   .fig-grid-phones {
     display: flex;
     justify-content: center;
     align-items: flex-start;
     gap: 18pt;
-    padding: 6pt 0 2pt 0;
+    padding: 4pt 0 2pt 0;
   }
   .fig-panel.phone {
-    background: transparent;
+    background: #ffffff;
     border: none;
     padding: 0;
     width: 118pt;
@@ -288,15 +288,16 @@
     height: auto;
     max-height: none;
     object-fit: cover;
-    border-radius: 10pt;
-    border: 1.4pt solid #1e293b;
-    box-shadow: 0 3pt 9pt rgba(15, 23, 42, 0.16);
+    border-radius: 9pt;
+    border: 1.2pt solid #334155;
     background: #0f172a;
     display: block;
+    margin-bottom: 6pt;
   }
   .fig-panel.phone .fig-subcap {
-    margin-top: 6pt;
+    margin-top: 0;
     width: 118pt;
+    background: #ffffff;
   }
 
   .fig-caption {
@@ -953,12 +954,12 @@
         <div class="fig-subcap"><strong>(a) 사료 선택 하단 시트:</strong> 핵심 사료 해설과 하단 원터치 2버튼(대피 지도 / 파동 감상) 구성.</div>
       </div>
       <div class="fig-panel phone">
-        <img src="file:///Users/katsina/.gemini/antigravity/brain/6a51ec9e-de1e-4cbc-8dd0-919ae91c4f3f/scratch/paper_assets/fig08b_mobile_local_map.png" alt="Mobile Local Evacuation Map">
-        <div class="fig-subcap"><strong>(b) 지도 중심 대피 화면:</strong> 부가 조작을 접어 두고 3D 건물·경로에 시선 집중.</div>
+        <img src="file:///Users/katsina/.gemini/antigravity/brain/6a51ec9e-de1e-4cbc-8dd0-919ae91c4f3f/scratch/paper_assets/fig08b_mobile_performance.png" alt="Mobile 3D Wave Performance and Invitation">
+        <div class="fig-subcap"><strong>(b) 3D 파동 감상·전환 화면:</strong> 재생 막대와 하단 ‘3D 대피 동선 이어서 보기’ 초대 카드 연계.</div>
       </div>
       <div class="fig-panel phone">
-        <img src="file:///Users/katsina/.gemini/antigravity/brain/6a51ec9e-de1e-4cbc-8dd0-919ae91c4f3f/scratch/paper_assets/fig08c_mobile_walking.png" alt="Mobile Walking Follow View">
-        <div class="fig-subcap"><strong>(c) 보행 이동·시점 따라가기:</strong> 나침반·남은 거리(381.4m)·진행 단계 한눈에 확인.</div>
+        <img src="file:///Users/katsina/.gemini/antigravity/brain/6a51ec9e-de1e-4cbc-8dd0-919ae91c4f3f/scratch/paper_assets/fig08c_mobile_walking.png" alt="Mobile Walking Map View">
+        <div class="fig-subcap"><strong>(c) 지도 중심 도심 대피 화면:</strong> 나침반·3D 경로·남은 거리(381.4m)를 한눈에 확인.</div>
       </div>
     </div>
     <div class="fig-caption">[그림 7] 모바일 스마트폰 세로 화면 기준 지도 우선 UX 흐름. <span class="desc">세로 화면 비율에 맞추어 정보 과밀을 덜어 내고, 위급할 때 한 손으로 출발 방향과 남은 거리를 곧바로 확인하도록 다듬었다.</span></div>
@@ -966,7 +967,7 @@
 
   <!-- ================= PART III: CONCLUSION ================= -->
   <div class="part-kicker">제3부 · 결론 (Conclusion)</div>
-  <h2 class="chapter-heading">제6장. 연구 요약, 솔직한 한계 및 결론</h2>
+  <h2 class="chapter-heading">제6장. 연구 요약, 한계 및 결론</h2>
 
   <h3 class="section-heading">6.1 서론의 4가지 질문에 대한 본 연구의 해답 (서론–결론 통합)</h3>
   <p>
@@ -1008,9 +1009,9 @@
     </table>
   </div>
 
-  <h3 class="section-heading">6.2 솔직히 짚고 넘어가야 할 연구의 한계와 앞으로의 과제</h3>
+  <h3 class="section-heading">6.2 연구의 한계와 앞으로의 과제</h3>
   <p>
-    교양 연구 수준에서 지진의 역사·과학·대피를 하나의 웹사이트에 담기 위해 최선을 다했으나, 실제 재난 현장에 그대로 투입하기 전에 반드시 솔직히 밝히고 보완해 나가야 할 세 가지 한계가 남아 있다.
+    교양 연구 수준에서 지진의 역사·과학·대피를 하나의 웹사이트에 담기 위해 최선을 다했으나, 실제 재난 현장에 곧바로 적용하기 전에 반드시 명확히 짚고 보완해 나가야 할 세 가지 한계가 남아 있다.
   </p>
   <ol>
     <li><strong>지하 지각 구조 모델의 단순화:</strong> 웹 브라우저에서 실시간 속도를 지키기 위해 지각 속도를 수평 균질 모델로 단순화하였다. 실제 지진에서는 서울이나 경주처럼 퇴적물이 두껍게 쌓인 분지나 양산단층대 주변 파쇄대에서 흔들림이 국지적으로 크게 증폭되는 만큼, 앞으로 지반 증폭 특성이 더 정교하게 결합되어야 한다.</li>
