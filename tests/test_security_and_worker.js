@@ -141,6 +141,17 @@ assert(
   '3.3: Versioned JS bundles receive 1h cache with stale-while-revalidate'
 );
 
+const wranglerCfg = JSON.parse(await Deno.readTextFile('./wrangler.jsonc'));
+const rwf = wranglerCfg?.assets?.run_worker_first || [];
+const headersFile = await Deno.readTextFile('./_headers');
+const assetsIgnore = await Deno.readTextFile('./.assetsignore');
+assert(
+  Array.isArray(rwf) && rwf.includes('/') && rwf.includes('/*.html') && rwf.includes('/api/*') &&
+  headersFile.includes('/assets/terrain/*') && headersFile.includes('max-age=86400') &&
+  assetsIgnore.includes('.gitignore') && assetsIgnore.includes('.cfignore') && assetsIgnore.includes('.assetsignore'),
+  '3.4: wrangler.jsonc routes HTML through worker, _headers caches terrain, and .assetsignore hides config dotfiles'
+);
+
 // 4. SSRF & Input Validation on /api/shakemap and /api/shelters
 assert(
   isAllowedUsgsUrl('https://earthquake.usgs.gov/fdsnws/event/1/query?eventid=us6000jllz&format=geojson') &&
