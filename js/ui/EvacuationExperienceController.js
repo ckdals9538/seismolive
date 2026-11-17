@@ -500,7 +500,8 @@ export class EvacuationExperienceController {
       visualScaleFactor: 4.5,
       useRealMapRouting: true,
       buildingOBBs: this.activeSpatialPkg.obbBuildingsFloat32,
-      router: this.router
+      router: this.router,
+      elevationSampler: (e, n) => sampleGridHeightAt(this.activeSpatialPkg.terrainGrid, e, n)
     });
     this.uiAdapter = new ResponseUIAdapter({
       router: this.router,
@@ -673,22 +674,53 @@ export class EvacuationExperienceController {
       this.milestoneMeshes.push(m);
     }
 
-    // Calm concentric shelter safety setback rings shown upon arrival (피드백 4)
+    // Calm concentric shelter safety setback rings draped cleanly onto local slope upon arrival
     this.shelterSetbackGroup = new THREE.Group();
     this.shelterSetbackGroup.name = 'ShelterSafetySetbackRings3D';
     this.shelterSetbackGroup.visible = false;
+    this._lastSetbackKey = null;
 
     this.setbackInnerRing = new THREE.Mesh(
-      new THREE.RingGeometry(14.0, 15.6, 48).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0xC89D54, side: THREE.DoubleSide, transparent: true, opacity: 0.78 })
+      new THREE.RingGeometry(14.0, 15.4, 48).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0xC89D54, side: THREE.DoubleSide, transparent: true, opacity: 0.78, depthWrite: false })
     );
     this.setbackOuterRing = new THREE.Mesh(
-      new THREE.RingGeometry(26.0, 27.4, 64).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.42 })
+      new THREE.RingGeometry(24.0, 25.3, 64).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.42, depthWrite: false })
     );
     this.shelterSetbackGroup.add(this.setbackInnerRing);
     this.shelterSetbackGroup.add(this.setbackOuterRing);
     this.localWorldGroup.add(this.shelterSetbackGroup);
+  }
+
+  _drapeSetbackRingMesh(mesh, centerX, centerZ, innerR, outerR, angSegs = 56) {
+    if (!mesh) return;
+    const grid = this.activeSpatialPkg?.terrainGrid;
+    const positions = [];
+    const indices = [];
+    for (let a = 0; a <= angSegs; a++) {
+      const theta = (a / angSegs) * Math.PI * 2;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const ix = cos * innerR;
+      const iz = sin * innerR;
+      const ox = cos * outerR;
+      const oz = sin * outerR;
+      const iy = sampleGridHeightAt(grid, centerX + ix, -(centerZ + iz)) + 0.34;
+      const oy = sampleGridHeightAt(grid, centerX + ox, -(centerZ + oz)) + 0.34;
+      positions.push(ix, iy, iz, ox, oy, oz);
+      if (a > 0) {
+        const base = (a - 1) * 2;
+        indices.push(base, base + 1, base + 2);
+        indices.push(base + 1, base + 3, base + 2);
+      }
+    }
+    const prevGeo = mesh.geometry;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    mesh.geometry = geo;
+    prevGeo?.dispose?.();
   }
 
   _renderScenarioPresets() {
@@ -1670,6 +1702,7 @@ export class EvacuationExperienceController {
       clearTimeout(this.briefTimerId);
       this.briefTimerId = null;
     }
+    this._isScrubbingRoute = false;
     this._el('seismic-brief-banner')?.classList.remove('is-active');
     this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
     this.shelterSetbackGroup.visible = false;
@@ -2332,11 +2365,19 @@ export class EvacuationExperienceController {
       }
     }
 
-    // Position shelter setback ring cleanly at destination
+    // Position terrain-draped shelter setback rings cleanly on destination slope
     if (activePts.length >= 2 && this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED) {
       const endPt = activePts[activePts.length - 1];
+      const ex = Array.isArray(endPt) ? (endPt[0] || 0) : (endPt?.x || 0);
+      const ez = Array.isArray(endPt) ? (endPt[2] || 0) : (endPt?.z || 0);
+      const key = `${this.activeSpatialPkg?.metadata?.packageId}:${ex.toFixed(1)}:${ez.toFixed(1)}`;
+      if (this._lastSetbackKey !== key) {
+        this._lastSetbackKey = key;
+        this._drapeSetbackRingMesh(this.setbackInnerRing, ex, ez, 14.0, 15.4, 56);
+        this._drapeSetbackRingMesh(this.setbackOuterRing, ex, ez, 24.0, 25.3, 64);
+      }
       this.shelterSetbackGroup.visible = true;
-      this.shelterSetbackGroup.position.set(endPt[0], endPt[1] + 0.5, endPt[2]);
+      this.shelterSetbackGroup.position.set(ex, 0, ez);
     } else {
       this.shelterSetbackGroup.visible = false;
     }
@@ -2896,20 +2937,31 @@ export class EvacuationExperienceController {
     this._el('btn-fac-hit')?.addEventListener('click', () => this.switchFacilityPackage('BLDG_701_HIT'));
     this._el('btn-fac-paiknam')?.addEventListener('click', () => this.switchFacilityPackage('BLDG_104_PAIKNAM'));
 
-    // Route Player & Replay (피드백 4 non-looping)
+    // Route Player, Pause/Resume Toggle & Replay (피드백 4 non-looping)
     this._el('btn-walk-play')?.addEventListener('click', () => {
       if (!this.activeFacilityPkg || this.activeImpactEval?.impactStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE) return;
-      this.beginActiveEvacuation();
+      if (this.briefTimerId) {
+        clearTimeout(this.briefTimerId);
+        this.briefTimerId = null;
+      }
+      this._isScrubbingRoute = false;
+      this._el('seismic-brief-banner')?.classList.remove('is-active');
       if (this.routeProgressT >= 0.996) {
         this.routeProgressT = 0.0;
         this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
         this.shelterSetbackGroup.visible = false;
         this.walkPlaying = true;
       } else {
-        this.walkPlaying = !this.walkPlaying;
+        const nextPlaying = !this.walkPlaying;
+        this.walkPlaying = nextPlaying;
+        if (nextPlaying) {
+          this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
+          this.shelterSetbackGroup.visible = false;
+        }
       }
       this._syncPlayButton();
       this._updateSafetyRuleForProgress();
+      this._syncResponsiveTopBarOffset();
     });
     this._el('btn-replay-route')?.addEventListener('click', () => {
       if (!this.activeFacilityPkg) return;
@@ -2973,6 +3025,8 @@ export class EvacuationExperienceController {
       });
       routeScrubber.addEventListener('pointerup', endRouteScrub);
       routeScrubber.addEventListener('pointercancel', endRouteScrub);
+      routeScrubber.addEventListener('touchend', endRouteScrub, { passive: true });
+      routeScrubber.addEventListener('touchcancel', endRouteScrub, { passive: true });
       routeScrubber.addEventListener('blur', endRouteScrub);
       this._onWindowRouteScrubEnd = () => {
         endRouteScrub();
@@ -2980,6 +3034,7 @@ export class EvacuationExperienceController {
       this._onWindowResizeSync = () => this._syncResponsiveTopBarOffset();
       if (typeof window !== 'undefined') {
         window.addEventListener('pointerup', this._onWindowRouteScrubEnd);
+        window.addEventListener('touchend', this._onWindowRouteScrubEnd, { passive: true });
         window.addEventListener('resize', this._onWindowResizeSync);
       }
     }
@@ -3214,11 +3269,12 @@ export class EvacuationExperienceController {
       const pulse = 1.0 + Math.sin(elapsed * 4.0) * 0.14;
       this.walkerHalo.scale.set(pulse, pulse, 1);
 
-      // Calm setback ring pulse upon arrival (피드백 4)
+      // Calm setback ring pulse upon arrival (scale radially in XZ plane so terrain Y vertices stay anchored)
       if (this.shelterSetbackGroup.visible) {
         const ringPulse = 1.0 + Math.sin(elapsed * 2.1) * 0.05;
-        this.setbackInnerRing.scale.set(ringPulse, ringPulse, 1);
-        this.setbackOuterRing.scale.set(1.0 + Math.cos(elapsed * 1.5) * 0.04, 1.0 + Math.cos(elapsed * 1.5) * 0.04, 1);
+        const outerPulse = 1.0 + Math.cos(elapsed * 1.5) * 0.04;
+        this.setbackInnerRing.scale.set(ringPulse, 1, ringPulse);
+        this.setbackOuterRing.scale.set(outerPulse, 1, outerPulse);
       }
 
       if (this.followCameraEnabled && !isTransitioning && this.controls) {
@@ -3308,6 +3364,7 @@ export class EvacuationExperienceController {
     if (this.briefTimerId) clearTimeout(this.briefTimerId);
     if (this._onWindowRouteScrubEnd && typeof window !== 'undefined') {
       window.removeEventListener('pointerup', this._onWindowRouteScrubEnd);
+      window.removeEventListener('touchend', this._onWindowRouteScrubEnd);
     }
     if (this._onWindowResizeSync && typeof window !== 'undefined') {
       window.removeEventListener('resize', this._onWindowResizeSync);

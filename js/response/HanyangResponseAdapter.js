@@ -1057,8 +1057,142 @@ export class HanyangResponseAdapter {
     this.setRouteDisplay(this.config.activeRoute || 'ALL');
   }
 
+  _sampleTerrainY(x, z, fallbackY = 0) {
+    const sampler = this.elevationSampler || this.facility?.elevationSampler || this.router?.elevationSampler;
+    if (typeof sampler === 'function') {
+      const h = sampler(x, -z);
+      if (Number.isFinite(h)) return h;
+    }
+    return Number.isFinite(fallbackY) ? fallbackY : 0;
+  }
+
+  _buildTerrainDrapedLoop(pointsXZ, yOffset, fallbackY, color, opacity, name) {
+    const densePts = [];
+    for (let i = 0; i < pointsXZ.length; i++) {
+      const a = pointsXZ[i];
+      const b = pointsXZ[(i + 1) % pointsXZ.length];
+      const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const steps = Math.max(1, Math.ceil(dist / 3.5));
+      for (let s = 0; s < steps; s++) {
+        const t = s / steps;
+        const px = a[0] + (b[0] - a[0]) * t;
+        const pz = a[1] + (b[1] - a[1]) * t;
+        densePts.push(new THREE.Vector3(px, this._sampleTerrainY(px, pz, fallbackY) + yOffset, pz));
+      }
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(densePts);
+    const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+    const loop = new THREE.LineLoop(geo, mat);
+    loop.name = name;
+    loop.renderOrder = 3;
+    return { loop, geo, mat };
+  }
+
+  _buildSoftRadialArrivalPadGeometry(cx, cz, fallbackY, radius, radSegs = 6, angSegs = 36) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    // Ring 0 center vertex
+    positions.push(cx, this._sampleTerrainY(cx, cz, fallbackY) + 0.16, cz);
+    uvs.push(0.0, 0.0);
+
+    for (let r = 1; r <= radSegs; r++) {
+      const u = r / radSegs;
+      const rad = u * radius;
+      for (let a = 0; a < angSegs; a++) {
+        const theta = (a / angSegs) * Math.PI * 2;
+        const px = cx + Math.cos(theta) * rad;
+        const pz = cz + Math.sin(theta) * rad;
+        positions.push(px, this._sampleTerrainY(px, pz, fallbackY) + 0.16, pz);
+        uvs.push(u, theta);
+      }
+    }
+
+    // Center fan
+    for (let a = 0; a < angSegs; a++) {
+      const nextA = (a + 1) % angSegs;
+      indices.push(0, 1 + nextA, 1 + a);
+    }
+    // Outer rings
+    for (let r = 1; r < radSegs; r++) {
+      const r0 = 1 + (r - 1) * angSegs;
+      const r1 = 1 + r * angSegs;
+      for (let a = 0; a < angSegs; a++) {
+        const nextA = (a + 1) % angSegs;
+        indices.push(r0 + a, r0 + nextA, r1 + a);
+        indices.push(r0 + nextA, r1 + nextA, r1 + a);
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    return geo;
+  }
+
+  _buildTerrainDrapedBoxPadGeometry(cx, cz, fallbackY, halfW, halfL, segW = 10, segL = 14) {
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+    for (let j = 0; j <= segL; j++) {
+      const vNorm = j / segL;
+      const pz = cz - halfL + vNorm * (halfL * 2);
+      const dv = Math.abs(vNorm * 2 - 1);
+      for (let i = 0; i <= segW; i++) {
+        const uNorm = i / segW;
+        const px = cx - halfW + uNorm * (halfW * 2);
+        const du = Math.abs(uNorm * 2 - 1);
+        positions.push(px, this._sampleTerrainY(px, pz, fallbackY) + 0.16, pz);
+        uvs.push(Math.max(du, dv), 0);
+      }
+    }
+    const stride = segW + 1;
+    for (let j = 0; j < segL; j++) {
+      for (let i = 0; i < segW; i++) {
+        const k = j * stride + i;
+        indices.push(k, k + stride, k + 1);
+        indices.push(k + 1, k + stride, k + stride + 1);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    return geo;
+  }
+
+  _buildTerrainDrapedRingGeometry(cx, cz, fallbackY, innerR, outerR, yOffset = 0.24, angSegs = 36) {
+    const positions = [];
+    const indices = [];
+    for (let a = 0; a <= angSegs; a++) {
+      const theta = (a / angSegs) * Math.PI * 2;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const ix = cx + cos * innerR;
+      const iz = cz + sin * innerR;
+      const ox = cx + cos * outerR;
+      const oz = cz + sin * outerR;
+      positions.push(
+        ix, this._sampleTerrainY(ix, iz, fallbackY) + yOffset, iz,
+        ox, this._sampleTerrainY(ox, oz, fallbackY) + yOffset, oz
+      );
+      if (a > 0) {
+        const base = (a - 1) * 2;
+        indices.push(base, base + 1, base + 2);
+        indices.push(base + 1, base + 3, base + 2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setIndex(indices);
+    return geo;
+  }
+
   /**
-   * Shelter Representation (Athletics Track & Central Pitch Polygon or Configured Shelter Bounds).
+   * Shelter Representation draped conformally to local terrain DEM relief
+   * (stadium pitch & track for athletic venues; sleek circular arrival plaza elsewhere).
    */
   buildShelterRepresentation() {
     if (!this.facility?.shelter || !this.facility.shelter.localCenter) {
@@ -1067,80 +1201,124 @@ export class HanyangResponseAdapter {
     const shelter = this.facility.shelter;
     const names = this.facility.routeDisplayNames || {};
     const lc = shelter.localCenter;
-    const center = new THREE.Vector3(lc[0], lc[1], lc[2]);
-    const trackRadiusX = shelter.trackRadiusX ?? 40.0;
-    const trackRadiusZ = shelter.trackRadiusZ ?? 65.0;
+    const cx = lc[0];
+    const cy = lc[1];
+    const cz = lc[2];
+    const shelterId = String(shelter.shelterId || shelter.officialId || '');
+    const shelterName = String(shelter.officialName || shelter.name || '');
+    const isStadium = shelterId.includes('STADIUM') ||
+      shelterId === 'OA-21060' ||
+      /대운동장|운동장|체육관|경기장|stadium/i.test(shelterName);
+
+    const trackRadiusX = isStadium ? (shelter.trackRadiusX ?? 40.0) : 13.5;
+    const trackRadiusZ = isStadium ? (shelter.trackRadiusZ ?? 65.0) : 13.5;
     const pitchHalfWidth = shelter.pitchHalfWidth ?? 20.0;
     const pitchHalfLength = shelter.pitchHalfLength ?? 35.0;
 
-    // Elliptical track line
-    const trackPoints = [];
-    const segs = 48;
-    for (let i = 0; i <= segs; i++) {
+    // 1. Terrain-draped outer zone boundary (stadium oval OR compact plaza ring)
+    const outerPtsXZ = [];
+    const segs = 56;
+    for (let i = 0; i < segs; i++) {
       const theta = (i / segs) * Math.PI * 2;
-      trackPoints.push(new THREE.Vector3(
-        center.x + Math.cos(theta) * trackRadiusX,
-        center.y,
-        center.z + Math.sin(theta) * trackRadiusZ
-      ));
+      outerPtsXZ.push([cx + Math.cos(theta) * trackRadiusX, cz + Math.sin(theta) * trackRadiusZ]);
     }
-    const trackGeo = new THREE.BufferGeometry().setFromPoints(trackPoints);
-    const trackMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.STADIUM_TRACK,
-      transparent: true,
-      opacity: 0.72
-    });
-    const trackLine = new THREE.Line(trackGeo, trackMat);
-    trackLine.name = names.shelterTrackName || 'Stadium_Track_Outline';
-    this.shelterGroup.add(trackLine);
+    const trackBuilt = this._buildTerrainDrapedLoop(
+      outerPtsXZ,
+      0.26,
+      cy,
+      VISUAL_THEME.STADIUM_TRACK,
+      isStadium ? 0.65 : 0.42,
+      names.shelterTrackName || 'Stadium_Track_Outline'
+    );
+    this.shelterGroup.add(trackBuilt.loop);
 
-    // Central Safe Gathering Zone (Grass Pitch Box + Calm Safe Ground Mat)
-    const pitchPoints = [
-      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z - pitchHalfLength),
-      new THREE.Vector3(center.x + pitchHalfWidth, center.y, center.z - pitchHalfLength),
-      new THREE.Vector3(center.x + pitchHalfWidth, center.y, center.z + pitchHalfLength),
-      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z + pitchHalfLength),
-      new THREE.Vector3(center.x - pitchHalfWidth, center.y, center.z - pitchHalfLength)
-    ];
-    const pitchGeo = new THREE.BufferGeometry().setFromPoints(pitchPoints);
-    const pitchMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.SELECTED_FLOOR_LINE,
-      transparent: true,
-      opacity: 0.85
-    });
-    const pitchLine = new THREE.Line(pitchGeo, pitchMat);
-    pitchLine.name = names.shelterPitchName || 'Stadium_Pitch_Safe_Zone';
-    this.shelterGroup.add(pitchLine);
+    // 2. Terrain-draped inner zone border & subdivided soft radial pad (zero rigid floating rectangles!)
+    let pitchBuilt;
+    let safeMatGeo;
+    if (isStadium) {
+      const boxPtsXZ = [
+        [cx - pitchHalfWidth, cz - pitchHalfLength],
+        [cx + pitchHalfWidth, cz - pitchHalfLength],
+        [cx + pitchHalfWidth, cz + pitchHalfLength],
+        [cx - pitchHalfWidth, cz + pitchHalfLength]
+      ];
+      pitchBuilt = this._buildTerrainDrapedLoop(
+        boxPtsXZ,
+        0.28,
+        cy,
+        VISUAL_THEME.SELECTED_FLOOR_LINE,
+        0.78,
+        names.shelterPitchName || 'Stadium_Pitch_Safe_Zone'
+      );
+      safeMatGeo = this._buildTerrainDrapedBoxPadGeometry(cx, cz, cy, pitchHalfWidth, pitchHalfLength);
+    } else {
+      const padRadius = 9.0;
+      const circlePtsXZ = [];
+      for (let i = 0; i < 40; i++) {
+        const theta = (i / 40) * Math.PI * 2;
+        circlePtsXZ.push([cx + Math.cos(theta) * padRadius, cz + Math.sin(theta) * padRadius]);
+      }
+      pitchBuilt = this._buildTerrainDrapedLoop(
+        circlePtsXZ,
+        0.28,
+        cy,
+        0x2dd4bf,
+        0.62,
+        names.shelterPitchName || 'Stadium_Pitch_Safe_Zone'
+      );
+      safeMatGeo = this._buildSoftRadialArrivalPadGeometry(cx, cz, cy, padRadius);
+    }
+    this.shelterGroup.add(pitchBuilt.loop);
 
-    // Calm architectural safe zone ground pad inside shelter pitch (zero game glow)
-    const safeMatGeo = new THREE.PlaneGeometry(pitchHalfWidth * 2, pitchHalfLength * 2);
-    safeMatGeo.rotateX(-Math.PI / 2);
-    const safeMatMat = new THREE.MeshBasicMaterial({
-      color: 0x2dd4bf,
+    const safeMatMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: { value: new THREE.Color(0x2dd4bf) },
+        uOpacity: { value: isStadium ? 0.16 : 0.22 }
+      },
       transparent: true,
-      opacity: 0.16,
+      depthWrite: false,
       side: THREE.DoubleSide,
-      depthWrite: false
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      vertexShader: `
+        varying float vEdge;
+        void main() {
+          vEdge = uv.x;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying float vEdge;
+        uniform vec3 uColor;
+        uniform float uOpacity;
+        void main() {
+          float fade = 1.0 - smoothstep(0.45, 1.0, vEdge);
+          gl_FragColor = vec4(uColor, uOpacity * fade);
+        }
+      `
     });
+    safeMatMat.color = safeMatMat.uniforms.uColor.value;
     const safePad = new THREE.Mesh(safeMatGeo, safeMatMat);
-    safePad.position.set(center.x, center.y + 0.12, center.z);
     safePad.name = 'Shelter_Pitch_SafePad';
+    safePad.renderOrder = 2;
     this.shelterGroup.add(safePad);
 
-    const destRingGeo = new THREE.RingGeometry(8.5, 11.5, 36);
-    destRingGeo.rotateX(-Math.PI / 2);
+    // 3. Terrain-draped arrival target ring
+    const destRingGeo = this._buildTerrainDrapedRingGeometry(cx, cz, cy, isStadium ? 8.5 : 4.2, isStadium ? 11.2 : 5.8, 0.25, 36);
     const destRingMat = new THREE.MeshBasicMaterial({
       color: 0x38bdf8,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.82
+      opacity: 0.78,
+      depthWrite: false
     });
     const destRing = new THREE.Mesh(destRingGeo, destRingMat);
-    destRing.position.set(center.x, center.y + 0.28, center.z);
     destRing.name = 'Shelter_Center_Arrival_Ring';
+    destRing.renderOrder = 3;
     this.shelterGroup.add(destRing);
 
-    this.disposables.push(trackGeo, trackMat, pitchGeo, pitchMat, safeMatGeo, safeMatMat, destRingGeo, destRingMat);
+    this.disposables.push(trackBuilt.geo, trackBuilt.mat, pitchBuilt.geo, pitchBuilt.mat, safeMatGeo, safeMatMat, destRingGeo, destRingMat);
   }
 
   // --------------------------------------------------------------------------
@@ -1255,6 +1433,14 @@ export class HanyangResponseAdapter {
     const chevStep = this.pathGroup.getObjectByName('Ribbon_StepFree_Volume_Chevrons');
     if (chevStep?.material?.color) {
       chevStep.material.color.setHex(isDay ? 0xffffff : 0xe0f2fe);
+    }
+    const safePad = this.shelterGroup?.getObjectByName('Shelter_Pitch_SafePad');
+    if (safePad?.material?.color) {
+      safePad.material.color.setHex(isDay ? 0x0d9488 : 0x2dd4bf);
+    }
+    const destRing = this.shelterGroup?.getObjectByName('Shelter_Center_Arrival_Ring');
+    if (destRing?.material?.color) {
+      destRing.material.color.setHex(isDay ? 0x0284c7 : 0x38bdf8);
     }
   }
 
