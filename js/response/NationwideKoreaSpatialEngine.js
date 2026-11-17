@@ -678,6 +678,7 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
 
   const {
     obbRawList,
+    buildingPolygons,
     obbBuildingsFloat32,
     obbGroundOffsets,
     obbLodCounts,
@@ -904,6 +905,7 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     denseRoadNetwork,
     sheltersAndFacilities: rankedShelters,
     namedBuildings,
+    buildingPolygons,
     obbBuildingsFloat32,
     obbGroundOffsets,
     obbLodCounts,

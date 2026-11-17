@@ -484,7 +484,8 @@ export class EvacuationExperienceController {
     // Local 3D spatial layer anchored inside localWorldGroup so Single-Canvas isolates cleanly
     this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
       spatialPackage: this.activeSpatialPkg,
-      theme: this.activeVisualTheme
+      theme: this.activeVisualTheme,
+      renderer: this.renderer
     });
 
     this.router = new PedestrianRoutingEngine({
@@ -613,25 +614,45 @@ export class EvacuationExperienceController {
     this.walkerGroup.visible = false;
 
     this.walkerHalo = new THREE.Mesh(
-      new THREE.RingGeometry(3.0, 4.8, 32).rotateX(-Math.PI / 2),
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
+      new THREE.RingGeometry(3.2, 5.2, 36).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide, transparent: true, opacity: 0.72, depthWrite: false })
     );
+    this.walkerHalo.position.y = -0.35;
     this.walkerGroup.add(this.walkerHalo);
 
-    const walkerChevronGeo = new THREE.ConeGeometry(3.0, 7.2, 3);
-    walkerChevronGeo.rotateX(Math.PI * 0.5);
+    // Subtle dark circular navigation puck collar + crisp architectural direction arrow
+    const puckGeo = new THREE.CylinderGeometry(2.5, 2.75, 0.55, 28);
+    const puckMat = new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.92 });
+    const puckBase = new THREE.Mesh(puckGeo, puckMat);
+    puckBase.position.y = 0.05;
+    puckBase.renderOrder = 7;
+    this.walkerGroup.add(puckBase);
+
+    const arrowShape = new THREE.Shape();
+    arrowShape.moveTo(0, 2.45);
+    arrowShape.lineTo(1.75, -1.55);
+    arrowShape.lineTo(0, -0.75);
+    arrowShape.lineTo(-1.75, -1.55);
+    arrowShape.closePath();
+    const walkerChevronGeo = new THREE.ExtrudeGeometry(arrowShape, {
+      depth: 0.58,
+      bevelEnabled: true,
+      bevelThickness: 0.14,
+      bevelSize: 0.12,
+      bevelSegments: 1
+    });
+    walkerChevronGeo.rotateX(Math.PI * 0.5); // Tip points +Z cleanly under Object3D.lookAt
     this.walkerChevron = new THREE.Mesh(
       walkerChevronGeo,
-      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+      new THREE.MeshBasicMaterial({ color: 0xf8fafc })
     );
-    this.walkerChevron.position.y = 2.0;
-    this.walkerChevron.scale.set(1.12, 0.68, 1.12);
+    this.walkerChevron.position.y = 1.05;
     this.walkerChevron.renderOrder = 8;
     this.walkerGroup.add(this.walkerChevron);
 
     this.walkerMast = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 1.5, 0), new THREE.Vector3(0, 14.0, 0)]),
-      new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 })
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 1.2, 0), new THREE.Vector3(0, 12.5, 0)]),
+      new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.48 })
     );
     this.walkerGroup.add(this.walkerMast);
     this.localWorldGroup.add(this.walkerGroup);
@@ -3134,6 +3155,8 @@ export class EvacuationExperienceController {
     }
 
     this.localSpatialLayer.updateAtmosphericPulse(elapsed);
+    this.hanyangAdapter.setRouteProgress?.(this.routeProgressT);
+    this.hanyangAdapter.update?.(elapsed);
 
     const guidance = this.uiAdapter.lastGuidance;
     const activePts = this.hanyangAdapter.getActiveRoutePoints();

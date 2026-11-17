@@ -28,68 +28,72 @@ export const LOCAL_VISUAL_THEMES = Object.freeze({
     label: '야간 모놀리스',
     background: 0x050912,
     fogColor: 0x050912,
-    fogDensity: 0.00028,
-    terrainLow: 0x0c1422,
-    terrainMid: 0x162235,
-    terrainHigh: 0x243652,
-    terrainGreen: 0x132926,
-    greenOverlay: 0x17332e,
-    skirt: 0x0a101b,
-    water: 0x134266,
-    roadMajor: 0x5c6f89,
-    roadPrimary: 0x41536b,
-    roadMinor: 0x27364b,
-    rail: 0x64748b,
-    contour: 0x263854,
-    contourOpacity: 0.42,
-    bldgLow: 0x73849c,
-    bldgMid: 0x90a3bc,
-    bldgHigh: 0xb2c3d9,
-    hemiSky: 0x9eb8db,
-    hemiGround: 0x202c3d,
-    hemiIntensity: 1.45,
+    fogDensity: 0.00027,
+    terrainLow: 0x0b121e,
+    terrainMid: 0x132033,
+    terrainHigh: 0x20324c,
+    terrainGreen: 0x122624,
+    greenOverlay: 0x152e29,
+    skirt: 0x090f19,
+    water: 0x0f3b5c,
+    roadCasing: 0x080d16,
+    roadMajor: 0x52657f,
+    roadPrimary: 0x3b4d65,
+    roadMinor: 0x223044,
+    rail: 0x5b6c82,
+    bridgeDeck: 0x2c3a4f,
+    contour: 0x283c58,
+    contourOpacity: 0.36,
+    bldgLow: 0x62738c,
+    bldgMid: 0x8094b0,
+    bldgHigh: 0xa4b8d2,
+    hemiSky: 0x9fb8dc,
+    hemiGround: 0x1d293a,
+    hemiIntensity: 1.42,
     sunColor: 0xfff3de,
-    sunIntensity: 2.35,
+    sunIntensity: 2.25,
     rimColor: 0x6b93c4,
-    rimIntensity: 0.65,
+    rimIntensity: 0.68,
     xrayColor: 0x1e293b,
-    treeConifer: 0x1b3a34,
-    treeBroadleaf: 0x254940,
+    treeConifer: 0x1b3933,
+    treeBroadleaf: 0x24473f,
     horizonRing: 0x334155,
     epicenterRay: 0xe2c799
   }),
   ARCHITECTURAL_DAY: Object.freeze({
     id: 'ARCHITECTURAL_DAY',
     label: '주간 레퍼런스',
-    background: 0xe6ede7,
-    fogColor: 0xe6ede7,
-    fogDensity: 0.00022,
-    terrainLow: 0xdbe3cd,
-    terrainMid: 0xc2d0ae,
-    terrainHigh: 0x97ab84,
-    terrainGreen: 0xc5dbb1,
-    greenOverlay: 0xc4deb0,
-    skirt: 0xb9c4aa,
-    water: 0x3d94b0,
-    roadMajor: 0xf3cd6d,
-    roadPrimary: 0xf4df9a,
-    roadMinor: 0xf6f3eb,
-    rail: 0xa6b0a0,
-    contour: 0x95a48b,
-    contourOpacity: 0.34,
-    bldgLow: 0xd4d6d1,
-    bldgMid: 0xc5c9c4,
-    bldgHigh: 0xb0c2c3,
-    hemiSky: 0xd8e7f2,
-    hemiGround: 0xb5c4a3,
-    hemiIntensity: 1.95,
-    sunColor: 0xfff2d6,
-    sunIntensity: 2.75,
+    background: 0xe5e9e2,
+    fogColor: 0xe5e9e2,
+    fogDensity: 0.00021,
+    terrainLow: 0xdfe3da,
+    terrainMid: 0xcbd5c1,
+    terrainHigh: 0xa1b294,
+    terrainGreen: 0xc9d8bd,
+    greenOverlay: 0xc5d6b9,
+    skirt: 0xb7c0ae,
+    water: 0x5394ab,
+    roadCasing: 0xb4aea1,
+    roadMajor: 0xedcb76,
+    roadPrimary: 0xf1df9e,
+    roadMinor: 0xf5f2eb,
+    rail: 0x9ea799,
+    bridgeDeck: 0xc6cdc4,
+    contour: 0x8d9b85,
+    contourOpacity: 0.28,
+    bldgLow: 0xd9dbd5,
+    bldgMid: 0xcacdc7,
+    bldgHigh: 0xb6c1c3,
+    hemiSky: 0xddeaf4,
+    hemiGround: 0xb5bfa8,
+    hemiIntensity: 1.9,
+    sunColor: 0xfff2d8,
+    sunIntensity: 2.65,
     rimColor: 0xcce0f2,
-    rimIntensity: 0.40,
+    rimIntensity: 0.42,
     xrayColor: 0x64748b,
-    treeConifer: 0x5c804e,
-    treeBroadleaf: 0x739860,
+    treeConifer: 0x55724d,
+    treeBroadleaf: 0x6c885f,
     horizonRing: 0x94a38a,
     epicenterRay: 0xc2410c
   })
@@ -348,8 +352,10 @@ function subdividePolylineEN(pointsEN, maxStepMeters = 45.0) {
 
 /**
  * Merge many [cls, bridge, pointsEN] chains into a single BufferGeometry for minimal draw calls.
+ * Supports optional width delta (for outer street casing/curbs) and elevation delta.
  */
-function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null) {
+function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null, opts = {}) {
+  const { widthPad = 0, elevDelta = 0 } = opts;
   const positions = [];
   const indices = [];
 
@@ -360,7 +366,7 @@ function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null) {
     if (!rawPts || rawPts.length < 2) continue;
 
     const pts = subdividePolylineEN(rawPts, 42.0);
-    const halfW = widthResolver(cls) * 0.5;
+    const halfW = Math.max(0.6, (widthResolver(cls) + widthPad) * 0.5);
     const baseVertex = positions.length / 3;
 
     for (let i = 0; i < pts.length; i++) {
@@ -377,9 +383,9 @@ function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null) {
       const nx = -dz;
       const nz = dx;
       const h = sampleGridHeightAt(terrainGrid, pCur[0], pCur[1]);
-      const elev = bridge
+      const elev = (bridge
         ? Math.max(h, -15.6) + 3.6
-        : h + (cls === 'motorway' || cls === 'trunk' ? 0.52 : cls === 'primary' ? 0.42 : 0.30);
+        : h + (cls === 'motorway' || cls === 'trunk' ? 0.52 : cls === 'primary' ? 0.42 : 0.30)) + elevDelta;
 
       positions.push(
         pCur[0] + nx * halfW, elev, -pCur[1] + nz * halfW,
@@ -399,6 +405,201 @@ function createMergedRoadGeometry(segments, widthResolver, terrainGrid = null) {
   geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
+}
+
+/**
+ * Build single merged architectural bridge slab + side parapet rails + support piers
+ * for road segments carrying bridge=1.
+ */
+function createBridgeStructuresGeometry(segments, widthResolver, terrainGrid = null) {
+  const positions = [];
+  const indices = [];
+
+  const pushBox = (cx, cy, cz, w, h, d, yaw) => {
+    const hw = w * 0.5;
+    const hh = h * 0.5;
+    const hd = d * 0.5;
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    const base = positions.length / 3;
+    const corners = [
+      [-hw, -hh, -hd], [hw, -hh, -hd], [hw, hh, -hd], [-hw, hh, -hd],
+      [-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd]
+    ];
+    for (const [lx, ly, lz] of corners) {
+      positions.push(cx + lx * cos + lz * sin, cy + ly, cz - lx * sin + lz * cos);
+    }
+    const faces = [
+      0, 2, 1, 0, 3, 2,
+      4, 5, 6, 4, 6, 7,
+      0, 1, 5, 0, 5, 4,
+      2, 3, 7, 2, 7, 6,
+      1, 2, 6, 1, 6, 5,
+      3, 0, 4, 3, 4, 7
+    ];
+    for (const f of faces) indices.push(base + f);
+  };
+
+  for (const seg of segments) {
+    if (!seg[1]) continue;
+    const cls = seg[0];
+    const pts = subdividePolylineEN(seg[2], 32.0);
+    if (!pts || pts.length < 2) continue;
+    const roadW = widthResolver(cls) + 1.2;
+
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (segLen < 1.5) continue;
+
+      const mx = (a[0] + b[0]) * 0.5;
+      const mn = (a[1] + b[1]) * 0.5;
+      const mz = -mn;
+      const ha = Math.max(sampleGridHeightAt(terrainGrid, a[0], a[1]), -15.6) + 3.6;
+      const hb = Math.max(sampleGridHeightAt(terrainGrid, b[0], b[1]), -15.6) + 3.6;
+      const deckTop = (ha + hb) * 0.5 - 0.08;
+      const yaw = Math.atan2(-(b[0] - a[0]), -(b[1] - a[1]));
+
+      // Deck slab + crisp left/right parapet rails
+      pushBox(mx, deckTop - 0.55, mz, roadW, 1.1, segLen + 0.6, yaw);
+      const rx = Math.cos(yaw) * (roadW * 0.5 - 0.25);
+      const rz = -Math.sin(yaw) * (roadW * 0.5 - 0.25);
+      pushBox(mx + rx, deckTop + 0.42, mz + rz, 0.42, 0.85, segLen + 0.4, yaw);
+      pushBox(mx - rx, deckTop + 0.42, mz - rz, 0.42, 0.85, segLen + 0.4, yaw);
+
+      // Vertical support pier every bridge segment >= 12m
+      if (segLen >= 10.0) {
+        const groundY = sampleGridHeightAt(terrainGrid, mx, mn);
+        const pierH = Math.max(2.0, deckTop - 0.9 - (groundY - 2.0));
+        pushBox(mx, deckTop - 0.9 - pierH * 0.5, mz, Math.min(2.6, roadW * 0.38), pierH, 1.4, yaw);
+      }
+    }
+  }
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+/**
+ * Append non-indexed positions from a unit Three.js geometry with offset/scale transform into buffers.
+ */
+function appendPartGeometry(srcGeo, sx, sy, sz, ox, oy, oz, posOut, normOut, toneOut, toneVal) {
+  const g = srcGeo.index ? srcGeo.toNonIndexed() : srcGeo;
+  const pAttr = g.getAttribute('position');
+  const nAttr = g.getAttribute('normal');
+  for (let i = 0; i < pAttr.count; i++) {
+    posOut.push(
+      pAttr.getX(i) * sx + ox,
+      pAttr.getY(i) * sy + oy,
+      pAttr.getZ(i) * sz + oz
+    );
+    normOut.push(
+      nAttr ? nAttr.getX(i) : 0,
+      nAttr ? nAttr.getY(i) : 1,
+      nAttr ? nAttr.getZ(i) : 0
+    );
+    toneOut.push(toneVal, toneVal, toneVal);
+  }
+  if (g !== srcGeo) g.dispose();
+}
+
+/**
+ * Sculpted architectural maquette canopy geometries (multi-tier stepped crown + micro-trunk,
+ * replacing harsh cartoon ConeGeometry pyramids).
+ */
+function createConiferMaquetteGeometry() {
+  const pos = [];
+  const norm = [];
+  const col = [];
+  const trunk = new THREE.CylinderGeometry(0.06, 0.11, 0.45, 5);
+  appendPartGeometry(trunk, 1, 1, 1, 0, 0.22, 0, pos, norm, col, 0.56);
+  const c1 = new THREE.CylinderGeometry(0.24, 0.62, 0.62, 7);
+  appendPartGeometry(c1, 1, 1, 1, 0, 0.68, 0, pos, norm, col, 0.90);
+  const c2 = new THREE.CylinderGeometry(0.14, 0.48, 0.58, 7);
+  appendPartGeometry(c2, 1, 1, 1, 0, 1.12, 0, pos, norm, col, 1.00);
+  const c3 = new THREE.CylinderGeometry(0.02, 0.30, 0.48, 7);
+  appendPartGeometry(c3, 1, 1, 1, 0, 1.52, 0, pos, norm, col, 1.08);
+  trunk.dispose(); c1.dispose(); c2.dispose(); c3.dispose();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+function createBroadleafMaquetteGeometry() {
+  const pos = [];
+  const norm = [];
+  const col = [];
+  const trunk = new THREE.CylinderGeometry(0.07, 0.12, 0.44, 5);
+  appendPartGeometry(trunk, 1, 1, 1, 0, 0.22, 0, pos, norm, col, 0.55);
+  const mainCrown = new THREE.IcosahedronGeometry(0.56, 1);
+  appendPartGeometry(mainCrown, 1.05, 0.78, 1.02, 0, 0.80, 0, pos, norm, col, 0.98);
+  const sideA = new THREE.IcosahedronGeometry(0.36, 1);
+  appendPartGeometry(sideA, 1.0, 0.72, 1.0, 0.28, 0.66, 0.14, pos, norm, col, 0.90);
+  const sideB = new THREE.IcosahedronGeometry(0.32, 1);
+  appendPartGeometry(sideB, 1.0, 0.76, 1.0, -0.24, 0.72, -0.16, pos, norm, col, 1.04);
+  trunk.dispose(); mainCrown.dispose(); sideA.dispose(); sideB.dispose();
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+
+/**
+ * Spatial hash grid blocking tree placement inside building footprints and road corridors.
+ */
+function buildTreeExclusionChecker(pkg) {
+  const CELL = 16.0;
+  const occupiedCells = new Set();
+  const markPt = (e, n, rCells = 0) => {
+    const cx = Math.floor(e / CELL);
+    const cz = Math.floor(n / CELL);
+    for (let dx = -rCells; dx <= rCells; dx++) {
+      for (let dz = -rCells; dz <= rCells; dz++) {
+        occupiedCells.add(`${cx + dx}:${cz + dz}`);
+      }
+    }
+  };
+
+  const obb = pkg.obbBuildingsFloat32;
+  if (obb && obb.length >= OBB_BUILDING_STRIDE) {
+    const count = Math.floor(obb.length / OBB_BUILDING_STRIDE);
+    for (let i = 0; i < count; i++) {
+      const base = i * OBB_BUILDING_STRIDE;
+      const e = obb[base + 0];
+      const n = obb[base + 1];
+      const rad = Math.ceil(Math.max(obb[base + 2], obb[base + 3]) * 0.5 / CELL);
+      markPt(e, n, Math.min(2, rad));
+    }
+  }
+
+  const roads = pkg.denseRoadNetwork || [];
+  for (const r of roads) {
+    const pts = r[2];
+    if (!pts || pts.length < 2) continue;
+    const isWide = r[0] === 'motorway' || r[0] === 'trunk' || r[0] === 'primary';
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1];
+      const b = pts[i];
+      const dist = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const steps = Math.max(1, Math.ceil(dist / 10.0));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        markPt(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, isWide ? 1 : 0);
+      }
+    }
+  }
+
+  return (e, n) => {
+    const key = `${Math.floor(e / CELL)}:${Math.floor(n / CELL)}`;
+    return occupiedCells.has(key);
+  };
 }
 
 /**
@@ -477,6 +678,7 @@ export class LocalSpatialMapLayer {
     }
 
     this.scene = scene;
+    this.renderer = options.renderer || null;
     this.pkg = options.spatialPackage || HANYANG_LOCAL_4KM_PACKAGE;
     this.disposables = [];
 
@@ -498,6 +700,11 @@ export class LocalSpatialMapLayer {
     };
 
     this.instancedBuildings = null;
+    this.extrudedBuildingsMesh = null;
+    this._extrudedTriMeta = [];
+    this._extrudedPolygonsRef = [];
+    this._extrudedOverviewVertexCount = 0;
+    this._extrudedFullVertexCount = 0;
     this.buildingMaterial = null;
     this._buildingDataRef = null;
     this.terrainMesh = null;
@@ -509,6 +716,12 @@ export class LocalSpatialMapLayer {
     this.greenOverlayMat = null;
     this.contourMat = null;
     this.roadMats = {};
+    this.roadCasingMat = null;
+    this.bridgeMat = null;
+    this._terrainUniforms = null;
+    this._buildingUniforms = null;
+    this._waterUniforms = null;
+    this._envMaps = null;
     this.hemiLight = null;
     this.sunLight = null;
     this.rimLight = null;
@@ -583,10 +796,47 @@ export class LocalSpatialMapLayer {
   }
 
   /**
-   * Pick a rendered building OBB via Three.js Raycaster for direct 3D origin selection.
+   * Pick a rendered building (either extruded OSM polygon or OBB instance) via Three.js Raycaster.
    */
   pickBuildingOBBAtRaycast(raycaster) {
-    if (!raycaster || !this.instancedBuildings) return null;
+    if (!raycaster) return null;
+
+    if (this.extrudedBuildingsMesh && this._extrudedTriMeta.length > 0) {
+      const polyHits = raycaster.intersectObject(this.extrudedBuildingsMesh, false);
+      if (polyHits && polyHits.length > 0 && typeof polyHits[0].faceIndex === 'number') {
+        const vertIdx = polyHits[0].faceIndex * 3;
+        let lo = 0;
+        let hi = this._extrudedTriMeta.length - 1;
+        let found = null;
+        while (lo <= hi) {
+          const mid = (lo + hi) >> 1;
+          const entry = this._extrudedTriMeta[mid];
+          if (vertIdx < entry.startVertex) hi = mid - 1;
+          else if (vertIdx >= entry.endVertex) lo = mid + 1;
+          else { found = entry; break; }
+        }
+        if (found) {
+          const b = found.bldg;
+          const named = (this.pkg?.namedBuildings || []).find(nb =>
+            nb.id === b.buildingId || Math.hypot(nb.east_m - b.east_m, nb.north_m - b.north_m) < Math.max(b.width_m, b.depth_m, 35)
+          );
+          return {
+            instanceId: found.bldgIdx,
+            buildingId: named ? named.id : b.buildingId,
+            name: named ? named.name : b.name,
+            east_m: b.east_m,
+            north_m: b.north_m,
+            width_m: b.width_m,
+            depth_m: b.depth_m,
+            yaw_rad: b.yaw_rad,
+            height_m: b.height_m,
+            hitPoint: polyHits[0].point
+          };
+        }
+      }
+    }
+
+    if (!this.instancedBuildings) return null;
     const hits = raycaster.intersectObject(this.instancedBuildings, false);
     if (!hits || hits.length === 0) return null;
     const idx = hits[0].instanceId;
@@ -642,6 +892,11 @@ export class LocalSpatialMapLayer {
 
     this.pkg = newSpatialPackage;
     this.instancedBuildings = null;
+    this.extrudedBuildingsMesh = null;
+    this._extrudedTriMeta = [];
+    this._extrudedPolygonsRef = [];
+    this._extrudedOverviewVertexCount = 0;
+    this._extrudedFullVertexCount = 0;
     this._buildingDataRef = null;
     this.terrainMesh = null;
     this.terrainBaseFloor = null;
@@ -649,6 +904,11 @@ export class LocalSpatialMapLayer {
     this.coniferTreesMesh = null;
     this.broadleafTreesMesh = null;
     this.nightWindowsPoints = null;
+    this.roadCasingMat = null;
+    this.bridgeMat = null;
+    this._terrainUniforms = null;
+    this._buildingUniforms = null;
+    this._waterUniforms = null;
     this.epicenterGuideGroup = new THREE.Group();
     this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
     this.unitBoxGeometry = this._track(new THREE.BoxGeometry(1, 1, 1));
@@ -766,6 +1026,249 @@ export class LocalSpatialMapLayer {
     }
   }
 
+  _buildProceduralEnvTexture(isDay) {
+    if (typeof document === 'undefined') return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const grad = ctx.createLinearGradient(0, 0, 0, 32);
+    if (isDay) {
+      grad.addColorStop(0.0, '#cfe2f3');
+      grad.addColorStop(0.45, '#e8eef0');
+      grad.addColorStop(0.55, '#d9dfd2');
+      grad.addColorStop(1.0, '#aeb6a4');
+    } else {
+      grad.addColorStop(0.0, '#101d32');
+      grad.addColorStop(0.45, '#1d3252');
+      grad.addColorStop(0.55, '#0e1726');
+      grad.addColorStop(1.0, '#050810');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 64, 32);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  _applyProceduralEnvironmentIBL(isDay) {
+    if (!this.renderer || typeof this.renderer.getContext !== 'function' || !this.scene || this.scene.userData?.preserveGlobalBackground) {
+      return;
+    }
+    try {
+      if (!this._envMaps) {
+        const pmrem = new THREE.PMREMGenerator(this.renderer);
+        pmrem.compileEquirectangularShader();
+        const nightSrc = this._buildProceduralEnvTexture(false);
+        const daySrc = this._buildProceduralEnvTexture(true);
+        const nightRT = nightSrc ? pmrem.fromEquirectangular(nightSrc) : null;
+        const dayRT = daySrc ? pmrem.fromEquirectangular(daySrc) : null;
+        if (nightSrc) nightSrc.dispose();
+        if (daySrc) daySrc.dispose();
+        pmrem.dispose();
+        this._envMaps = { night: nightRT, day: dayRT };
+      }
+      const chosen = isDay ? this._envMaps.day : this._envMaps.night;
+      if (chosen?.texture) {
+        this.scene.environment = chosen.texture;
+        this.scene.environmentIntensity = isDay ? 0.52 : 0.45;
+      }
+    } catch (_) {
+      // Safe fallback in headless/stubbed WebGL test environments
+    }
+  }
+
+  _injectTerrainShader(terrainMat, palette) {
+    this._terrainUniforms = {
+      uContourColor: { value: new THREE.Color(palette.contour) },
+      uContourOpacity: { value: palette.contourOpacity }
+    };
+    terrainMat.customProgramCacheKey = () => 'seismolive_terrain_contour_v1';
+    terrainMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uContourColor = this._terrainUniforms.uContourColor;
+      shader.uniforms.uContourOpacity = this._terrainUniforms.uContourOpacity;
+
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vSeismoTerrainWPos;`
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+           vSeismoTerrainWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+        );
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vSeismoTerrainWPos;
+           uniform vec3 uContourColor;
+           uniform float uContourOpacity;`
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+           float hT = vSeismoTerrainWPos.y;
+           #if __VERSION__ >= 300 || defined(GL_OES_standard_derivatives)
+             float fwH = clamp(fwidth(hT), 0.04, 0.9);
+           #else
+             float fwH = 0.22;
+           #endif
+           float minorBand = 1.0 - smoothstep(0.0, fwH * 1.4, abs(fract(hT / 5.0 + 0.5) - 0.5) * 5.0);
+           float majorBand = 1.0 - smoothstep(0.0, fwH * 1.7, abs(fract(hT / 25.0 + 0.5) - 0.5) * 25.0);
+           float camD = length(cameraPosition - vSeismoTerrainWPos);
+           float distFade = 1.0 - smoothstep(380.0, 2100.0, camD);
+           float contourStrength = max(minorBand * 0.42, majorBand * 0.92) * distFade * uContourOpacity;
+           diffuseColor.rgb = mix(diffuseColor.rgb, uContourColor, clamp(contourStrength, 0.0, 0.52));
+           float paperGrain = (fract(sin(dot(floor(vSeismoTerrainWPos.xz * 0.55), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012;
+           diffuseColor.rgb = max(vec3(0.015), diffuseColor.rgb + paperGrain * (0.35 + 0.65 * distFade));`
+        );
+    };
+  }
+
+  _injectBuildingShader(bldgMat, palette) {
+    this._buildingUniforms = {
+      uIsDay: { value: this.state.theme === 'ARCHITECTURAL_DAY' ? 1.0 : 0.0 },
+      uXRay: { value: this.state.xRayEnabled ? 1.0 : 0.0 }
+    };
+    bldgMat.customProgramCacheKey = () => 'seismolive_arch_bldg_v1';
+    bldgMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uIsDay = this._buildingUniforms.uIsDay;
+      shader.uniforms.uXRay = this._buildingUniforms.uXRay;
+
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           attribute float aGroundY;
+           attribute float aBldgHeight;
+           varying vec3 vBldgWPos;
+           varying vec3 vBldgWNorm;
+           varying float vBldgGroundY;
+           varying float vBldgHeight;`
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+           vec4 seismoBPos = vec4(transformed, 1.0);
+           vec3 seismoBNorm = vec3(objectNormal);
+           #ifdef USE_INSTANCING
+             seismoBPos = instanceMatrix * seismoBPos;
+             seismoBNorm = mat3(instanceMatrix) * seismoBNorm;
+           #endif
+           vBldgWPos = (modelMatrix * seismoBPos).xyz;
+           vBldgWNorm = normalize(mat3(modelMatrix) * seismoBNorm);
+           vBldgGroundY = aGroundY;
+           vBldgHeight = aBldgHeight;`
+        );
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vBldgWPos;
+           varying vec3 vBldgWNorm;
+           varying float vBldgGroundY;
+           varying float vBldgHeight;
+           uniform float uIsDay;
+           uniform float uXRay;`
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+           float seismoHAbove = max(0.0, vBldgWPos.y - vBldgGroundY);
+           float seismoCamDist = length(cameraPosition - vBldgWPos);
+           float seismoWallMask = 0.0;
+           float seismoWindowHit = 0.0;
+           if (uXRay < 0.5) {
+             // Ground street-plinth ambient occlusion
+             float plinthAO = mix(0.68, 1.0, smoothstep(0.0, 2.8, seismoHAbove));
+             diffuseColor.rgb *= plinthAO;
+
+             float isWall = step(abs(vBldgWNorm.y), 0.55);
+             float nearFade = 1.0 - smoothstep(240.0, 820.0, seismoCamDist);
+             if (isWall > 0.5 && vBldgHeight >= 6.8 && nearFade > 0.01) {
+               float floorPhase = fract(seismoHAbove / 3.4);
+               float bandV = smoothstep(0.22, 0.34, floorPhase) * (1.0 - smoothstep(0.66, 0.78, floorPhase));
+               float bayPhase = fract((vBldgWPos.x * 0.72 + vBldgWPos.z * 0.69) / 3.0);
+               float bandH = smoothstep(0.14, 0.24, bayPhase) * (1.0 - smoothstep(0.76, 0.86, bayPhase));
+               // Subtle parapet / top cornice rim
+               float cornice = smoothstep(vBldgHeight - 0.95, vBldgHeight - 0.15, seismoHAbove);
+               diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.10, cornice * 0.40);
+               seismoWallMask = bandV * bandH * nearFade * smoothstep(2.2, 4.5, seismoHAbove);
+               vec3 glassTint = mix(vec3(0.10, 0.14, 0.21), vec3(0.62, 0.69, 0.75), uIsDay);
+               diffuseColor.rgb = mix(diffuseColor.rgb, glassTint, seismoWallMask * mix(0.32, 0.14, uIsDay));
+               if (uIsDay < 0.5 && vBldgHeight >= 11.0 && seismoWallMask > 0.25) {
+                 vec2 cellId = vec2(floor((vBldgWPos.x * 0.72 + vBldgWPos.z * 0.69) / 3.0), floor(seismoHAbove / 3.4));
+                 float cellRnd = fract(sin(dot(cellId, vec2(127.1, 311.7))) * 43758.5453);
+                 if (cellRnd > 0.85) seismoWindowHit = cellRnd;
+               }
+             } else if (vBldgWNorm.y > 0.65) {
+               diffuseColor.rgb *= mix(1.04, 1.07, uIsDay);
+             }
+           }`
+        )
+        .replace(
+          '#include <emissivemap_fragment>',
+          `#include <emissivemap_fragment>
+           if (seismoWindowHit > 0.0) {
+             vec3 winTone = seismoWindowHit > 0.93
+               ? vec3(0.56, 0.75, 0.90)
+               : vec3(0.90, 0.78, 0.56);
+             totalEmissiveRadiance += winTone * 0.22 * seismoWallMask;
+           }`
+        );
+    };
+  }
+
+  _injectWaterShader(waterMat) {
+    if (!this._waterUniforms) {
+      this._waterUniforms = {
+        uTime: { value: 0 },
+        uIsDay: { value: this.state.theme === 'ARCHITECTURAL_DAY' ? 1.0 : 0.0 }
+      };
+    }
+    waterMat.customProgramCacheKey = () => 'seismolive_water_v1';
+    waterMat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = this._waterUniforms.uTime;
+      shader.uniforms.uIsDay = this._waterUniforms.uIsDay;
+
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vWaterWPos;`
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+           vWaterWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+        );
+
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+           varying vec3 vWaterWPos;
+           uniform float uTime;
+           uniform float uIsDay;`
+        )
+        .replace(
+          '#include <color_fragment>',
+          `#include <color_fragment>
+           float wRipple = sin(vWaterWPos.x * 0.11 + uTime * 0.65) * cos(vWaterWPos.z * 0.13 - uTime * 0.52);
+           float wHighlight = smoothstep(0.35, 0.95, wRipple) * 0.06;
+           diffuseColor.rgb += mix(vec3(0.04, 0.10, 0.16), vec3(0.08, 0.12, 0.14), uIsDay) * wHighlight;`
+        );
+    };
+  }
+
   _buildTerrainMesh() {
     const grid = this.pkg.terrainGrid;
     const palette = this._getThemePalette();
@@ -799,8 +1302,6 @@ export class LocalSpatialMapLayer {
         positions.push(east_m, h, cz);
         if (i < nx && j < nz) {
           const k = j * (nx + 1) + i;
-          // In (east, z=-north): j increases northwards so z decreases!
-          // Wind triangles for +Y upward normal: (k, k+1, k+nx+1) and (k+1, k+nx+2, k+nx+1)
           indices.push(k, k + 1, k + nx + 1);
           indices.push(k + 1, k + nx + 2, k + nx + 1);
         }
@@ -816,9 +1317,10 @@ export class LocalSpatialMapLayer {
     const terrainMat = this._track(new THREE.MeshStandardMaterial({
       color: 0xffffff,
       vertexColors: true,
-      roughness: 0.92,
-      metalness: 0.02
+      roughness: 0.94,
+      metalness: 0.01
     }));
+    this._injectTerrainShader(terrainMat, palette);
 
     this.terrainMesh = new THREE.Mesh(geo, terrainMat);
     this.terrainMesh.name = 'SeongdongTerrainMesh4km';
@@ -914,31 +1416,32 @@ export class LocalSpatialMapLayer {
 
     this.waterPolygonMat = this._track(new THREE.MeshStandardMaterial({
       color: palette.water,
-      roughness: 0.34,
-      metalness: 0.16,
+      roughness: 0.16,
+      metalness: 0.22,
+      envMapIntensity: 1.35,
       side: THREE.DoubleSide
     }));
+    this._injectWaterShader(this.waterPolygonMat);
+
     this.waterRibbonMat = this._track(new THREE.MeshStandardMaterial({
       color: palette.water,
-      roughness: 0.36,
-      metalness: 0.14,
+      roughness: 0.18,
+      metalness: 0.20,
+      envMapIntensity: 1.28,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.85
+      opacity: 0.88
     }));
-    this.waterBankMat = this._track(new THREE.LineBasicMaterial({
-      color: 0x38bdf8,
-      transparent: true,
-      opacity: 0.35
-    }));
+    this._injectWaterShader(this.waterRibbonMat);
+
     this.greenOverlayMat = this._track(new THREE.MeshStandardMaterial({
       color: palette.greenOverlay,
-      roughness: 0.92,
+      roughness: 0.93,
       metalness: 0.0,
       side: THREE.DoubleSide
     }));
 
-    // 1. Real Triangulated Green/Park Polygons (Seoul Forest, Salgoji, Eungbongsan)
+    // 1. Real Triangulated Green/Park Polygons
     const greenPolys = this.pkg.terrainAndHydrology?.greenPolygons || [];
     if (greenPolys.length > 0) {
       const greenGeo = this._track(createTriangulatedPolygonsGeometry(greenPolys, false, this.pkg.terrainGrid));
@@ -948,7 +1451,7 @@ export class LocalSpatialMapLayer {
       group.add(greenMesh);
     }
 
-    // 2. Real Triangulated Water Polygons (Han River, Jungnangcheon, Cheonggyecheon)
+    // 2. Real Triangulated Water Polygons
     const waterPolys = this.pkg.terrainAndHydrology?.waterPolygons || [];
     if (waterPolys.length > 0) {
       const waterGeo = this._track(createTriangulatedPolygonsGeometry(waterPolys, true, this.pkg.terrainGrid));
@@ -958,21 +1461,16 @@ export class LocalSpatialMapLayer {
       group.add(waterMesh);
     }
 
-    // 3. Fallback / Named River Centerline Ribbons
+    // 3. Fallback / Named River Centerline Ribbons (smooth water surface without jagged wireframe line clutter)
     const waterways = this.pkg.terrainAndHydrology?.waterways || [];
     for (const w of waterways) {
       if (waterPolys.length === 0) {
         const ribbonGeo = this._track(createRibbonGeometry(w.pointsEN, w.widthMeters, w.elevationY, 0.22, this.pkg.terrainGrid));
         const ribbonMesh = new THREE.Mesh(ribbonGeo, this.waterRibbonMat);
         ribbonMesh.name = w.id;
+        ribbonMesh.receiveShadow = true;
         group.add(ribbonMesh);
       }
-
-      const centerPts = w.pointsEN.map(([e, n]) => new THREE.Vector3(e, w.elevationY + 0.35, -n));
-      const centerGeo = this._track(new THREE.BufferGeometry().setFromPoints(centerPts));
-      const centerLine = new THREE.Line(centerGeo, this.waterBankMat);
-      centerLine.name = `${w.id}_Axis`;
-      group.add(centerLine);
     }
 
     // 4. PROVISIONAL Alluvial Basin Caution Zone (strictly dashed subtle slate — zero rainbow heatmap)
@@ -1002,6 +1500,17 @@ export class LocalSpatialMapLayer {
     const group = new THREE.Group();
     group.name = 'LocalRoadNetwork4km';
 
+    this.roadCasingMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.roadCasing,
+      roughness: 0.96,
+      metalness: 0.0,
+      side: THREE.DoubleSide
+    }));
+    this.bridgeMat = this._track(new THREE.MeshStandardMaterial({
+      color: palette.bridgeDeck,
+      roughness: 0.85,
+      metalness: 0.06
+    }));
     this.roadMats = {
       major: this._track(new THREE.MeshStandardMaterial({
         color: palette.roadMajor,
@@ -1036,12 +1545,37 @@ export class LocalSpatialMapLayer {
       const minorSegs = denseRoads.filter(r => r[0] === 'secondary' || r[0] === 'tertiary');
       const footwaySegs = denseRoads.filter(r => r[0] === 'footway');
       const railSegs = denseRoads.filter(r => r[0] === 'rail');
+      const casedSegs = denseRoads.filter(r =>
+        r[0] === 'motorway' || r[0] === 'trunk' || r[0] === 'primary' || r[0] === 'secondary' || r[0] === 'tertiary'
+      );
+      const bridgeSegs = denseRoads.filter(r => r[1] === 1 && r[0] !== 'rail');
+      const stdWidthFn = c => (c === 'motorway' ? 26.0 : c === 'trunk' ? 22.0 : c === 'primary' ? 17.5 : c === 'secondary' ? 10.5 : c === 'tertiary' ? 6.8 : 2.6);
+
+      if (casedSegs.length > 0) {
+        const casingGeo = this._track(createMergedRoadGeometry(casedSegs, stdWidthFn, this.pkg.terrainGrid, {
+          widthPad: 2.2,
+          elevDelta: -0.08
+        }));
+        const casingMesh = new THREE.Mesh(casingGeo, this.roadCasingMat);
+        casingMesh.name = 'DenseRoads_Casing4km';
+        casingMesh.receiveShadow = true;
+        group.add(casingMesh);
+      }
+
+      if (bridgeSegs.length > 0) {
+        const bridgeGeo = this._track(createBridgeStructuresGeometry(bridgeSegs, stdWidthFn, this.pkg.terrainGrid));
+        const bridgeMesh = new THREE.Mesh(bridgeGeo, this.bridgeMat);
+        bridgeMesh.name = 'LocalBridgeStructures4km';
+        bridgeMesh.castShadow = true;
+        bridgeMesh.receiveShadow = true;
+        group.add(bridgeMesh);
+      }
 
       const tiers = [
         { segs: footwaySegs, mat: this.roadMats.minor, widthFn: () => 2.6, name: 'DenseRoads_Footways4km' },
-        { segs: minorSegs, mat: this.roadMats.minor, widthFn: c => (c === 'secondary' ? 10.5 : 6.8), name: 'DenseRoads_Minor4km' },
-        { segs: primarySegs, mat: this.roadMats.primary, widthFn: () => 17.5, name: 'DenseRoads_Primary4km' },
-        { segs: majorSegs, mat: this.roadMats.major, widthFn: c => (c === 'motorway' ? 26.0 : 22.0), name: 'DenseRoads_Major4km' },
+        { segs: minorSegs, mat: this.roadMats.minor, widthFn: stdWidthFn, name: 'DenseRoads_Minor4km' },
+        { segs: primarySegs, mat: this.roadMats.primary, widthFn: stdWidthFn, name: 'DenseRoads_Primary4km' },
+        { segs: majorSegs, mat: this.roadMats.major, widthFn: stdWidthFn, name: 'DenseRoads_Major4km' },
         { segs: railSegs, mat: this.roadMats.rail, widthFn: () => 6.2, name: 'DenseRoads_Rail4km' }
       ];
 
@@ -1068,6 +1602,12 @@ export class LocalSpatialMapLayer {
     this.rootGroup.add(group);
   }
 
+  _resolveBuildingToneColor(east_m, north_m, h, cLow, cMid, cHigh, outColor) {
+    const baseHex = h >= 42 ? cHigh : (h >= 14 ? cMid : cLow);
+    const toneVar = 0.87 + buildingHash(east_m, north_m) * 0.22;
+    return outColor.copy(baseHex).multiplyScalar(toneVar);
+  }
+
   _applyBuildingInstanceColors(mesh, data) {
     if (!mesh || !data) return;
     const palette = this._getThemePalette();
@@ -1079,12 +1619,7 @@ export class LocalSpatialMapLayer {
 
     for (let i = 0; i < count; i++) {
       const base = i * OBB_BUILDING_STRIDE;
-      const east_m = data[base + 0];
-      const north_m = data[base + 1];
-      const h = data[base + 5];
-      const baseHex = h >= 42 ? cHigh : (h >= 16 ? cMid : cLow);
-      const toneVar = 0.87 + buildingHash(east_m, north_m) * 0.22;
-      color.copy(baseHex).multiplyScalar(toneVar);
+      this._resolveBuildingToneColor(data[base + 0], data[base + 1], data[base + 5], cLow, cMid, cHigh, color);
       mesh.setColorAt(i, color);
     }
     if (mesh.instanceColor) {
@@ -1092,19 +1627,43 @@ export class LocalSpatialMapLayer {
     }
   }
 
+  _applyExtrudedPolygonColors() {
+    if (!this.extrudedBuildingsMesh?.geometry || !this._extrudedTriMeta.length) return;
+    const palette = this._getThemePalette();
+    const cLow = new THREE.Color(palette.bldgLow);
+    const cMid = new THREE.Color(palette.bldgMid);
+    const cHigh = new THREE.Color(palette.bldgHigh);
+    const color = new THREE.Color();
+    const colAttr = this.extrudedBuildingsMesh.geometry.getAttribute('color');
+    if (!colAttr) return;
+
+    for (const meta of this._extrudedTriMeta) {
+      const b = meta.bldg;
+      this._resolveBuildingToneColor(b.east_m, b.north_m, b.height_m, cLow, cMid, cHigh, color);
+      for (let v = meta.startVertex; v < meta.endVertex; v++) {
+        colAttr.setXYZ(v, color.r, color.g, color.b);
+      }
+    }
+    colAttr.needsUpdate = true;
+  }
+
   /**
-   * Shared OBB InstancedMesh builder used for both pre-built 4km core and streamed 3km chunks.
+   * Shared OBB InstancedMesh builder with sunken hillside skirt (-2.0m) and per-instance architectural attributes.
    * @private
    */
   _createOBBInstancedMesh(data, grounds, material, name) {
     const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
     if (fullCount <= 0) return null;
 
-    const mesh = new THREE.InstancedMesh(this.unitBoxGeometry, material, fullCount);
+    const instGeo = this._track(this.unitBoxGeometry.clone());
+    const groundYArr = new Float32Array(fullCount);
+    const heightArr = new Float32Array(fullCount);
+    const mesh = new THREE.InstancedMesh(instGeo, material, fullCount);
     mesh.name = name;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     const dummy = new THREE.Object3D();
+    const SKIRT_M = 2.0;
 
     for (let i = 0; i < fullCount; i++) {
       const base = i * OBB_BUILDING_STRIDE;
@@ -1118,16 +1677,135 @@ export class LocalSpatialMapLayer {
         ? grounds[i]
         : this._sampleTerrainHeight(east_m, north_m);
 
-      dummy.position.set(east_m, groundY + height_m * 0.5, -north_m);
+      groundYArr[i] = groundY;
+      heightArr[i] = height_m;
+
+      const totalH = height_m + SKIRT_M;
+      dummy.position.set(east_m, groundY + (height_m - SKIRT_M) * 0.5, -north_m);
       dummy.rotation.set(0, yaw_rad, 0);
-      dummy.scale.set(width_m, height_m, depth_m);
+      dummy.scale.set(width_m, totalH, depth_m);
       dummy.updateMatrix();
       mesh.setMatrixAt(i, dummy.matrix);
     }
 
+    instGeo.setAttribute('aGroundY', new THREE.InstancedBufferAttribute(groundYArr, 1));
+    instGeo.setAttribute('aBldgHeight', new THREE.InstancedBufferAttribute(heightArr, 1));
     mesh.instanceMatrix.needsUpdate = true;
     this._applyBuildingInstanceColors(mesh, data);
     mesh.computeBoundingSphere();
+    return mesh;
+  }
+
+  /**
+   * Build Stage 2 true-footprint extruded architectural buildings from OSM ptsEN polygons
+   * with chamfered roof crowns, hillside foundation skirts, and binary-search raycast lookup.
+   * @private
+   */
+  _buildExtrudedPolygonBuildingsMesh(polygons, material) {
+    if (!Array.isArray(polygons) || polygons.length === 0) return null;
+    const MAX_EXTRUSIONS = 2800;
+    const capped = polygons.slice(0, MAX_EXTRUSIONS);
+
+    const pos = [];
+    const norm = [];
+    const col = [];
+    const gY = [];
+    const bH = [];
+    const metaList = [];
+    const SKIRT_M = 2.0;
+    const palette = this._getThemePalette();
+    const cLow = new THREE.Color(palette.bldgLow);
+    const cMid = new THREE.Color(palette.bldgMid);
+    const cHigh = new THREE.Color(palette.bldgHigh);
+    const tmpColor = new THREE.Color();
+
+    const tallCount = capped.filter(b => b.height_m >= 18).length;
+    const overviewTargetCount = Math.min(capped.length, Math.max(96, tallCount));
+    let overviewVertexCount = 0;
+
+    for (let idx = 0; idx < capped.length; idx++) {
+      const b = capped[idx];
+      if (!Array.isArray(b.ptsEN) || b.ptsEN.length < 3) continue;
+
+      try {
+        const cleanedPts = [];
+        for (const p of b.ptsEN) {
+          if (cleanedPts.length === 0 || Math.hypot(p[0] - cleanedPts[cleanedPts.length - 1][0], p[1] - cleanedPts[cleanedPts.length - 1][1]) >= 0.15) {
+            cleanedPts.push(p);
+          }
+        }
+        if (cleanedPts.length < 3) continue;
+
+        const shape = new THREE.Shape();
+        shape.moveTo(cleanedPts[0][0], cleanedPts[0][1]);
+        for (let i = 1; i < cleanedPts.length; i++) {
+          shape.lineTo(cleanedPts[i][0], cleanedPts[i][1]);
+        }
+        shape.closePath();
+
+        const ex = new THREE.ExtrudeGeometry(shape, {
+          depth: Math.max(2.0, b.height_m + SKIRT_M),
+          bevelEnabled: true,
+          bevelThickness: 0.22,
+          bevelSize: 0.16,
+          bevelSegments: 1,
+          curveSegments: 1,
+          steps: 1
+        });
+        ex.rotateX(-Math.PI / 2);
+        const nonIdx = ex.index ? ex.toNonIndexed() : ex;
+        const pAttr = nonIdx.getAttribute('position');
+        const nAttr = nonIdx.getAttribute('normal');
+        if (!pAttr || pAttr.count === 0) {
+          ex.dispose();
+          if (nonIdx !== ex) nonIdx.dispose();
+          continue;
+        }
+
+        const startVertex = pos.length / 3;
+        const baseShiftY = (Number.isFinite(b.groundY_m) ? b.groundY_m : this._sampleTerrainHeight(b.east_m, b.north_m)) - SKIRT_M;
+        this._resolveBuildingToneColor(b.east_m, b.north_m, b.height_m, cLow, cMid, cHigh, tmpColor);
+
+        for (let v = 0; v < pAttr.count; v++) {
+          pos.push(pAttr.getX(v), pAttr.getY(v) + baseShiftY, pAttr.getZ(v));
+          norm.push(nAttr ? nAttr.getX(v) : 0, nAttr ? nAttr.getY(v) : 1, nAttr ? nAttr.getZ(v) : 0);
+          col.push(tmpColor.r, tmpColor.g, tmpColor.b);
+          gY.push(baseShiftY + SKIRT_M);
+          bH.push(b.height_m);
+        }
+
+        const endVertex = pos.length / 3;
+        metaList.push({ startVertex, endVertex, bldgIdx: idx, bldg: b });
+        if (idx < overviewTargetCount) {
+          overviewVertexCount = endVertex;
+        }
+
+        ex.dispose();
+        if (nonIdx !== ex) nonIdx.dispose();
+      } catch (_) {
+        // Skip malformed individual OSM building ring cleanly without failing entire scene
+      }
+    }
+
+    if (pos.length === 0) return null;
+
+    const mergedGeo = this._track(new THREE.BufferGeometry());
+    mergedGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    mergedGeo.setAttribute('normal', new THREE.Float32BufferAttribute(norm, 3));
+    mergedGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    mergedGeo.setAttribute('aGroundY', new THREE.Float32BufferAttribute(gY, 1));
+    mergedGeo.setAttribute('aBldgHeight', new THREE.Float32BufferAttribute(bH, 1));
+    mergedGeo.computeBoundingSphere();
+
+    const mesh = new THREE.Mesh(mergedGeo, material);
+    mesh.name = 'NationwideExtrudedBuildings4km';
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    this._extrudedTriMeta = metaList;
+    this._extrudedPolygonsRef = capped;
+    this._extrudedOverviewVertexCount = overviewVertexCount || mergedGeo.getAttribute('position').count;
+    this._extrudedFullVertexCount = mergedGeo.getAttribute('position').count;
     return mesh;
   }
 
@@ -1135,18 +1813,33 @@ export class LocalSpatialMapLayer {
     const data = this.pkg.obbBuildingsFloat32;
     const grounds = this.pkg.obbGroundOffsets;
     const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
+    const polys = this.pkg.buildingPolygons;
+    const hasPolygons = Array.isArray(polys) && polys.length > 0;
 
-    if (fullCount <= 0) return;
+    if (fullCount <= 0 && !hasPolygons) return;
 
     this._buildingDataRef = data;
     this.buildingMaterial = this._track(new THREE.MeshStandardMaterial({
       color: 0xffffff,
-      roughness: 0.77,
+      vertexColors: false, // InstancedMesh uses instanceColor automatically; enabled only for ExtrudeGeometry below
+      roughness: 0.78,
       metalness: 0.06,
+      envMapIntensity: 0.85,
       transparent: false,
-      opacity: 0.94,
+      opacity: 0.96,
       depthWrite: true
     }));
+    this._injectBuildingShader(this.buildingMaterial, this._getThemePalette());
+
+    if (hasPolygons) {
+      this.extrudedBuildingsMesh = this._buildExtrudedPolygonBuildingsMesh(polys, this.buildingMaterial);
+      if (this.extrudedBuildingsMesh) {
+        this.buildingMaterial.vertexColors = true;
+        this.buildingMaterial.needsUpdate = true;
+        this.rootGroup.add(this.extrudedBuildingsMesh);
+        return;
+      }
+    }
 
     this.instancedBuildings = this._createOBBInstancedMesh(
       data,
@@ -1220,6 +1913,7 @@ export class LocalSpatialMapLayer {
     const palette = this._getThemePalette();
     const { nx, nz, halfExtentMeters, greenMask } = grid;
     const span = halfExtentMeters * 2.0;
+    const isBlockedByUrban = buildTreeExclusionChecker(this.pkg);
 
     const conifers = [];
     const broadleaf = [];
@@ -1236,7 +1930,6 @@ export class LocalSpatialMapLayer {
 
         const baseE = -halfExtentMeters + (i / nx) * span;
         const baseN = -halfExtentMeters + (j / nz) * span;
-        // Skip active origin facility & primary destination clearance around open plaza
         if (this._activeOriginMeta && Math.hypot(baseE - this._activeOriginMeta.east_m, baseN - this._activeOriginMeta.north_m) < 42) continue;
         const primaryShelter = (this.pkg.sheltersAndFacilities || [])[0];
         if (primaryShelter && Math.hypot(baseE - primaryShelter.east_m, baseN - primaryShelter.north_m) < 60) continue;
@@ -1245,123 +1938,80 @@ export class LocalSpatialMapLayer {
         for (let s = 0; s < samples; s++) {
           const e = baseE + (rand() - 0.5) * 28.0;
           const n = baseN + (rand() - 0.5) * 28.0;
+          if (isBlockedByUrban(e, n)) continue;
           const h = this._sampleTerrainHeight(e, n);
           if (h < -15.2) continue;
-          const sc = 4.5 + rand() * 5.2;
+          const sc = 4.2 + rand() * 4.8;
           const yaw = rand() * Math.PI * 2;
+          const tone = 0.85 + rand() * 0.28;
           if ((i + j + s) % 3 === 0) {
-            conifers.push([e, h, -n, sc, yaw]);
+            conifers.push([e, h, -n, sc, yaw, tone]);
           } else {
-            broadleaf.push([e, h, -n, sc, yaw]);
+            broadleaf.push([e, h, -n, sc, yaw, tone]);
           }
         }
       }
     }
 
     const dummy = new THREE.Object3D();
+    const tmpColor = new THREE.Color();
     if (conifers.length > 0) {
-      const conGeo = this._track(new THREE.ConeGeometry(0.65, 1.85, 5));
+      const conGeo = this._track(createConiferMaquetteGeometry());
       const conMat = this._track(new THREE.MeshStandardMaterial({
         color: palette.treeConifer,
-        roughness: 0.92,
+        vertexColors: true,
+        roughness: 0.90,
         metalness: 0.0
       }));
       this.coniferTreesMesh = new THREE.InstancedMesh(conGeo, conMat, conifers.length);
       this.coniferTreesMesh.name = 'LocalConiferTrees4km';
-      conifers.forEach(([x, y, z, s, yaw], idx) => {
-        dummy.position.set(x, y + s * 0.88, z);
+      conifers.forEach(([x, y, z, s, yaw, tone], idx) => {
+        dummy.position.set(x, y - 0.35, z);
         dummy.rotation.set(0, yaw, 0);
-        dummy.scale.set(s, s, s);
+        dummy.scale.set(s, s * 1.05, s);
         dummy.updateMatrix();
         this.coniferTreesMesh.setMatrixAt(idx, dummy.matrix);
+        tmpColor.setRGB(tone, tone, tone);
+        this.coniferTreesMesh.setColorAt(idx, tmpColor);
       });
       this.coniferTreesMesh.instanceMatrix.needsUpdate = true;
+      if (this.coniferTreesMesh.instanceColor) this.coniferTreesMesh.instanceColor.needsUpdate = true;
       this.coniferTreesMesh.castShadow = true;
+      this.coniferTreesMesh.receiveShadow = true;
       this.rootGroup.add(this.coniferTreesMesh);
     }
 
     if (broadleaf.length > 0) {
-      const broadGeo = this._track(new THREE.IcosahedronGeometry(0.85, 0));
+      const broadGeo = this._track(createBroadleafMaquetteGeometry());
       const broadMat = this._track(new THREE.MeshStandardMaterial({
         color: palette.treeBroadleaf,
-        roughness: 0.92,
+        vertexColors: true,
+        roughness: 0.90,
         metalness: 0.0
       }));
       this.broadleafTreesMesh = new THREE.InstancedMesh(broadGeo, broadMat, broadleaf.length);
       this.broadleafTreesMesh.name = 'LocalBroadleafTrees4km';
-      broadleaf.forEach(([x, y, z, s, yaw], idx) => {
-        dummy.position.set(x, y + s * 0.65, z);
+      broadleaf.forEach(([x, y, z, s, yaw, tone], idx) => {
+        dummy.position.set(x, y - 0.35, z);
         dummy.rotation.set(0, yaw, 0);
-        dummy.scale.set(s * 1.15, s * 0.85, s * 1.05);
+        dummy.scale.set(s * 1.12, s * 0.92, s * 1.04);
         dummy.updateMatrix();
         this.broadleafTreesMesh.setMatrixAt(idx, dummy.matrix);
+        tmpColor.setRGB(tone, tone, tone);
+        this.broadleafTreesMesh.setColorAt(idx, tmpColor);
       });
       this.broadleafTreesMesh.instanceMatrix.needsUpdate = true;
+      if (this.broadleafTreesMesh.instanceColor) this.broadleafTreesMesh.instanceColor.needsUpdate = true;
       this.broadleafTreesMesh.castShadow = true;
+      this.broadleafTreesMesh.receiveShadow = true;
       this.rootGroup.add(this.broadleafTreesMesh);
     }
   }
 
   _buildNightWindows() {
-    const data = this.pkg.obbBuildingsFloat32;
-    const grounds = this.pkg.obbGroundOffsets;
-    const fullCount = Math.floor((data?.length || 0) / OBB_BUILDING_STRIDE);
-    if (fullCount <= 0) return;
-
-    const positions = [];
-    const colors = [];
-    let seed = 4242;
-    const rand = () => {
-      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-
-    const warmTone = new THREE.Color(0xe8d5b0);
-    const coolTone = new THREE.Color(0xb8d4e8);
-
-    for (let i = 0; i < fullCount; i++) {
-      const base = i * OBB_BUILDING_STRIDE;
-      const e = data[base + 0];
-      const n = data[base + 1];
-      const w = data[base + 2];
-      const d = data[base + 3];
-      const yaw = data[base + 4];
-      const h = data[base + 5];
-      if (h < 24.0 || rand() < 0.35) continue;
-
-      const groundY = grounds && i < grounds.length ? grounds[i] : this._sampleTerrainHeight(e, n);
-      const dots = Math.min(5, Math.ceil(h / 28));
-      const cosY = Math.cos(yaw);
-      const sinY = Math.sin(yaw);
-
-      for (let k = 0; k < dots; k++) {
-        const yPos = groundY + (0.28 + rand() * 0.64) * h;
-        const side = rand() > 0.5 ? 1 : -1;
-        const lx = side * w * 0.505;
-        const lz = (rand() - 0.5) * d * 0.72;
-        const wx = e + lx * cosY + lz * sinY;
-        const wz = -n - lx * sinY + lz * cosY;
-        positions.push(wx, yPos, wz);
-        const c = rand() > 0.25 ? warmTone : coolTone;
-        colors.push(c.r, c.g, c.b);
-      }
-    }
-
-    if (positions.length === 0) return;
-    const geo = this._track(new THREE.BufferGeometry());
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    const mat = this._track(new THREE.PointsMaterial({
-      size: 1.45,
-      sizeAttenuation: false,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.36,
-      depthWrite: false
-    }));
-    this.nightWindowsPoints = new THREE.Points(geo, mat);
-    this.nightWindowsPoints.name = 'NocturnalWindowScaleFlecks4km';
-    this.rootGroup.add(this.nightWindowsPoints);
+    // Window glazing rhythm & calm nocturnal warmth now render directly in the architectural
+    // building facade shader instead of detached floating THREE.Points rectangles.
+    this.nightWindowsPoints = null;
   }
 
   _buildHorizonCompassAndEpicenterGuide() {
@@ -1681,8 +2331,11 @@ export class LocalSpatialMapLayer {
    */
   setVisualTheme(themeName = 'MONOLITH_NIGHT') {
     const key = themeName === 'ARCHITECTURAL_DAY' ? 'ARCHITECTURAL_DAY' : 'MONOLITH_NIGHT';
+    const isDay = key === 'ARCHITECTURAL_DAY';
     this.state.theme = key;
     const palette = this._getThemePalette();
+
+    this._applyProceduralEnvironmentIBL(isDay);
 
     if (this.hemiLight) {
       this.hemiLight.color.setHex(palette.hemiSky);
@@ -1706,6 +2359,16 @@ export class LocalSpatialMapLayer {
     if (this.terrainSkirtMesh?.material) {
       this.terrainSkirtMesh.material.color.setHex(palette.skirt);
     }
+    if (this._terrainUniforms) {
+      this._terrainUniforms.uContourColor.value.setHex(palette.contour);
+      this._terrainUniforms.uContourOpacity.value = palette.contourOpacity;
+    }
+    if (this._buildingUniforms) {
+      this._buildingUniforms.uIsDay.value = isDay ? 1.0 : 0.0;
+    }
+    if (this._waterUniforms) {
+      this._waterUniforms.uIsDay.value = isDay ? 1.0 : 0.0;
+    }
     if (this.contourMat) {
       this.contourMat.color.setHex(palette.contour);
       this.contourMat.opacity = palette.contourOpacity;
@@ -1718,15 +2381,17 @@ export class LocalSpatialMapLayer {
     if (this.broadleafTreesMesh?.material) this.broadleafTreesMesh.material.color.setHex(palette.treeBroadleaf);
     if (this.horizonCompassMat) this.horizonCompassMat.color.setHex(palette.horizonRing);
     if (this._epicenterRayMat) this._epicenterRayMat.color.setHex(palette.epicenterRay);
-    if (this.nightWindowsPoints) {
-      this.nightWindowsPoints.visible = key === 'MONOLITH_NIGHT' && !this.state.xRayEnabled;
-    }
 
+    if (this.roadCasingMat) this.roadCasingMat.color.setHex(palette.roadCasing);
+    if (this.bridgeMat) this.bridgeMat.color.setHex(palette.bridgeDeck);
     if (this.roadMats.major) this.roadMats.major.color.setHex(palette.roadMajor);
     if (this.roadMats.primary) this.roadMats.primary.color.setHex(palette.roadPrimary);
     if (this.roadMats.minor) this.roadMats.minor.color.setHex(palette.roadMinor);
     if (this.roadMats.rail) this.roadMats.rail.color.setHex(palette.rail);
 
+    if (this.extrudedBuildingsMesh) {
+      this._applyExtrudedPolygonColors();
+    }
     if (this.instancedBuildings && this._buildingDataRef) {
       this._applyBuildingInstanceColors(this.instancedBuildings, this._buildingDataRef);
     }
@@ -1867,6 +2532,10 @@ export class LocalSpatialMapLayer {
     const counts = this.pkg.obbLodCounts || { overviewCount: 64, fullCount: 180 };
     const normalized = (mode === 'OVERVIEW') ? 'OVERVIEW' : 'FULL';
     this.state.lodMode = normalized;
+    if (this.extrudedBuildingsMesh?.geometry && this._extrudedFullVertexCount > 0) {
+      const range = normalized === 'OVERVIEW' ? this._extrudedOverviewVertexCount : this._extrudedFullVertexCount;
+      this.extrudedBuildingsMesh.geometry.setDrawRange(0, range);
+    }
     if (this.instancedBuildings) {
       this.instancedBuildings.count = normalized === 'OVERVIEW'
         ? counts.overviewCount
@@ -1959,18 +2628,18 @@ export class LocalSpatialMapLayer {
       this.state.xRayManualOverride = Boolean(enabled);
     }
     this.state.xRayEnabled = Boolean(enabled);
-    this.state.xRayOpacity = enabled ? opacity : 0.94;
+    this.state.xRayOpacity = enabled ? opacity : 0.96;
     const palette = this._getThemePalette();
 
+    if (this._buildingUniforms) {
+      this._buildingUniforms.uXRay.value = enabled ? 1.0 : 0.0;
+    }
     if (this.buildingMaterial) {
       this.buildingMaterial.transparent = Boolean(enabled);
       this.buildingMaterial.opacity = this.state.xRayOpacity;
       this.buildingMaterial.depthWrite = !enabled;
       this.buildingMaterial.color.setHex(enabled ? palette.xrayColor : 0xffffff);
       this.buildingMaterial.needsUpdate = true;
-    }
-    if (this.nightWindowsPoints) {
-      this.nightWindowsPoints.visible = this.state.theme === 'MONOLITH_NIGHT' && !enabled;
     }
     if (this.coniferTreesMesh) this.coniferTreesMesh.visible = !enabled;
     if (this.broadleafTreesMesh) this.broadleafTreesMesh.visible = !enabled;
@@ -2140,6 +2809,9 @@ export class LocalSpatialMapLayer {
     this._waveLastElapsed = elapsedSec;
     if (this._waveStartSec === null) this._waveStartSec = elapsedSec;
     const sweepAge = Math.max(0, elapsedSec - this._waveStartSec);
+    if (this._waterUniforms) {
+      this._waterUniforms.uTime.value = elapsedSec;
+    }
     if (this._waveUniforms) {
       this._waveUniforms.u_age.value = sweepAge;
     }
@@ -2162,12 +2834,20 @@ export class LocalSpatialMapLayer {
     for (const entry of this.chunkMeshes.values()) {
       streamedChunkBuildingCount += entry.mesh.count;
     }
+    const polyCount = this._extrudedPolygonsRef.length;
+    const polyOverview = polyCount > 0
+      ? Math.min(polyCount, Math.max(96, this._extrudedPolygonsRef.filter(b => b.height_m >= 18).length))
+      : 0;
+    const activeInstanceCount = this.instancedBuildings
+      ? this.instancedBuildings.count
+      : (this.extrudedBuildingsMesh ? (this.state.lodMode === 'OVERVIEW' ? polyOverview : polyCount) : 0);
     return {
       packageId: this.pkg.metadata?.packageId || 'UNKNOWN',
       theme: this.state.theme,
       fullCount: counts.fullCount,
       overviewCount: counts.overviewCount,
-      activeInstanceCount: this.instancedBuildings ? this.instancedBuildings.count : 0,
+      activeInstanceCount,
+      buildingPolygonMode: Boolean(this.extrudedBuildingsMesh),
       treeCount: (this.coniferTreesMesh?.count || 0) + (this.broadleafTreesMesh?.count || 0),
       activeChunkKeys: [...this.chunkManager.activeChunks.keys()],
       activeChunkCount: this.chunkManager.activeChunks.size,
@@ -2193,6 +2873,15 @@ export class LocalSpatialMapLayer {
     this.setHazardAvoidPolygons([]);
     this.chunkMeshes.clear();
     this.chunkManager.clear();
+    if (this._envMaps) {
+      if (this.scene && !this.scene.userData?.preserveGlobalBackground &&
+        (this.scene.environment === this._envMaps.night?.texture || this.scene.environment === this._envMaps.day?.texture)) {
+        this.scene.environment = null;
+      }
+      this._envMaps.night?.dispose?.();
+      this._envMaps.day?.dispose?.();
+      this._envMaps = null;
+    }
     if (this.scene && this.rootGroup) {
       this.scene.remove(this.rootGroup);
     }

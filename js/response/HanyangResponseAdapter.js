@@ -101,6 +101,8 @@ export class HanyangResponseAdapter {
     this.rootGroup.add(this.shelterGroup);
 
     this.disposables = [];
+    this.routeRibbonMaterials = [];
+    this.routeProgressT = 0.0;
 
     this.buildBuildingStructure();
     this.buildPedestrianPaths();
@@ -461,8 +463,315 @@ export class HanyangResponseAdapter {
   }
 
   /**
-   * Build volumetric elevated 3D tube & forward directional chevrons so paths read
-   * unmistakably from both 4km macro overview and street-level close-up.
+   * Fillet sharp corners with smooth quadratic arcs and densely resample terrain elevation
+   * so navigation ribbons hug street slopes without cylindrical corner kinks.
+   * @private
+   */
+  _buildFilletedRoutePoints(waypoints, elevOffset = 0.46) {
+    const sampler = typeof this.elevationSampler === 'function'
+      ? this.elevationSampler
+      : (typeof this.facility?.elevationSampler === 'function' ? this.facility.elevationSampler : null);
+
+    // 1. Deduplicate near-identical points
+    const deduped = [];
+    for (const p of waypoints) {
+      if (deduped.length === 0 || Math.hypot(p.x - deduped[deduped.length - 1].x, p.z - deduped[deduped.length - 1].z) > 0.25) {
+        deduped.push(new THREE.Vector3(p.x, p.y, p.z));
+      }
+    }
+    if (deduped.length < 2) return [];
+
+    // 2. Smooth corners > 16 deg cleanly for visual elegance while keeping turn locations faithful
+    const filleted = [deduped[0].clone()];
+    const turnMarkers = [];
+    for (let i = 1; i < deduped.length - 1; i++) {
+      const a = deduped[i - 1];
+      const b = deduped[i];
+      const c = deduped[i + 1];
+      const v1x = b.x - a.x;
+      const v1z = b.z - a.z;
+      const v2x = c.x - b.x;
+      const v2z = c.z - b.z;
+      const l1 = Math.hypot(v1x, v1z);
+      const l2 = Math.hypot(v2x, v2z);
+      if (l1 < 2.0 || l2 < 2.0) {
+        filleted.push(b.clone());
+        continue;
+      }
+      const dot = (v1x * v2x + v1z * v2z) / (l1 * l2);
+      const clampedDot = Math.max(-1, Math.min(1, dot));
+      const turnAngle = Math.acos(clampedDot);
+      if (turnAngle > 0.28) {
+        const radius = Math.min(3.4, l1 * 0.34, l2 * 0.34);
+        const pIn = new THREE.Vector3(
+          b.x - (v1x / l1) * radius,
+          b.y - ((b.y - a.y) / l1) * radius,
+          b.z - (v1z / l1) * radius
+        );
+        const pOut = new THREE.Vector3(
+          b.x + (v2x / l2) * radius,
+          b.y + ((c.y - b.y) / l2) * radius,
+          b.z + (v2z / l2) * radius
+        );
+        filleted.push(pIn);
+        // Quadratic mid-arc
+        const mid = new THREE.Vector3(
+          0.25 * pIn.x + 0.5 * b.x + 0.25 * pOut.x,
+          0.25 * pIn.y + 0.5 * b.y + 0.25 * pOut.y,
+          0.25 * pIn.z + 0.5 * b.z + 0.25 * pOut.z
+        );
+        filleted.push(mid, pOut);
+        if (turnAngle > 0.42) {
+          turnMarkers.push({
+            pos: new THREE.Vector3(mid.x, mid.y, mid.z),
+            dir: new THREE.Vector3(v2x / l2, 0, v2z / l2)
+          });
+        }
+      } else {
+        filleted.push(b.clone());
+      }
+    }
+    filleted.push(deduped[deduped.length - 1].clone());
+
+    // 3. Resample edges > 6m onto terrain height so ribbons never slice hills or hover
+    const elevated = [];
+    for (let i = 0; i < filleted.length; i++) {
+      const cur = filleted[i];
+      if (i > 0) {
+        const prev = filleted[i - 1];
+        const span = Math.hypot(cur.x - prev.x, cur.z - prev.z);
+        if (span > 6.0) {
+          const steps = Math.ceil(span / 5.5);
+          for (let s = 1; s < steps; s++) {
+            const t = s / steps;
+            const mx = prev.x + (cur.x - prev.x) * t;
+            const mz = prev.z + (cur.z - prev.z) * t;
+            const my = sampler ? Math.max(prev.y + (cur.y - prev.y) * t, sampler(mx, -mz) + 0.16) : (prev.y + (cur.y - prev.y) * t);
+            elevated.push(new THREE.Vector3(mx, my + elevOffset, mz));
+          }
+        }
+      }
+      const cy = sampler ? Math.max(cur.y, sampler(cur.x, -cur.z) + 0.16) : cur.y;
+      elevated.push(new THREE.Vector3(cur.x, cy + elevOffset, cur.z));
+    }
+
+    return { elevated, turnMarkers };
+  }
+
+  /**
+   * Build a clean beveled architectural route ribbon geometry (outer sloped skirt + crowned deck)
+   * with normalized across-width UVs [-1..+1] and exact arc-length meter UVs in v.
+   * @private
+   */
+  _createBeveledRibbonGeometry(points, halfWidth = 2.1, thickness = 0.28) {
+    const n = points.length;
+    if (n < 2) return null;
+
+    const cumDist = new Float32Array(n);
+    cumDist[0] = 0;
+    for (let i = 1; i < n; i++) {
+      cumDist[i] = cumDist[i - 1] + points[i - 1].distanceTo(points[i]);
+    }
+    const totalMeters = Math.max(0.1, cumDist[n - 1]);
+
+    // 4 vertices per cross-section: outer-left, inner-left, inner-right, outer-right
+    const positions = [];
+    const normals = [];
+    const uvs = [];
+    const indices = [];
+
+    const innerW = halfWidth * 0.74;
+    const outerW = halfWidth * 1.08;
+
+    for (let i = 0; i < n; i++) {
+      const pPrev = points[Math.max(0, i - 1)];
+      const pCur = points[i];
+      const pNext = points[Math.min(n - 1, i + 1)];
+
+      let tx1 = pCur.x - pPrev.x;
+      let tz1 = pCur.z - pPrev.z;
+      const l1 = Math.hypot(tx1, tz1);
+      if (l1 > 1e-5) { tx1 /= l1; tz1 /= l1; }
+
+      let tx2 = pNext.x - pCur.x;
+      let tz2 = pNext.z - pCur.z;
+      const l2 = Math.hypot(tx2, tz2);
+      if (l2 > 1e-5) { tx2 /= l2; tz2 /= l2; }
+
+      let mx, mz;
+      let miterScale = 1.0;
+      if (i === 0) {
+        mx = -tz2; mz = tx2;
+      } else if (i === n - 1) {
+        mx = -tz1; mz = tx1;
+      } else {
+        const n1x = -tz1, n1z = tx1;
+        const n2x = -tz2, n2z = tx2;
+        mx = n1x + n2x;
+        mz = n1z + n2z;
+        const mLen = Math.hypot(mx, mz);
+        const turnDot = tx1 * tx2 + tz1 * tz2;
+        if (mLen < 1e-4 || turnDot < -0.15) {
+          // Hairpin / sharp zig-zag fold: clamp miter cleanly to outgoing normal to prevent inverted ribbon bowties
+          mx = n2x; mz = n2z;
+          miterScale = 1.0;
+        } else {
+          mx /= mLen; mz /= mLen;
+          const dot = mx * n1x + mz * n1z;
+          miterScale = Math.min(1.42, 1.0 / Math.max(0.65, dot));
+        }
+      }
+
+      const d = cumDist[i];
+      const oW = outerW * miterScale;
+      const iW = innerW * miterScale;
+
+      positions.push(
+        pCur.x - mx * oW, pCur.y - thickness * 0.45, pCur.z - mz * oW,
+        pCur.x - mx * iW, pCur.y + thickness * 0.45, pCur.z - mz * iW,
+        pCur.x + mx * iW, pCur.y + thickness * 0.45, pCur.z + mz * iW,
+        pCur.x + mx * oW, pCur.y - thickness * 0.45, pCur.z + mz * oW
+      );
+      normals.push(
+        -mx * 0.35, 0.94, -mz * 0.35,
+        0, 1, 0,
+        0, 1, 0,
+        mx * 0.35, 0.94, mz * 0.35
+      );
+      uvs.push(
+        -1.0, d,
+        -0.72, d,
+        0.72, d,
+        1.0, d
+      );
+
+      if (i > 0) {
+        const a = (i - 1) * 4;
+        const b = i * 4;
+        for (let k = 0; k < 3; k++) {
+          indices.push(a + k, b + k, a + k + 1);
+          indices.push(b + k, b + k + 1, a + k + 1);
+        }
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    return { geo, totalMeters };
+  }
+
+  /**
+   * Single-pass navigation ribbon shader: crisp border casing, traveled-vs-remaining progress fade,
+   * and embedded smooth forward chevron SDFs.
+   * @private
+   */
+  _createNavigationRibbonMaterial(options = {}) {
+    const {
+      coreHex = 0xf8fafc,
+      casingHex = 0x09111f,
+      walkedHex = 0x334155,
+      chevronHex = 0x38bdf8,
+      opacity = 0.96,
+      totalMeters = 100.0,
+      isStepFree = false
+    } = options;
+
+    const uniforms = {
+      uCoreColor: { value: new THREE.Color(coreHex) },
+      uCasingColor: { value: new THREE.Color(casingHex) },
+      uWalkedColor: { value: new THREE.Color(walkedHex) },
+      uChevronColor: { value: new THREE.Color(chevronHex) },
+      uTotalMeters: { value: totalMeters },
+      uProgress: { value: this.routeProgressT || 0.0 },
+      uTime: { value: 0.0 },
+      uOpacity: { value: opacity },
+      uIsStepFree: { value: isStepFree ? 1.0 : 0.0 }
+    };
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms,
+      transparent: true,
+      depthWrite: true,
+      side: THREE.DoubleSide,
+      extensions: { derivatives: true },
+      vertexShader: `
+        varying vec2 vNavUv;
+        void main() {
+          vNavUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vNavUv;
+        uniform vec3 uCoreColor;
+        uniform vec3 uCasingColor;
+        uniform vec3 uWalkedColor;
+        uniform vec3 uChevronColor;
+        uniform float uTotalMeters;
+        uniform float uProgress;
+        uniform float uTime;
+        uniform float uOpacity;
+        uniform float uIsStepFree;
+
+        void main() {
+          float absU = abs(vNavUv.x);
+          #if __VERSION__ >= 300 || defined(GL_OES_standard_derivatives)
+            float aaU = max(0.02, fwidth(absU) * 1.3);
+            float aaV = max(0.04, fwidth(vNavUv.y) * 1.4);
+          #else
+            float aaU = 0.05;
+            float aaV = 0.25;
+          #endif
+
+          // Crisp outer casing frame
+          float coreMask = 1.0 - smoothstep(0.68 - aaU, 0.72 + aaU, absU);
+          float outerAlpha = 1.0 - smoothstep(0.95 - aaU, 1.0, absU);
+
+          // Traveled vs Ahead progress split
+          float progMeters = uProgress * uTotalMeters;
+          float aheadFactor = smoothstep(progMeters - 2.5, progMeters + 2.5, vNavUv.y);
+
+          // Embedded smooth directional chevrons scrolling gently along ahead path
+          float spacing = mix(14.0, 18.0, uIsStepFree);
+          float phase = vNavUv.y - uTime * mix(7.2, 5.4, uIsStepFree);
+          float localV = mod(phase, spacing);
+          // V-chevron shape: center points forward (+V), wings trail backward
+          float chevTarget = 4.6 - absU * 4.2;
+          float chevDist = abs(localV - chevTarget);
+          float chevShape = (1.0 - smoothstep(0.55 - aaV * 0.4, 0.95 + aaV * 0.4, chevDist))
+                          * (1.0 - smoothstep(0.42, 0.56, absU));
+
+          // Secondary dashed break on step-free alternate route
+          float dashMask = uIsStepFree > 0.5
+            ? mix(0.62, 1.0, smoothstep(1.2, 2.2, abs(mod(vNavUv.y, 9.0) - 4.5)))
+            : 1.0;
+
+          vec3 activeCore = mix(uCoreColor, uChevronColor, chevShape * 0.92 * aheadFactor);
+          vec3 traveledCore = mix(uWalkedColor, activeCore, 0.26);
+          vec3 finalCore = mix(traveledCore, activeCore, aheadFactor);
+
+          // Subtle spine luminance along dead center
+          finalCore += vec3(0.05) * (1.0 - smoothstep(0.0, 0.35, absU)) * aheadFactor;
+
+          vec3 rgb = mix(uCasingColor, finalCore, coreMask);
+          float alpha = outerAlpha * uOpacity * mix(0.54, 1.0, aheadFactor) * dashMask;
+          if (alpha < 0.02) discard;
+          gl_FragColor = vec4(rgb, alpha);
+        }
+      `
+    });
+    // Expose color alias cleanly so existing theme code never breaks
+    mat.color = mat.uniforms.uCoreColor.value;
+    this.routeRibbonMaterials.push(mat);
+    return mat;
+  }
+
+  /**
+   * Build sleek Apple/Naver-style beveled architectural ribbon with smooth corner fillets,
+   * outer border casing, embedded directional chevrons, and turn markers.
    * @private
    */
   _addVolumetricRouteMeshes(waypoints, options = {}) {
@@ -470,112 +779,105 @@ export class HanyangResponseAdapter {
     const {
       tubeRadius = 1.45,
       color = 0xf8fafc,
-      opacity = 0.92,
-      elevOffset = 1.18,
+      opacity = 0.95,
+      elevOffset = 0.52,
       name = 'Route_Tube',
       routeKind = 'SHORTEST',
-      chevronStepMeters = 42.0,
       chevronColor = 0x38bdf8,
       identicalToShortest = false
     } = options;
 
-    // Subdivide any residual span > 12m as an extra safeguard against hillside ridge clipping
-    const sampler = typeof this.elevationSampler === 'function'
-      ? this.elevationSampler
-      : (typeof this.facility?.elevationSampler === 'function' ? this.facility.elevationSampler : null);
-    const elevated = [];
-    for (let i = 0; i < waypoints.length; i++) {
-      const p = waypoints[i];
-      if (i > 0) {
-        const prev = waypoints[i - 1];
-        const span = Math.hypot(p.x - prev.x, p.z - prev.z);
-        if (span > 12.0) {
-          const steps = Math.ceil(span / 8.0);
-          for (let s = 1; s < steps; s++) {
-            const t = s / steps;
-            const mx = prev.x + (p.x - prev.x) * t;
-            const mz = prev.z + (p.z - prev.z) * t;
-            const my = sampler ? Math.max(prev.y + (p.y - prev.y) * t, sampler(mx, -mz) + 0.42) : (prev.y + (p.y - prev.y) * t);
-            elevated.push(new THREE.Vector3(mx, my + elevOffset, mz));
-          }
-        }
-      }
-      elevated.push(new THREE.Vector3(p.x, p.y + elevOffset, p.z));
-    }
+    const built = this._buildFilletedRoutePoints(waypoints, elevOffset);
+    if (!built || !built.elevated || built.elevated.length < 2) return;
 
-    // Exact piecewise-linear path geometry matching calculated graph coordinates (Section 4-3)
-    const curve = new THREE.CurvePath();
-    for (let i = 1; i < elevated.length; i++) {
-      if (elevated[i - 1].distanceToSquared(elevated[i]) > 1e-4) {
-        curve.add(new THREE.LineCurve3(elevated[i - 1], elevated[i]));
-      }
-    }
-    if (curve.curves.length === 0) return;
-    const tubularSegments = Math.max(24, Math.min(360, curve.curves.length * 4));
+    const halfW = Math.max(1.5, tubeRadius * 1.55);
+    const ribbonBuilt = this._createBeveledRibbonGeometry(built.elevated, halfW, 0.30);
+    if (!ribbonBuilt) return;
 
-    const tubeGeo = new THREE.TubeGeometry(curve, tubularSegments, tubeRadius, 8, false);
-    const tubeMat = new THREE.MeshBasicMaterial({
-      color,
-      transparent: opacity < 0.99,
+    const isStepFree = routeKind === 'STEP_FREE';
+    const ribbonMat = this._createNavigationRibbonMaterial({
+      coreHex: color,
+      casingHex: 0x08111f,
+      walkedHex: 0x334155,
+      chevronHex: chevronColor,
       opacity,
-      depthWrite: true
+      totalMeters: ribbonBuilt.totalMeters,
+      isStepFree
     });
-    const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
-    tubeMesh.name = name;
-    tubeMesh.renderOrder = routeKind === 'SHORTEST' ? 4 : 3;
-    tubeMesh.userData.routeKind = routeKind;
-    tubeMesh.userData.identicalToShortest = identicalToShortest;
-    this.pathGroup.add(tubeMesh);
-    this.disposables.push(tubeGeo, tubeMat);
 
-    // Non-occluding dark outline halo strictly beneath the ribbon (depthWrite: false prevents obscuring the bright core)
-    const railGeo = new THREE.TubeGeometry(curve, Math.max(18, Math.floor(tubularSegments / 2)), tubeRadius * 1.45, 6, false);
-    const railMat = new THREE.MeshBasicMaterial({
-      color: 0x060b14,
-      transparent: true,
-      opacity: 0.72,
-      depthWrite: false
-    });
-    const railMesh = new THREE.Mesh(railGeo, railMat);
-    railMesh.position.y = -0.22;
-    railMesh.name = `${name}_Halo`;
-    railMesh.renderOrder = 2;
-    railMesh.userData.routeKind = routeKind;
-    railMesh.userData.identicalToShortest = identicalToShortest;
-    this.pathGroup.add(railMesh);
-    this.disposables.push(railGeo, railMat);
+    const ribbonMesh = new THREE.Mesh(ribbonBuilt.geo, ribbonMat);
+    ribbonMesh.name = name;
+    ribbonMesh.renderOrder = isStepFree ? 3 : 4;
+    ribbonMesh.userData.routeKind = routeKind;
+    ribbonMesh.userData.identicalToShortest = identicalToShortest;
+    this.pathGroup.add(ribbonMesh);
+    this.disposables.push(ribbonBuilt.geo, ribbonMat);
 
-    // Forward directional chevrons (cones squashed vertically and pointed along tangent)
-    const totalLen = curve.getLength();
-    const chevronCount = Math.max(2, Math.floor(totalLen / chevronStepMeters));
-    const chevGeo = new THREE.ConeGeometry(tubeRadius * 2.15, tubeRadius * 4.8, 3);
-    chevGeo.rotateX(Math.PI * 0.5); // Tip points toward +Z
-    const chevMat = new THREE.MeshBasicMaterial({
-      color: chevronColor,
-      transparent: false
-    });
-    const chevInst = new THREE.InstancedMesh(chevGeo, chevMat, chevronCount);
-    chevInst.name = `${name}_Chevrons`;
-    chevInst.renderOrder = 5;
-    chevInst.userData.routeKind = routeKind;
-    chevInst.userData.identicalToShortest = identicalToShortest;
-
-    const dummy = new THREE.Object3D();
-    const lookTarget = new THREE.Vector3();
-    for (let i = 0; i < chevronCount; i++) {
-      const u = (i + 0.5) / chevronCount;
-      const pos = curve.getPointAt(u);
-      const tan = curve.getTangentAt(u);
-      dummy.position.set(pos.x, pos.y + tubeRadius * 0.95, pos.z);
-      lookTarget.copy(dummy.position).add(tan);
-      dummy.lookAt(lookTarget);
-      dummy.scale.set(1.0, 0.42, 1.0);
-      dummy.updateMatrix();
-      chevInst.setMatrixAt(i, dummy.matrix);
+    // Soft ground contact shadow halo beneath ribbon
+    const haloBuilt = this._createBeveledRibbonGeometry(built.elevated, halfW * 1.48, 0.06);
+    if (haloBuilt) {
+      const haloMat = new THREE.MeshBasicMaterial({
+        color: 0x050a14,
+        transparent: true,
+        opacity: 0.28,
+        depthWrite: false
+      });
+      const haloMesh = new THREE.Mesh(haloBuilt.geo, haloMat);
+      haloMesh.position.y = -0.18;
+      haloMesh.name = `${name}_Halo`;
+      haloMesh.renderOrder = 2;
+      haloMesh.userData.routeKind = routeKind;
+      haloMesh.userData.identicalToShortest = identicalToShortest;
+      this.pathGroup.add(haloMesh);
+      this.disposables.push(haloBuilt.geo, haloMat);
     }
-    chevInst.instanceMatrix.needsUpdate = true;
-    this.pathGroup.add(chevInst);
-    this.disposables.push(chevGeo, chevMat);
+
+    // Minimalist flat architectural turn-node markers ONLY at genuine turn vertices (> 24 deg)
+    const markers = built.turnMarkers.slice(0, 14);
+    if (markers.length === 0 && built.elevated.length >= 2) {
+      const midPt = built.elevated[Math.floor(built.elevated.length / 2)];
+      const nextPt = built.elevated[Math.min(built.elevated.length - 1, Math.floor(built.elevated.length / 2) + 1)];
+      const dir = new THREE.Vector3(nextPt.x - midPt.x, 0, nextPt.z - midPt.z).normalize();
+      if (dir.lengthSq() > 0.01) markers.push({ pos: midPt, dir });
+    }
+    if (markers.length > 0) {
+      const turnShape = new THREE.Shape();
+      const s = halfW * 0.56;
+      turnShape.moveTo(0, s * 1.25);
+      turnShape.lineTo(s * 0.9, -s * 0.55);
+      turnShape.lineTo(0, -s * 0.15);
+      turnShape.lineTo(-s * 0.9, -s * 0.55);
+      turnShape.closePath();
+      const chevGeo = new THREE.ShapeGeometry(turnShape);
+      chevGeo.rotateX(Math.PI * 0.5); // Tip points cleanly toward +Z matching Object3D.lookAt
+
+      const chevMat = new THREE.MeshBasicMaterial({
+        color: chevronColor,
+        transparent: true,
+        opacity: 0.92,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      });
+      const chevInst = new THREE.InstancedMesh(chevGeo, chevMat, markers.length);
+      chevInst.name = `${name}_Chevrons`;
+      chevInst.renderOrder = 5;
+      chevInst.userData.routeKind = routeKind;
+      chevInst.userData.identicalToShortest = identicalToShortest;
+
+      const dummy = new THREE.Object3D();
+      const lookTarget = new THREE.Vector3();
+      for (let i = 0; i < markers.length; i++) {
+        const mk = markers[i];
+        dummy.position.set(mk.pos.x, mk.pos.y + 0.24, mk.pos.z);
+        lookTarget.copy(dummy.position).add(mk.dir);
+        dummy.lookAt(lookTarget);
+        dummy.updateMatrix();
+        chevInst.setMatrixAt(i, dummy.matrix);
+      }
+      chevInst.instanceMatrix.needsUpdate = true;
+      this.pathGroup.add(chevInst);
+      this.disposables.push(chevGeo, chevMat);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -627,7 +929,8 @@ export class HanyangResponseAdapter {
       const shortestGeo = new THREE.BufferGeometry().setFromPoints(shortestWaypoints);
       const shortestMat = new THREE.LineBasicMaterial({
         color: VISUAL_THEME.PATH_SHORTEST,
-        linewidth: 2.0
+        transparent: true,
+        opacity: 0.0
       });
       const shortestLine = new THREE.Line(shortestGeo, shortestMat);
       shortestLine.name = names.shortestLineName || 'Path_Shortest_651m';
@@ -638,12 +941,11 @@ export class HanyangResponseAdapter {
 
       this._addVolumetricRouteMeshes(shortestWaypoints, {
         tubeRadius: 1.55,
-        color: 0xf8fafc,
-        opacity: 0.94,
-        elevOffset: 1.24,
+        color: 0xe2f1ff,
+        opacity: 0.96,
+        elevOffset: 0.50,
         name: 'Ribbon_Shortest_Volume',
         routeKind: 'SHORTEST',
-        chevronStepMeters: 44.0,
         chevronColor: 0x38bdf8
       });
     }
@@ -675,7 +977,8 @@ export class HanyangResponseAdapter {
       const stairGeo = new THREE.BufferGeometry().setFromPoints(stairPoints);
       const stairMat = new THREE.LineBasicMaterial({
         color: VISUAL_THEME.PATH_STAIRS_HAZARD,
-        linewidth: 3.0
+        transparent: true,
+        opacity: 0.0
       });
       const stairLines = new THREE.LineSegments(stairGeo, stairMat);
       stairLines.name = names.stairHazardsName || 'Stairs_Hazard_Segments';
@@ -687,21 +990,23 @@ export class HanyangResponseAdapter {
       for (let i = 0; i < stairSegmentsMeta.length; i++) {
         const sm = stairSegmentsMeta[i];
         const sPts = [
-          new THREE.Vector3(sm.startPos[0], sm.startPos[1] + 1.28, sm.startPos[2]),
-          new THREE.Vector3(sm.endPos[0], sm.endPos[1] + 1.28, sm.endPos[2])
+          new THREE.Vector3(sm.startPos[0], sm.startPos[1] + 0.56, sm.startPos[2]),
+          new THREE.Vector3(sm.endPos[0], sm.endPos[1] + 0.56, sm.endPos[2])
         ];
-        const curve = new THREE.LineCurve3(sPts[0], sPts[1]);
-        const sTubeGeo = new THREE.TubeGeometry(curve, 6, 1.95, 6, false);
+        const stairRib = this._createBeveledRibbonGeometry(sPts, 2.75, 0.34);
+        if (!stairRib) continue;
         const sTubeMat = new THREE.MeshBasicMaterial({
           color: VISUAL_THEME.PATH_STAIRS_HAZARD,
           transparent: true,
-          opacity: 0.90
+          opacity: 0.88,
+          side: THREE.DoubleSide
         });
-        const sTube = new THREE.Mesh(sTubeGeo, sTubeMat);
+        const sTube = new THREE.Mesh(stairRib.geo, sTubeMat);
         sTube.name = `Ribbon_StairHazard_${i}`;
+        sTube.renderOrder = 5;
         sTube.userData.routeKind = 'SHORTEST';
         this.pathGroup.add(sTube);
-        this.disposables.push(sTubeGeo, sTubeMat);
+        this.disposables.push(stairRib.geo, sTubeMat);
       }
     }
 
@@ -725,7 +1030,8 @@ export class HanyangResponseAdapter {
         color: VISUAL_THEME.PATH_STEP_FREE,
         dashSize: 2.0,
         gapSize: 1.0,
-        linewidth: 1.5
+        transparent: true,
+        opacity: 0.0
       });
       const stepFreeLine = new THREE.Line(stepFreeGeo, stepFreeMat);
       stepFreeLine.computeLineDistances();
@@ -739,11 +1045,10 @@ export class HanyangResponseAdapter {
       this._addVolumetricRouteMeshes(stepFreeWaypoints, {
         tubeRadius: 1.28,
         color: 0x38bdf8,
-        opacity: 0.88,
-        elevOffset: 1.06,
+        opacity: 0.90,
+        elevOffset: 0.40,
         name: 'Ribbon_StepFree_Volume',
         routeKind: 'STEP_FREE',
-        chevronStepMeters: 48.0,
         chevronColor: 0xe0f2fe,
         identicalToShortest
       });
@@ -900,22 +1205,56 @@ export class HanyangResponseAdapter {
     });
   }
 
+  setRouteProgress(normalizedT = 0.0) {
+    this.routeProgressT = Math.max(0.0, Math.min(1.0, Number.isFinite(normalizedT) ? normalizedT : 0.0));
+    for (const mat of this.routeRibbonMaterials) {
+      if (mat?.uniforms?.uProgress) {
+        mat.uniforms.uProgress.value = this.routeProgressT;
+      }
+    }
+  }
+
+  update(elapsedSec = 0) {
+    for (const mat of this.routeRibbonMaterials) {
+      if (mat?.uniforms?.uTime) {
+        mat.uniforms.uTime.value = elapsedSec;
+      }
+    }
+  }
+
   /**
    * Adjust high-contrast evacuation tube colors cleanly between Nocturnal Night
    * and Daylight Reference themes.
    */
   setThemeColors(isDay = false) {
-    const shortestTube = this.pathGroup.getObjectByName('Ribbon_Shortest_Volume');
-    if (shortestTube?.material) {
-      shortestTube.material.color.setHex(isDay ? 0x0f766e : 0xf8fafc);
-    }
-    const stepFreeTube = this.pathGroup.getObjectByName('Ribbon_StepFree_Volume');
-    if (stepFreeTube?.material) {
-      stepFreeTube.material.color.setHex(isDay ? 0x0284c7 : 0x38bdf8);
-    }
+    const applyRibbonPalette = (mesh, opts) => {
+      const m = mesh?.material;
+      if (!m) return;
+      if (m.uniforms) {
+        m.uniforms.uCoreColor.value.setHex(opts.core);
+        m.uniforms.uCasingColor.value.setHex(opts.casing);
+        m.uniforms.uWalkedColor.value.setHex(opts.walked);
+        m.uniforms.uChevronColor.value.setHex(opts.chevron);
+      } else if (m.color?.setHex) {
+        m.color.setHex(opts.core);
+      }
+    };
+
+    applyRibbonPalette(this.pathGroup.getObjectByName('Ribbon_Shortest_Volume'), isDay
+      ? { core: 0x0d9488, casing: 0x0f3b38, walked: 0x94a3b8, chevron: 0xffffff }
+      : { core: 0xe2f1ff, casing: 0x08111f, walked: 0x334155, chevron: 0x38bdf8 }
+    );
+    applyRibbonPalette(this.pathGroup.getObjectByName('Ribbon_StepFree_Volume'), isDay
+      ? { core: 0x0284c7, casing: 0x073b5c, walked: 0x94a3b8, chevron: 0xe0f2fe }
+      : { core: 0x38bdf8, casing: 0x071424, walked: 0x334155, chevron: 0xe0f2fe }
+    );
     const chevShort = this.pathGroup.getObjectByName('Ribbon_Shortest_Volume_Chevrons');
-    if (chevShort?.material) {
+    if (chevShort?.material?.color) {
       chevShort.material.color.setHex(isDay ? 0xffffff : 0x38bdf8);
+    }
+    const chevStep = this.pathGroup.getObjectByName('Ribbon_StepFree_Volume_Chevrons');
+    if (chevStep?.material?.color) {
+      chevStep.material.color.setHex(isDay ? 0xffffff : 0xe0f2fe);
     }
   }
 
@@ -970,6 +1309,7 @@ export class HanyangResponseAdapter {
     this.config.selectedFloor = this.facility.defaultFloor ?? 3;
 
     this.routePolylines = { SHORTEST: [], STEP_FREE: [] };
+    this.routeRibbonMaterials = [];
     this.pathGroup = new THREE.Group();
     this.pathGroup.name = 'PedestrianPathsGroup';
     this.shelterGroup = new THREE.Group();
@@ -997,6 +1337,7 @@ export class HanyangResponseAdapter {
     this.disposables.length = 0;
     this.floorGroups.clear();
     this.routePolylines = { SHORTEST: [], STEP_FREE: [] };
+    this.routeRibbonMaterials = [];
     this.pathGroup = new THREE.Group();
     this.pathGroup.name = 'PedestrianPathsGroup';
     this.shelterGroup = new THREE.Group();

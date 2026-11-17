@@ -715,6 +715,7 @@ export class BuildingProvider {
     }
 
     const obbRawList = [];
+    const buildingPolygons = [];
     const namedBuildings = [];
 
     for (const el of elements) {
@@ -747,11 +748,31 @@ export class BuildingProvider {
       const rawLvls = parseFloat(String(tags['building:levels'] || '').replace(/[^0-9.]/g, ''));
       const hasKnownHeight = Number.isFinite(rawH) && rawH >= 3 && rawH <= 260;
       const hasKnownLevels = Number.isFinite(rawLvls) && rawLvls >= 1 && rawLvls <= 80;
-      // Preserve explicit visual hint ONLY if height/levels unavailable without falsely marking it measured
-      const visualHeightMeters = hasKnownHeight ? rawH : hasKnownLevels ? Number((rawLvls * 3.3).toFixed(1)) : 8.5;
+      // Deterministic morphological hint ONLY when OSM lacks explicit height/levels (never marks unverified height as verified)
+      let visualHeightMeters = hasKnownHeight ? rawH : hasKnownLevels ? Number((rawLvls * 3.3).toFixed(1)) : null;
+      if (visualHeightMeters === null) {
+        const bTag = tags.building || '';
+        const hHash = (Math.imul(Number(el.id) || 1, 2654435761) >>> 0) / 4294967296;
+        if (bTag === 'apartments') {
+          visualHeightMeters = Number((18.0 + hHash * 15.0).toFixed(1));
+        } else if (bTag === 'commercial' || bTag === 'retail' || bTag === 'public' || tags.amenity === 'hospital') {
+          visualHeightMeters = Number((8.5 + Math.min(11.0, area * 0.007) + hHash * 4.0).toFixed(1));
+        } else if (bTag === 'industrial' || bTag === 'warehouse') {
+          visualHeightMeters = Number((7.2 + hHash * 3.8).toFixed(1));
+        } else {
+          visualHeightMeters = Number((4.8 + Math.min(4.0, area * 0.012) + hHash * 2.8).toFixed(1));
+        }
+      }
 
       const wingObbs = decomposePolygonToOBBs(clean, visualHeightMeters);
       const groundY = sampleGridHeightAt(terrainGrid, cE, cN);
+      let minCornerY = groundY;
+      for (let k = 0; k < clean.length; k++) {
+        const cy = sampleGridHeightAt(terrainGrid, clean[k][0], clean[k][1]);
+        if (cy < minCornerY) minCornerY = cy;
+      }
+      // Match rooftop elevation against centroid so steep hill buildings anchor into ground cleanly without shrinking skyline height
+      const topElevOffset = Math.max(0, groundY - minCornerY);
 
       const bName = tags['name:ko'] || tags.name || tags['addr:housename'] || null;
       const bObj = {
@@ -790,12 +811,26 @@ export class BuildingProvider {
         });
       }
 
+      buildingPolygons.push({
+        buildingId: bObj.id,
+        name: bObj.name,
+        ptsEN: clean,
+        east_m: bObj.east_m,
+        north_m: bObj.north_m,
+        width_m: bObj.width_m,
+        depth_m: bObj.depth_m,
+        yaw_rad: bObj.yaw_rad,
+        height_m: Number((visualHeightMeters + topElevOffset * 0.5).toFixed(2)),
+        groundY_m: Number(minCornerY.toFixed(2))
+      });
+
       if (bName || namedBuildings.length < 60) {
         namedBuildings.push(bObj);
       }
     }
 
     obbRawList.sort((a, b) => b.height_m - a.height_m);
+    buildingPolygons.sort((a, b) => b.height_m - a.height_m);
     const obbFloat32 = new Float32Array(obbRawList.length * 6);
     const groundOffsets = new Float32Array(obbRawList.length);
     for (let i = 0; i < obbRawList.length; i++) {
@@ -815,6 +850,7 @@ export class BuildingProvider {
 
     return {
       obbRawList,
+      buildingPolygons,
       obbBuildingsFloat32: obbFloat32,
       obbGroundOffsets: groundOffsets,
       obbLodCounts: { overviewCount, fullCount: obbRawList.length, stride: 6 },
@@ -954,11 +990,14 @@ export class RoadNetworkProvider {
       }
 
       const isGreen = tags.leisure === 'park' || tags.leisure === 'pitch' || tags.leisure === 'stadium' ||
-        tags.landuse === 'grass' || tags.landuse === 'recreation_ground' || tags.amenity === 'school';
+        tags.leisure === 'garden' || tags.landuse === 'grass' || tags.landuse === 'meadow' ||
+        tags.landuse === 'recreation_ground' || tags.landuse === 'forest' ||
+        tags.natural === 'wood' || tags.natural === 'scrub';
+      const spawnsTrees = isGreen && tags.leisure !== 'stadium' && tags.leisure !== 'pitch';
       if (isGreen && ptsEN.length >= 3 && polygonArea2D(ptsEN) >= 220) {
         greenPolygons.push(ptsEN);
         const { nx, nz, halfExtentMeters: gh, greenMask } = terrainGrid;
-        if (greenMask && gh > 0) {
+        if (spawnsTrees && greenMask && gh > 0) {
           const span = gh * 2;
           const i0 = Math.max(0, Math.floor(((minE + gh) / span) * nx));
           const i1 = Math.min(nx, Math.ceil(((maxE + gh) / span) * nx));

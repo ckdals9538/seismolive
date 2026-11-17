@@ -92,7 +92,8 @@ export class ExhibitionModeManager {
       this.controller = null;
       this.localSpatialLayer = new LocalSpatialMapLayer(this.localWorldGroup, {
         spatialPackage: options.spatialPackage || HANYANG_LOCAL_4KM_PACKAGE,
-        theme: options.theme || 'MONOLITH_NIGHT'
+        theme: options.theme || 'MONOLITH_NIGHT',
+        renderer: this.renderer
       });
       this.router = new PedestrianRoutingEngine({
         useRealMapRouting: true,
@@ -133,6 +134,8 @@ export class ExhibitionModeManager {
       maxPolarAngle: this.controls?.maxPolarAngle,
       controlsEnabled: this.controls?.enabled,
       backgroundHex: this.scene.background?.getHex ? this.scene.background.getHex() : null,
+      environment: this.scene.environment || null,
+      environmentIntensity: this.scene.environmentIntensity,
       fogColorHex: this.scene.fog?.color?.getHex ? this.scene.fog.color.getHex() : null,
       fogDensity: this.scene.fog?.density,
       shadowEnabled: this.renderer?.shadowMap?.enabled,
@@ -167,6 +170,10 @@ export class ExhibitionModeManager {
     }
     if (typeof s.backgroundHex === 'number' && this.scene.background?.setHex) {
       this.scene.background.setHex(s.backgroundHex);
+    }
+    this.scene.environment = s.environment || null;
+    if (typeof s.environmentIntensity === 'number') {
+      this.scene.environmentIntensity = s.environmentIntensity;
     }
     if (typeof s.fogColorHex === 'number' && this.scene.fog?.color?.setHex) {
       this.scene.fog.color.setHex(s.fogColorHex);
