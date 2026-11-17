@@ -501,82 +501,142 @@
      6. LOCAL 3D EVACUATION MAP HUD (Screen 4 — Map-First Naver/Kakao Nav UX)
      ------------------------------------------------------------------------ */
   #evac-header-overlay {
-    top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
-    left: calc(10px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
-    right: calc(10px + var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    position: fixed !important;
+    top: calc(12px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    left: calc(12px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
+    right: auto !important;
     width: auto !important;
     max-width: none !important;
-    padding: 8px 10px 9px !important;
-    border-radius: 15px !important;
-    background: var(--evac-panel-bg) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.42) !important;
-    backdrop-filter: blur(22px) !important;
-    -webkit-backdrop-filter: blur(22px) !important;
-    z-index: 35 !important;
-  }
-
-  #evac-header-overlay:has(#region-search-popover.open) {
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    pointer-events: none !important;
     z-index: 40 !important;
   }
 
-  #evac-header-overlay:has(#region-search-popover.open) .evac-summary-card {
-    visibility: hidden !important;
+  #evac-header-overlay:has(#region-search-popover.open),
+  #evac-header-overlay.is-detail-open {
+    z-index: 60 !important;
   }
 
-  .evac-top-action-row {
-    display: flex !important;
+  /* Symmetrical Row 1 Floating Capsules (Top-Left and Top-Right unified) */
+  #evac-header-overlay .evac-left-capsule,
+  #exhibition-bar .top-capsule {
+    display: inline-flex !important;
     align-items: center !important;
-    gap: 5px !important;
-    margin-bottom: 5px !important;
-    padding-right: 120px !important;
+    flex-wrap: nowrap !important;
+    gap: 3px !important;
+    padding: 2px 4px !important;
+    border-radius: 999px !important;
+    height: 28px !important;
+    min-height: 28px !important;
+    box-sizing: border-box !important;
+    background: rgba(10, 16, 26, 0.72) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
   }
 
-  .region-picker-wrap {
+  .evac-hud-root.theme-day #evac-header-overlay .evac-left-capsule,
+  .evac-hud-root.theme-day #exhibition-bar .top-capsule {
+    background: rgba(248, 250, 252, 0.9) !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08) !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule .top-divider {
+    display: inline-block !important;
+    width: 1px !important;
+    height: 12px !important;
+    margin: 0 1px !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .evac-hud-root.theme-day #evac-header-overlay .evac-left-capsule .top-divider {
+    background: rgba(15, 23, 42, 0.16) !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule .region-picker-wrap {
     flex: 0 1 auto !important;
     min-width: 0 !important;
   }
 
-  .region-switcher-btn {
-    max-width: 100% !important;
-    min-height: 28px !important;
-    height: 28px !important;
-    padding: 0 8px !important;
-    font-size: 10.5px !important;
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher {
+    min-height: 22px !important;
+    height: 22px !important;
+    padding: 0 7px !important;
     gap: 4px !important;
+    font-size: 10.5px !important;
+    font-weight: 500 !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    min-width: 0 !important;
+    color: var(--evac-ink) !important;
   }
 
-  #region-active-label {
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher.open,
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher:hover {
+    background: var(--evac-sky-soft) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: var(--evac-sky) !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #region-active-label {
     min-width: 0 !important;
-    max-width: 112px !important;
+    max-width: 82px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
+    color: var(--evac-ink) !important;
   }
 
-  /* Hide non-essential mode badge & wave replay clutter on mobile navigation */
-  #analysis-mode-badge,
-  #btn-replay-wave {
-    display: none !important;
-  }
-
-  #btn-toggle-context-details {
-    min-height: 28px !important;
-    height: 28px !important;
-    padding: 0 8px !important;
+  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details {
+    min-height: 22px !important;
+    height: 22px !important;
+    padding: 0 7px !important;
     font-size: 10px !important;
-    flex-shrink: 0 !important;
+    font-weight: 500 !important;
+    border-radius: 999px !important;
     white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    color: var(--evac-muted) !important;
   }
 
+  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details.active {
+    background: var(--evac-sky-soft) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+    color: var(--evac-sky) !important;
+  }
+
+  /* Location Popover anchored below Row 1 with fixed 12px screen margins (Zero overflow) */
   #region-search-popover {
-    z-index: 41 !important;
-    top: calc(100% + 10px) !important;
-    left: -10px !important;
-    width: calc(100vw - 20px - var(--safe-left, 0px) - var(--safe-right, 0px)) !important;
-    max-width: none !important;
-    max-height: min(36dvh, 250px) !important;
-    padding: 10px 11px !important;
+    position: fixed !important;
+    top: calc(48px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    left: calc(12px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
+    right: calc(12px + var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    width: auto !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    z-index: 60 !important;
+    box-sizing: border-box !important;
+    max-height: min(44dvh, 290px) !important;
+    padding: 11px 12px !important;
     gap: 8px !important;
     border-radius: 14px !important;
     background: rgba(10, 16, 28, 0.985) !important;
@@ -584,6 +644,7 @@
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.68) !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    pointer-events: auto !important;
   }
 
   .evac-hud-root.theme-day #region-search-popover {
@@ -644,25 +705,54 @@
     display: none !important;
   }
 
-  .evac-summary-card {
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .evac-summary-top-meta,
-  #quake-impact-summary,
-  #data-quality-strip {
+  /* Detail Card anchored below Row 1 (Zero overlap with top-right UI) */
+  #evac-header-overlay .evac-summary-card {
     display: none !important;
+    visibility: hidden !important;
+    position: fixed !important;
+    top: calc(48px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    left: calc(12px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
+    right: calc(12px + var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    width: auto !important;
+    max-width: 420px !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+    max-height: min(56dvh, calc(100dvh - 180px)) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 12px 14px !important;
+    border-radius: 14px !important;
+    background: var(--evac-panel-bg) !important;
+    border: 1px solid var(--evac-hairline) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55) !important;
+    z-index: 55 !important;
+    pointer-events: auto !important;
   }
 
-  #evac-header-overlay:has(#evac-context-drawer.is-open) #quake-impact-summary,
-  #evac-header-overlay:has(#evac-context-drawer.is-open) #data-quality-strip {
+  #evac-header-overlay.is-detail-open .evac-summary-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    visibility: visible !important;
+  }
+
+  #evac-header-overlay:has(#region-search-popover.open) .evac-summary-card {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #evac-header-overlay .evac-summary-card .evac-summary-top-meta {
     display: flex !important;
   }
 
-  #evac-route-headline {
+  #evac-header-overlay .evac-summary-card .header-eyebrow {
+    display: inline-flex !important;
+    white-space: nowrap !important;
+  }
+
+  #evac-header-overlay .evac-summary-card .header-route-headline {
     font-size: 13.5px !important;
     font-weight: 600 !important;
     line-height: 1.32 !important;
@@ -674,33 +764,51 @@
     overflow: hidden !important;
   }
 
-  #evac-context-drawer.is-open {
-    margin-top: 6px !important;
+  #evac-header-overlay.is-detail-open .evac-summary-card #evac-context-drawer {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+    margin-top: 4px !important;
     padding-top: 6px !important;
-    max-height: 30dvh !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch !important;
+    border-top: 1px solid var(--evac-hairline) !important;
   }
 
-  /* Tuck handoff strip on phone until user taps "근거 ⓘ" */
-  #handoff-context-strip.is-visible:not(.is-mobile-expanded) {
+  #evac-header-overlay:not(.is-detail-open) #handoff-context-strip {
     display: none !important;
   }
 
-  #handoff-context-strip.is-visible.is-mobile-expanded {
-    margin-top: 6px !important;
-    padding: 7px 8px !important;
+  #evac-header-overlay.is-detail-open #handoff-context-strip.is-visible {
+    display: block !important;
+    margin-top: 4px !important;
+    padding: 6px 8px !important;
     border-radius: 10px !important;
+  }
+
+  #evac-header-overlay .evac-detail-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 5px !important;
+    margin-top: 4px !important;
+    padding-top: 6px !important;
+    border-top: 1px solid var(--evac-hairline) !important;
   }
 
   /* Row 1 Top-Right Minimal Floating Capsule: ONLY Day/Night Theme + Back to Globe */
   #exhibition-bar {
     position: fixed !important;
-    top: calc(15px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    top: calc(12px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
     left: auto !important;
-    right: calc(18px + var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    right: calc(12px + var(--safe-right, env(safe-area-inset-right, 0px))) !important;
     width: auto !important;
     max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
     z-index: 42 !important;
   }
 
@@ -976,145 +1084,5 @@
     font-size: 10px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-  }
-
-  /* Unified Top-Left Pill Capsule & Collapsible Detail Sheet (v6.4) */
-  #evac-header-overlay {
-    top: calc(15px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
-    left: calc(18px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
-    right: auto !important;
-    width: auto !important;
-    max-width: calc(100vw - 36px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
-    z-index: 40 !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule {
-    display: inline-flex !important;
-    align-items: center !important;
-    flex-wrap: nowrap !important;
-    gap: 3px !important;
-    width: auto !important;
-    max-width: calc(100vw - 156px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
-    padding: 2px 3px !important;
-    border-radius: 999px !important;
-    background: rgba(10, 16, 26, 0.72) !important;
-    border: 1px solid rgba(255, 255, 255, 0.12) !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-  }
-
-  .evac-hud-root.theme-day #evac-header-overlay .evac-left-capsule {
-    background: rgba(248, 250, 252, 0.9) !important;
-    border-color: rgba(15, 23, 42, 0.12) !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule .top-divider {
-    display: inline-block !important;
-    width: 1px !important;
-    height: 12px !important;
-    margin: 0 1px !important;
-    flex-shrink: 0 !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule #btn-region-switcher {
-    min-height: 24px !important;
-    height: 24px !important;
-    padding: 0 7px !important;
-    gap: 4px !important;
-    font-size: 10.5px !important;
-    border-radius: 999px !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    min-width: 0 !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule #btn-region-switcher.open,
-  #evac-header-overlay .evac-left-capsule #btn-region-switcher:hover {
-    background: var(--evac-sky-soft) !important;
-    border-color: rgba(56, 189, 248, 0.35) !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule #region-active-label {
-    max-width: 78px !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    white-space: nowrap !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details {
-    min-height: 24px !important;
-    height: 24px !important;
-    padding: 0 7px !important;
-    font-size: 10px !important;
-    border-radius: 999px !important;
-    white-space: nowrap !important;
-    flex-shrink: 0 !important;
-    background: transparent !important;
-    border: 1px solid transparent !important;
-    box-shadow: none !important;
-  }
-
-  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details.active {
-    background: var(--evac-sky-soft) !important;
-    border-color: rgba(56, 189, 248, 0.45) !important;
-    color: var(--evac-sky) !important;
-  }
-
-  #evac-header-overlay #region-search-popover {
-    top: calc(100% + 8px) !important;
-    left: 0 !important;
-  }
-
-  #evac-header-overlay .evac-summary-card {
-    display: none !important;
-    visibility: hidden !important;
-    width: calc(100vw - 36px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
-    max-width: 360px !important;
-    max-height: 58dvh !important;
-    overflow-y: auto !important;
-    margin-top: 8px !important;
-    padding: 11px 13px !important;
-    border-radius: 14px !important;
-  }
-
-  #evac-header-overlay.is-detail-open .evac-summary-card {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 6px !important;
-    visibility: visible !important;
-  }
-
-  #evac-header-overlay:has(#region-search-popover.open) .evac-summary-card {
-    display: none !important;
-    visibility: hidden !important;
-  }
-
-  #evac-header-overlay .evac-summary-card .evac-summary-top-meta {
-    display: flex !important;
-  }
-
-  #evac-header-overlay .evac-summary-card .header-eyebrow {
-    display: inline-flex !important;
-  }
-
-  #evac-header-overlay.is-detail-open .evac-summary-card #evac-context-drawer {
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 4px !important;
-  }
-
-  #evac-header-overlay:not(.is-detail-open) #handoff-context-strip {
-    display: none !important;
-  }
-
-  #evac-header-overlay.is-detail-open #handoff-context-strip.is-visible {
-    display: block !important;
-  }
-
-  #evac-header-overlay .evac-detail-actions {
-    flex-wrap: wrap !important;
   }
 }

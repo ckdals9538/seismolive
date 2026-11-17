@@ -125,47 +125,45 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
 
     <header id="evac-header-overlay">
       <div class="top-capsule evac-left-capsule">
-        <div class="region-picker-wrap">
-          <button type="button" class="ctrl-btn region-switcher-btn" id="btn-region-switcher" title="지역 검색 · 내 위치(GPS) · 지진 시나리오 전환">
-            <span class="reg-tag">위치</span>
-            <span id="region-active-label">지역 선택 필요</span>
-            <span class="reg-caret">▾</span>
-          </button>
-
-          <div id="region-search-popover" aria-label="분석 위치 선택">
-            <form class="region-search-form" id="korea-region-search-form">
-              <input type="search" id="korea-region-search-input" class="region-search-input"
-                placeholder="지역명 또는 위·경도" aria-label="지명 또는 좌표 입력" />
-              <button type="submit" class="region-search-submit">이동</button>
-              <button type="button" class="gps-locate-btn" id="btn-locate-me" title="현재 브라우저 GPS 위치 기준 분석">현위치(GPS)</button>
-            </form>
-            <div id="region-search-results"></div>
-            <div class="lab-title">국내 주요 지역 (자유 모드)</div>
-            <div class="region-chips-grid" id="region-chips-grid"></div>
-
-            <div class="region-popover-scenario-section">
-              <div class="lab-title" style="margin-top:6px;">적용 지진 맥락 (관측 · 역사 · 교육용 일반 가정)</div>
-              <div class="scenario-mode-row" id="scenario-preset-list"></div>
-            </div>
-            <div class="dev-only-control">
-              <div class="lab-title" style="margin-top:8px;">[개발 진단] 임의 단층 수치 입력</div>
-              <div class="custom-quake-grid" aria-label="개발 진단용 가상 지진">
-                <input type="number" step="0.001" id="custom-epi-lat" class="custom-quake-input" placeholder="진앙 위도" aria-label="진앙 위도" />
-                <input type="number" step="0.001" id="custom-epi-lon" class="custom-quake-input" placeholder="진앙 경도" aria-label="진앙 경도" />
-                <input type="number" step="0.1" min="2.0" max="9.0" id="custom-mag" class="custom-quake-input" value="5.4" placeholder="규모 M" aria-label="지진 규모" />
-                <input type="number" step="1" min="1" max="300" id="custom-depth" class="custom-quake-input" value="12" placeholder="깊이 km" aria-label="진원 깊이" />
-              </div>
-              <div style="display:flex; gap:6px; margin-top:4px;">
-                <button type="button" class="region-search-submit" style="flex:1;" id="btn-apply-custom-quake">수치 가정 적용</button>
-                <button type="button" class="gps-locate-btn" id="btn-snap-local-quake" title="현재 분석 위치 북동측 5km 가상 진앙 설정">현지역 근거리 가정</button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <button type="button" class="ctrl-btn region-switcher-btn" id="btn-region-switcher" title="지역 검색 · 내 위치(GPS) · 지진 시나리오 전환">
+          <span class="reg-tag">위치</span>
+          <span id="region-active-label">지역 선택 필요</span>
+          <span class="reg-caret">▾</span>
+        </button>
 
         <span class="top-divider"></span>
         <button type="button" class="ctrl-btn" id="btn-toggle-context-details" aria-expanded="false" title="대피 경로 요약 · 지진 출처 · 진동 파동 · 진앙 주변 보기">상세 <span class="reg-caret">▾</span></button>
         <button type="button" class="ctrl-btn" id="btn-handoff-nearest-urban" style="display:none; color:var(--evac-brass); border-color:var(--evac-brass);" title="인근 도심 대피 동선으로 이동"></button>
+      </div>
+
+      <div id="region-search-popover" aria-label="분석 위치 선택">
+        <form class="region-search-form" id="korea-region-search-form">
+          <input type="search" id="korea-region-search-input" class="region-search-input"
+            placeholder="지역명 또는 위·경도" aria-label="지명 또는 좌표 입력" />
+          <button type="submit" class="region-search-submit">이동</button>
+          <button type="button" class="gps-locate-btn" id="btn-locate-me" title="현재 브라우저 GPS 위치 기준 분석">현위치(GPS)</button>
+        </form>
+        <div id="region-search-results"></div>
+        <div class="lab-title">국내 주요 지역 (자유 모드)</div>
+        <div class="region-chips-grid" id="region-chips-grid"></div>
+
+        <div class="region-popover-scenario-section">
+          <div class="lab-title" style="margin-top:6px;">적용 지진 맥락 (관측 · 역사 · 교육용 일반 가정)</div>
+          <div class="scenario-mode-row" id="scenario-preset-list"></div>
+        </div>
+        <div class="dev-only-control">
+          <div class="lab-title" style="margin-top:8px;">[개발 진단] 임의 단층 수치 입력</div>
+          <div class="custom-quake-grid" aria-label="개발 진단용 가상 지진">
+            <input type="number" step="0.001" id="custom-epi-lat" class="custom-quake-input" placeholder="진앙 위도" aria-label="진앙 위도" />
+            <input type="number" step="0.001" id="custom-epi-lon" class="custom-quake-input" placeholder="진앙 경도" aria-label="진앙 경도" />
+            <input type="number" step="0.1" min="2.0" max="9.0" id="custom-mag" class="custom-quake-input" value="5.4" placeholder="규모 M" aria-label="지진 규모" />
+            <input type="number" step="1" min="1" max="300" id="custom-depth" class="custom-quake-input" value="12" placeholder="깊이 km" aria-label="진원 깊이" />
+          </div>
+          <div style="display:flex; gap:6px; margin-top:4px;">
+            <button type="button" class="region-search-submit" style="flex:1;" id="btn-apply-custom-quake">수치 가정 적용</button>
+            <button type="button" class="gps-locate-btn" id="btn-snap-local-quake" title="현재 분석 위치 북동측 5km 가상 진앙 설정">현지역 근거리 가정</button>
+          </div>
+        </div>
       </div>
 
       <div class="evac-summary-card" id="evac-detail-panel" aria-hidden="true">
