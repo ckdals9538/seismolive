@@ -220,6 +220,10 @@ body.theme-day .spatial-map-label.cat-waterway_geo {
   pointer-events: none;
 }
 
+#evac-header-overlay:has(#region-search-popover.open) {
+  z-index: 60;
+}
+
 .evac-top-action-row {
   display: flex;
   flex-wrap: wrap;
@@ -396,6 +400,10 @@ body.theme-day .spatial-map-label.cat-waterway_geo {
 
 #region-search-popover.open {
   display: flex;
+}
+
+#region-search-results:empty {
+  display: none;
 }
 
 .region-search-form {

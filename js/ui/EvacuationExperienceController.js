@@ -132,10 +132,10 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
             <span class="reg-caret">▾</span>
           </button>
 
-          <div id="region-search-popover" aria-label="분석 위치 및 지진 시나리오 설정">
+          <div id="region-search-popover" aria-label="분석 위치 선택">
             <form class="region-search-form" id="korea-region-search-form">
               <input type="search" id="korea-region-search-input" class="region-search-input"
-                placeholder="지명 또는 위도,경도 (예: 속초 또는 38.207, 128.592)" aria-label="지명 또는 좌표 입력" />
+                placeholder="지역명 또는 위·경도" aria-label="지명 또는 좌표 입력" />
               <button type="submit" class="region-search-submit">이동</button>
               <button type="button" class="gps-locate-btn" id="btn-locate-me" title="현재 브라우저 GPS 위치 기준 분석">현위치(GPS)</button>
             </form>
@@ -143,8 +143,10 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
             <div class="lab-title">국내 주요 지역 (자유 모드)</div>
             <div class="region-chips-grid" id="region-chips-grid"></div>
 
-            <div class="lab-title" style="margin-top:6px;">적용 지진 맥락 (관측 · 역사 · 교육용 일반 가정)</div>
-            <div class="scenario-mode-row" id="scenario-preset-list"></div>
+            <div class="region-popover-scenario-section">
+              <div class="lab-title" style="margin-top:6px;">적용 지진 맥락 (관측 · 역사 · 교육용 일반 가정)</div>
+              <div class="scenario-mode-row" id="scenario-preset-list"></div>
+            </div>
             <div class="dev-only-control">
               <div class="lab-title" style="margin-top:8px;">[개발 진단] 임의 단층 수치 입력</div>
               <div class="custom-quake-grid" aria-label="개발 진단용 가상 지진">
@@ -2563,9 +2565,7 @@ export class EvacuationExperienceController {
     this._el('btn-gate-free-mode')?.addEventListener('click', () => {
       this.session?.setEntryMode(EXPERIENCE_ENTRY_MODES.FREE_MODE);
       this._hideEntryModeGate();
-      this._el('region-search-popover')?.classList.add('open');
-      this._el('btn-region-switcher')?.classList.add('open');
-      this._el('korea-region-search-input')?.focus();
+      this._setRegionPopoverOpen(true);
       this._updateModeAndHandoffUi();
     });
     this._qAll('.emg-quick-chip').forEach(btn => {
@@ -2603,9 +2603,7 @@ export class EvacuationExperienceController {
     });
     this._el('btn-handoff-pick-region')?.addEventListener('click', () => {
       this._hideEntryModeGate();
-      this._el('region-search-popover')?.classList.add('open');
-      this._el('btn-region-switcher')?.classList.add('open');
-      this._el('korea-region-search-input')?.focus();
+      this._setRegionPopoverOpen(true);
     });
     this._el('btn-handoff-nearest-urban')?.addEventListener('click', () => {
       const btn = this._el('btn-handoff-nearest-urban');
@@ -2632,9 +2630,7 @@ export class EvacuationExperienceController {
     });
     this._el('btn-erc-pick-region')?.addEventListener('click', () => {
       this._hideEntryModeGate();
-      this._el('region-search-popover')?.classList.add('open');
-      this._el('btn-region-switcher')?.classList.add('open');
-      this._el('korea-region-search-input')?.focus();
+      this._setRegionPopoverOpen(true);
     });
 
     // Nationwide Korea Region Switcher Popover (피드백 6)
@@ -2642,9 +2638,8 @@ export class EvacuationExperienceController {
     const regPopover = this._el('region-search-popover');
     regBtn?.addEventListener('click', e => {
       e.stopPropagation();
-      const isOpen = regPopover?.classList.toggle('open');
-      regBtn.classList.toggle('open', Boolean(isOpen));
-      if (isOpen) this._el('korea-region-search-input')?.focus();
+      const willOpen = !regPopover?.classList.contains('open');
+      this._setRegionPopoverOpen(willOpen);
     });
     this._el('korea-region-search-form')?.addEventListener('submit', e => {
       e.preventDefault();
@@ -2755,6 +2750,7 @@ export class EvacuationExperienceController {
       const drawer = this._el('evac-context-drawer');
       if (!drawer) return;
       const open = drawer.classList.toggle('is-open');
+      if (open) this._setRegionPopoverOpen(false);
       drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
       btn?.classList.toggle('active', open);
       btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
@@ -2965,6 +2961,18 @@ export class EvacuationExperienceController {
         window.addEventListener('pointerup', this._onWindowRouteScrubEnd);
         window.addEventListener('resize', this._onWindowResizeSync);
       }
+    }
+
+    this._onDocumentPointerDownOutsidePopover = e => {
+      const pop = this._el('region-search-popover');
+      if (!pop?.classList.contains('open')) return;
+      if (e.target?.closest?.('#region-search-popover, #btn-region-switcher, #btn-handoff-pick-region, #btn-erc-pick-region, #btn-gate-free-mode')) {
+        return;
+      }
+      this._setRegionPopoverOpen(false);
+    };
+    if (typeof document !== 'undefined') {
+      document.addEventListener('pointerdown', this._onDocumentPointerDownOutsidePopover);
     }
 
     this._el('btn-compass-north')?.addEventListener('click', () => {
@@ -3251,6 +3259,28 @@ export class EvacuationExperienceController {
     };
   }
 
+  _setRegionPopoverOpen(open, { focusDesktop = true } = {}) {
+    const pop = this._el('region-search-popover');
+    const btn = this._el('btn-region-switcher');
+    const next = Boolean(open);
+    pop?.classList.toggle('open', next);
+    btn?.classList.toggle('open', next);
+    if (next) {
+      const drawer = this._el('evac-context-drawer');
+      if (drawer?.classList.contains('is-open')) {
+        drawer.classList.remove('is-open');
+        drawer.setAttribute('aria-hidden', 'true');
+        this._el('btn-toggle-context-details')?.classList.remove('active');
+        this._el('btn-toggle-context-details')?.setAttribute('aria-expanded', 'false');
+        this._el('handoff-context-strip')?.classList.remove('is-mobile-expanded');
+      }
+      // Avoid auto-opening mobile keyboard on phone taps when preset chips are right inside the popover.
+      if (focusDesktop && (typeof window === 'undefined' || window.innerWidth > 640)) {
+        this._el('korea-region-search-input')?.focus();
+      }
+    }
+  }
+
   dispose() {
     if (this.briefTimerId) clearTimeout(this.briefTimerId);
     if (this._onWindowRouteScrubEnd && typeof window !== 'undefined') {
@@ -3258,6 +3288,9 @@ export class EvacuationExperienceController {
     }
     if (this._onWindowResizeSync && typeof window !== 'undefined') {
       window.removeEventListener('resize', this._onWindowResizeSync);
+    }
+    if (this._onDocumentPointerDownOutsidePopover && typeof document !== 'undefined') {
+      document.removeEventListener('pointerdown', this._onDocumentPointerDownOutsidePopover);
     }
     if (this.domElement) {
       this.domElement.removeEventListener('pointerdown', this._onPointerDown);
