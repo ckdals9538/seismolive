@@ -268,7 +268,7 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
           <div id="field-audit-drawer">
             <div style="display:flex; justify-content:space-between; margin-bottom:6px; border-bottom:1px solid var(--evac-hairline); padding-bottom:4px;">
               <strong style="color:var(--evac-ink);">F-01~F-06 점검</strong>
-              <span id="field-audit-overall" style="color:var(--evac-muted);">PROVISIONAL (0/6)</span>
+              <span id="field-audit-overall" style="color:var(--evac-muted);">현장 확인 전 (0/6)</span>
             </div>
             <div id="field-audit-list" style="display:flex; flex-direction:column; gap:3px;"></div>
             <div class="lab-row" style="margin-top:8px;">
@@ -356,7 +356,7 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
             <svg id="walk-play-icon" viewBox="0 0 16 16"><path d="M4 2.5l9 5.5-9 5.5z"/></svg>
             <span id="walk-play-label">동선 안내</span>
           </button>
-          <button type="button" class="follow-btn" id="btn-follow-cam" title="보행자를 따라 3D 시점이 함께 이동합니다">시점 추적</button>
+          <button type="button" class="follow-btn" id="btn-follow-cam" title="보행자를 따라 3D 시점이 함께 이동합니다">시점 따라가기</button>
           <div class="scrubber-wrap">
             <input type="range" id="route-scrubber" min="0" max="1000" value="0" step="1" aria-label="대피 경로 위치 조절" />
           </div>
@@ -418,7 +418,7 @@ export class EvacuationExperienceController {
           initialFacilityPackage: DEFAULT_HANYANG_FACILITY_PACKAGE,
           dataCompleteness: 'SUFFICIENT',
           dataLimitations: [
-            '제1공학관(212동)은 파일럿 3층 실내망(PROVISIONAL 현장 검증 대상)을 포함합니다.',
+            '제1공학관(212동)은 파일럿 3층 실내망(현장 검증 대기)을 포함합니다.',
             '701동 HIT 및 104동 백남학술정보관은 실측 외곽 기반 출발점이며 상세 전층 평면도는 미포함입니다.'
           ],
           destinationAssessment: {
@@ -2450,7 +2450,7 @@ export class EvacuationExperienceController {
     if (this.hazardPolyActive) {
       this.uiAdapter.addAvoidPolygon({
         id: 'HAZARD_POLY_STAIR_CORRIDOR',
-        name: '노천극장·외벽 낙하물 주의 구역 (PROVISIONAL)',
+        name: '노천극장·외벽 낙하물 주의 구역 (현장 미검증 추정치)',
         mode: 'BLOCK',
         polygonXZ: [[-12, 15], [48, 15], [48, 105], [-12, 105]],
         exemptEdgeIds: ['NODE_EXIT_1F_SE->OSM_NODE_6415394841']
@@ -2532,7 +2532,10 @@ export class EvacuationExperienceController {
       const auditOverall = this._el('field-audit-overall');
       const auditList = this._el('field-audit-list');
       if (auditBtn) auditBtn.textContent = `체크리스트 열기 (${fc.verifiedCount}/${fc.totalCount})`;
-      if (auditOverall) auditOverall.textContent = `${fc.overallStatus} (${fc.verifiedCount}/${fc.totalCount})`;
+      if (auditOverall) {
+        const overallLabel = fc.overallStatus === 'VERIFIED' ? '현장 확인 완료' : fc.overallStatus === 'PARTIALLY_VERIFIED' ? '일부 확인' : '현장 확인 전';
+        auditOverall.textContent = `${overallLabel} (${fc.verifiedCount}/${fc.totalCount})`;
+      }
       if (auditList) {
         auditList.innerHTML = fc.items.map(it =>
           `<div style="display:flex; justify-content:space-between; gap:8px;">

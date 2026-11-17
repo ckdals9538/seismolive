@@ -46,9 +46,11 @@ export const MONOLITH_SURFACE_GLSL = `
   }
   vec3 monolithOceanAlbedo(float elev) {
     float depthAbsorption = exp(elev * 0.00042);
-    float shelfT = clamp((elev + 3200.0) / 3200.0, 0.0, 1.0);
-    vec3 deepAbyss = mix(vec3(0.004, 0.010, 0.020), vec3(0.016, 0.036, 0.072), depthAbsorption);
-    return mix(deepAbyss, vec3(0.038, 0.100, 0.178), shelfT);
+    float shelfBreakT = smoothstep(-420.0, -18.0, elev);
+    float slopeT = clamp((elev + 3000.0) / 2800.0, 0.0, 1.0);
+    vec3 deepAbyss = mix(vec3(0.008, 0.018, 0.038), vec3(0.024, 0.052, 0.098), depthAbsorption);
+    vec3 midSlope = mix(deepAbyss, vec3(0.038, 0.088, 0.155), slopeT);
+    return mix(midSlope, vec3(0.068, 0.152, 0.242), shelfBreakT);
   }
   vec3 monolithLandAlbedo(float elev, float slopeRelief) {
     float elevNorm = clamp((elev - 25.0) / 1450.0, 0.0, 1.0);
@@ -248,6 +250,13 @@ export const TIER0_GLOBE_FRAGMENT_SHADER = `
     vec3 baseColor;
     if (fragElev < 0.0) {
       baseColor = monolithOceanAlbedo(fragElev);
+      // Reveal submarine continental slope escarpments & archival isobath contours (-200m, -1000m, -2000m)
+      baseColor = mix(baseColor, baseColor * 1.48 + vec3(0.014, 0.028, 0.048), slopeRelief * 0.72);
+      float isobath200  = exp(-pow((fragElev + 200.0) / 22.0, 2.0));
+      float isobath1000 = exp(-pow((fragElev + 1000.0) / 52.0, 2.0));
+      float isobath2000 = exp(-pow((fragElev + 2000.0) / 68.0, 2.0));
+      float bathyContours = clamp(isobath200 * 0.65 + isobath1000 * 0.55 + isobath2000 * 0.45, 0.0, 1.0);
+      baseColor += vec3(0.026, 0.058, 0.094) * bathyContours;
     } else {
       baseColor = monolithLandAlbedo(fragElev, slopeRelief);
     }

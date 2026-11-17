@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>SEISMOLIVE v4.0 — The Continuous Living Earth</title>
+  <title>SEISMOLIVE — 한반도 역사·현대 지진 아카이브 &amp; 대피 안내</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover, interactive-widget=resizes-visual">
   <meta name="theme-color" content="#05080f">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -20,8 +20,8 @@
 
   <!-- Minimal Whispering Gallery Brand (Top-Left) -->
   <div id="gallery-header">
-    <div class="gallery-title">SEISMOLIVE · The Continuous Living Earth</div>
-    <div class="gallery-sub" id="gallery-event-title">한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)</div>
+    <div class="gallery-title">SEISMOLIVE · Living Earth &amp; Seismic Response</div>
+    <div class="gallery-sub" id="gallery-event-title">한반도 역사 지진 사료(삼국·고려·조선) 및 실시간 전 세계 지진 관측</div>
   </div>
 
   <!-- Top-Right Restrained Earth Dock: Main-Globe-Only Location-Aware Response + Quality Toggle -->
@@ -32,7 +32,7 @@
         <span>내 위치 · 지역 대응 ▾</span>
       </button>
       <div id="global-dev-lab-menu">
-        <span class="global-menu-eyebrow">GLOBAL TO LOCAL · 실시간 지역 대응</span>
+        <span class="global-menu-eyebrow">내 주변 대피 · 지역 대응</span>
         <button id="btn-inscene-local-mode" class="global-menu-item is-primary" data-entry-mode="MY_LOCATION" title="브라우저 현재 위치를 확인하여 가장 가까운/최근 지진 영향과 주변 대피 동선을 분석합니다">
           <strong>내 위치 기준 분석 (GPS) ▸</strong>
           <small>현재 위치 기반 자동 시나리오 · 주변 대피 공간 조회</small>
@@ -51,8 +51,8 @@
     </div>
 
     <!-- Adaptive Quality & Classroom PC Optimization Toggle -->
-    <button id="quality-mode-pill" title="고화질 전시 모드와 강의실/저사양 PC 60FPS 최적화 모드를 전환합니다">
-      품질: 고화질 전시 (High)
+    <button id="quality-mode-pill" title="고화질 모드와 저사양·강의실 60FPS 최적화 모드를 전환합니다">
+      화질: 고화질
     </button>
   </div>
 
@@ -63,7 +63,7 @@
 
   <div id="loading-indicator">
     <div class="spinner"></div>
-    <div id="loading-text">Loading Fused Bathymetry-DEM & Wavefield...</div>
+    <div id="loading-text">지구 지형과 지진 데이터를 불러오는 중입니다...</div>
   </div>
 
   <!-- Floating Archival Subtitle (Hanji Ivory, Floating, No Box) -->
@@ -123,7 +123,7 @@
           <span id="discover-btn-label">아카이브 탐색</span>
         </button>
         <button id="btn-toggle-auto-continue" class="surface-btn toggle" title="사건 완료 후 다음 사건으로 자동 이동">
-          <span class="toggle-dot"></span> <span id="auto-continue-text">연속: 끔</span>
+          <span class="toggle-dot"></span> <span id="auto-continue-text">자동 연속: 끔</span>
         </button>
         <button id="btn-surface-audio" class="surface-btn icon" title="음향 토글">
           <span id="surface-audio-icon">🔇</span>
@@ -191,20 +191,20 @@
             <span class="dossier-tab-dot"></span> 01 / 사료 원전 & 8도 감진망
           </button>
           <button class="dossier-tab-btn" data-dossier-tab="hist_academic">
-            <span class="dossier-tab-dot"></span> 02 / 학술 역산 & 사료 비판
+            <span class="dossier-tab-dot"></span> 02 / 학술 해석 & 규모 추정
           </button>
           <button class="dossier-tab-btn" data-dossier-tab="hist_geophysics">
-            <span class="dossier-tab-dot"></span> 03 / 지구물리 현상 & 고증
+            <span class="dossier-tab-dot"></span> 03 / 자연현상 원리 & 지명
           </button>
         </div>
 
         <!-- Instrumental Dossier Tab Bar (2 Focused Seismological Tabs) -->
         <div class="dossier-tab-bar" id="instrumental-tab-bar" role="tablist" style="display:none;">
           <button class="dossier-tab-btn active" data-dossier-tab="inst_source">
-            <span class="dossier-tab-dot"></span> 01 / 단층 파쇄 & 지반 진동 (PGA)
+            <span class="dossier-tab-dot"></span> 01 / 단층 움직임 & 지반 진동
           </button>
           <button class="dossier-tab-btn" data-dossier-tab="inst_geophysics">
-            <span class="dossier-tab-dot"></span> 02 / 지구물리 탐사 & 파동 역학 (S-P · Snell)
+            <span class="dossier-tab-dot"></span> 02 / 지진파 분석 & 청각화
           </button>
         </div>
       </div>
@@ -321,7 +321,7 @@
           </button>
         </div>
         <button id="btn-launch-performance" class="surface-btn primary large">
-          현장 강하 · 3D 지진 파동 감상 →
+          3D 지진 파동 보기 →
         </button>
       </div>
     </div>

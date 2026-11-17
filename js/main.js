@@ -753,7 +753,7 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
           }
         }
         if (gallEvTitle) {
-          gallEvTitle.textContent = "한반도 역사 사료 아카이브 (조선·고려·신라) & USGS 글로벌 관측 (WGS84 통합 구면)";
+          gallEvTitle.textContent = "한반도 역사 지진 사료(삼국·고려·조선) 및 실시간 전 세계 지진 관측";
         }
       } else if (state === 'descending') {
         if (sub && currentParsedEvent) sub.textContent = `${currentParsedEvent.titleKo || currentParsedEvent.place || "진원 지형"}`;
@@ -789,7 +789,13 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       if (gallEvTitle) {
         const titleStr = ev.titleKo || ev.title || "역사지진";
         const dateStr = ev.dateText ? ` (${ev.dateText})` : '';
-        const eraStr = ev.era ? ` · ${ev.era}` : '';
+        const rawEra = String(ev.era || '');
+        const eraLabel = rawEra.includes('HISTORICAL')
+          ? '역사 문헌 기록'
+          : rawEra.includes('INSTRUMENTAL') || rawEra.includes('ERA_2')
+            ? '지진계 계측 관측'
+            : '';
+        const eraStr = eraLabel ? ` · ${eraLabel}` : '';
         gallEvTitle.textContent = `${titleStr}${dateStr}${eraStr}`;
       }
     }
@@ -1921,10 +1927,10 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
         fov: 34
       },
       closeup_maritime_shelf: {
-        name: "SHOT 6: Maritime Shoal & Exposed Continental Shelf Bathymetry (해저 노출)",
-        pos: new THREE.Vector3(-0.08, 0.040, 0.120),
-        lookAt: new THREE.Vector3(-0.170, -0.005, 0.060),
-        fov: 32
+        name: "SHOT 6: 동해 대륙붕·대륙사면(2,000m 심해) & 해일 천해화 조망",
+        pos: new THREE.Vector3(0.14, 0.24, 0.36),
+        lookAt: new THREE.Vector3(-0.18, 0.00, 0.04),
+        fov: 38
       }
     };
 
@@ -2042,8 +2048,8 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       if (pill) {
         pill.classList.toggle('classroom-mode', qualityMode === 'CLASSROOM');
         pill.textContent = (qualityMode === 'CLASSROOM')
-          ? '품질: 최적화 (60fps)'
-          : '품질: 고화질 전시 (High)';
+          ? '화질: 최적화 (60fps)'
+          : '화질: 고화질';
       }
 
       const lat0 = currentParsedEvent?.spatialCoords?.lat ?? 37.95;

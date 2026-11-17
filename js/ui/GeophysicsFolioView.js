@@ -166,7 +166,7 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0, options = {}) {
   return `
     <!-- Section 01: P-S Wavefield & Epicentral Triangulation -->
     <div class="editorial-section">
-      <div class="editorial-sec-header">01 / 진원 탐지 & P-S 파동 주시학 (EPICENTRAL TRIANGULATION & OMORI LAW)</div>
+      <div class="editorial-sec-header">01 / P파·S파 도달 시차를 이용한 진앙 찾기</div>
       <div class="editorial-formula-box">
         <div class="editorial-formula-main">
           d = k · (t_S - t_P) &nbsp;&nbsp;[k = (V_P · V_S) / (V_P - V_S) ≈ ${p.omoriK} km/s] &nbsp;&nbsp;&nbsp;&nbsp; Δ = √(d² - h²)
@@ -189,7 +189,7 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0, options = {}) {
 
     <!-- Section 02: Refraction Seismology & Moho Discontinuity -->
     <div class="editorial-section">
-      <div class="editorial-sec-header">02 / 굴절법 탄성파 탐사 & 모호면 스넬 법칙 (REFRACTION & MOHO HEAD WAVE)</div>
+      <div class="editorial-sec-header">02 / 지층 경계면 굴절파와 모호면 깊이 분석</div>
       <div class="editorial-formula-box">
         <div class="editorial-formula-main">
           sin i_c = V₁ / V₂ = ${(p.V1 / p.V2).toFixed(3)} &nbsp;&nbsp;(임계각 i_c ≈ ${p.icDeg}°) &nbsp;&nbsp;&nbsp;&nbsp; t_head(x) = x / V₂ + t_i
@@ -213,7 +213,7 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0, options = {}) {
 
     <!-- Section 03: Reflection Seismology & Dix Interval Velocity -->
     <div class="editorial-section">
-      <div class="editorial-sec-header">03 / 반사법 탐사 & 공통반사점(CMP) NMO · Dix 속도 역산 (REFLECTION & DIX EQUATION)</div>
+      <div class="editorial-sec-header">03 / 지진파 반사 분석과 지하 지층 속도</div>
       <div class="editorial-formula-box">
         <div class="editorial-formula-main">
           t² = t₀² + x² / V_rms² &nbsp;&nbsp;[t₀ = 2h / V₁ = ${p.t0.toFixed(2)} s] &nbsp;&nbsp;&nbsp;&nbsp; Δt_NMO ≈ x² / (2 V_rms² t₀)
@@ -236,7 +236,7 @@ export function renderGeophysicsFolioHTML(depthKm = 10.0, options = {}) {
 
     <!-- Section 04: Dual-Band Seismic Audification & Official Products -->
     <div class="editorial-section">
-      <div class="editorial-sec-header">04 / 이중 대역 지진파 청각화 &amp; 공식 산출물 검증 (AUDIFICATION &amp; OFFICIAL USGS PRODUCTS)</div>
+      <div class="editorial-sec-header">04 / 지진파 소리 변환(청각화) 및 USGS 공식 자료 확인</div>
       <div class="editorial-formula-box" style="display:flex; flex-direction:column; gap:8px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
           <button id="btn-audify-waveform" type="button" class="surface-btn secondary compact" style="font-size:11px; padding:5px 10px;">
@@ -403,25 +403,25 @@ export function initTravelTimeInteractiveProbe(container, depthKm = 10.0, onProb
   svg.addEventListener('touchend', resetProbe);
 }
 
-export function generateTsunamiBathymetrySVG(params, width = 560, height = 150) {
+export function generateTsunamiBathymetrySVG(params, width = 560, height = 182) {
   const { deepDepthM, coastalDepthM, vDeepKmH, vMidKmH, vCoastKmH, shoalingFactor, travelTimeMin } = params;
 
-  const padL = 40;
-  const padR = 25;
-  const padT = 26;
-  const padB = 25;
+  const padL = 24;
+  const padR = 24;
+  const padT = 34;
+  const padB = 34;
   const plotW = width - padL - padR;
   const plotH = height - padT - padB;
 
-  const ySeaLevel = padT + 22;
-  const yBedDeep = padT + plotH - 6;
-  const yBedSlopeBreak = padT + plotH * 0.65;
-  const yBedShelf = padT + plotH * 0.35;
-  const yBedCoast = ySeaLevel + 4;
+  const ySeaLevel = padT + 26;
+  const yBedDeep = padT + plotH - 4;
+  const yBedSlopeBreak = padT + plotH * 0.62;
+  const yBedShelf = padT + plotH * 0.36;
+  const yBedCoast = ySeaLevel + 2;
 
   const x0 = padL;
-  const x1 = padL + plotW * 0.35;
-  const x2 = padL + plotW * 0.80;
+  const x1 = padL + plotW * 0.34;
+  const x2 = padL + plotW * 0.72;
   const x3 = padL + plotW;
 
   const bedPath = `M ${x0} ${yBedDeep} L ${x1} ${yBedDeep} Q ${(x1 + x2) / 2} ${yBedSlopeBreak} ${x2} ${yBedShelf} L ${x3} ${yBedCoast} L ${x3} ${padT + plotH} L ${x0} ${padT + plotH} Z`;
@@ -429,9 +429,9 @@ export function generateTsunamiBathymetrySVG(params, width = 560, height = 150) 
   const wavePath = `
     M ${x0} ${ySeaLevel}
     L ${x1} ${ySeaLevel}
-    Q ${x1 + plotW * 0.2} ${ySeaLevel - 2} ${x2 - 15} ${ySeaLevel - 4}
-    C ${x2 + 10} ${ySeaLevel - 8} ${x3 - 35} ${ySeaLevel - 16} ${x3 - 22} ${ySeaLevel - 18}
-    C ${x3 - 14} ${ySeaLevel - 18} ${x3 - 8} ${ySeaLevel + 8} ${x3} ${ySeaLevel + 2}
+    Q ${x1 + plotW * 0.18} ${ySeaLevel - 2} ${x2 - 10} ${ySeaLevel - 5}
+    C ${x2 + 25} ${ySeaLevel - 10} ${x3 - 38} ${ySeaLevel - 20} ${x3 - 22} ${ySeaLevel - 22}
+    C ${x3 - 13} ${ySeaLevel - 22} ${x3 - 7} ${ySeaLevel + 7} ${x3} ${ySeaLevel + 2}
   `;
 
   return `
@@ -440,7 +440,7 @@ export function generateTsunamiBathymetrySVG(params, width = 560, height = 150) 
         <linearGradient id="tsunamiWaterGrad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="rgba(30, 60, 100, 0.45)"/>
           <stop offset="70%" stop-color="rgba(30, 85, 140, 0.35)"/>
-          <stop offset="100%" stop-color="rgba(200, 157, 84, 0.20)"/>
+          <stop offset="100%" stop-color="rgba(200, 157, 84, 0.22)"/>
         </linearGradient>
         <linearGradient id="bedrockGrad" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="rgba(20, 24, 32, 0.95)"/>
@@ -449,21 +449,24 @@ export function generateTsunamiBathymetrySVG(params, width = 560, height = 150) 
       </defs>
 
       <polygon points="${x0},${ySeaLevel} ${x1},${ySeaLevel} ${x2},${ySeaLevel} ${x3},${ySeaLevel} ${x3},${yBedCoast} ${x2},${yBedShelf} ${x1},${yBedDeep} ${x0},${yBedDeep}" fill="url(#tsunamiWaterGrad)"/>
-      <path d="${bedPath}" fill="url(#bedrockGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
-      <line x1="${x0}" y1="${ySeaLevel}" x2="${x3}" y2="${ySeaLevel}" stroke="rgba(255,255,255,0.15)" stroke-dasharray="3 3" stroke-width="0.8"/>
-      <path d="${wavePath}" fill="none" stroke="#5EA8FF" stroke-width="1.8"/>
+      <path d="${bedPath}" fill="url(#bedrockGrad)" stroke="rgba(255,255,255,0.22)" stroke-width="1.2"/>
+      <line x1="${x0}" y1="${ySeaLevel}" x2="${x3}" y2="${ySeaLevel}" stroke="rgba(255,255,255,0.18)" stroke-dasharray="3 3" stroke-width="0.9"/>
+      <path d="${wavePath}" fill="none" stroke="#5EA8FF" stroke-width="2"/>
 
-      <text x="${x0 + 15}" y="${padT + 12}" fill="#8797AC" font-size="8.5" font-family="'SF Mono', Menlo, monospace">울릉분지 (심해 ${deepDepthM}m)</text>
-      <text x="${x0 + 15}" y="${ySeaLevel + 16}" fill="#5EA8FF" font-size="8" font-family="'SF Mono', Menlo, monospace">v = ${vDeepKmH} km/h (천해파 초고속 전파)</text>
+      <!-- Left: Ulleung Basin Abyssal Zone -->
+      <text x="${x0 + 6}" y="${padT - 12}" fill="#94A3B8" font-size="9" font-family="'SF Mono', Menlo, monospace">울릉분지 심해 (${deepDepthM}m)</text>
+      <text x="${x0 + 6}" y="${padT + 2}" fill="#5EA8FF" font-size="9" font-family="'SF Mono', Menlo, monospace">v = ${vDeepKmH} km/h (고속 전파)</text>
 
-      <text x="${x2 - 35}" y="${yBedSlopeBreak - 8}" fill="#8797AC" font-size="8" font-family="'SF Mono', Menlo, monospace">대륙사면 (200m)</text>
-      <text x="${x2 - 35}" y="${yBedSlopeBreak + 5}" fill="#BAC3CE" font-size="7.5" font-family="'SF Mono', Menlo, monospace">v = ${vMidKmH} km/h</text>
+      <!-- Middle: Continental Slope Zone -->
+      <text x="${padL + plotW * 0.48}" y="${padT - 12}" fill="#94A3B8" font-size="9" text-anchor="middle" font-family="'SF Mono', Menlo, monospace">대륙사면 (200m)</text>
+      <text x="${padL + plotW * 0.48}" y="${padT + 2}" fill="#CBD5E1" font-size="9" text-anchor="middle" font-family="'SF Mono', Menlo, monospace">v = ${vMidKmH} km/h</text>
 
-      <text x="${x3 - 8}" y="${padT + 10}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">강원 연안 (천해 ${coastalDepthM}m)</text>
-      <text x="${x3 - 8}" y="${padT + 22}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">파고 ${shoalingFactor}배 증폭 · 퇴조(海水退) 후 내습</text>
-      <text x="${x3 - 8}" y="${ySeaLevel + 32}" fill="#8797AC" font-size="7.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">v = ${vCoastKmH} km/h (급격한 감속)</text>
+      <!-- Right: Coastal Shoaling Zone -->
+      <text x="${x3 - 6}" y="${padT - 12}" fill="#E2B96F" font-size="9" font-family="'SF Mono', Menlo, monospace" text-anchor="end">강원 연안 (${coastalDepthM}m · 파고 ${shoalingFactor}배)</text>
+      <text x="${x3 - 6}" y="${padT + 2}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="end">v = ${vCoastKmH} km/h (감속 · 퇴조 후 내습)</text>
 
-      <text x="${(x1 + x2) / 2}" y="${padT + plotH + 16}" fill="#BAC3CE" font-size="8" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">사면 전파 소요 시간: 약 ${travelTimeMin}분 (사료 기록: '잠시 후 해일 내습'과 물리적 일치)</text>
+      <!-- Footer -->
+      <text x="${(x0 + x3) / 2}" y="${height - 10}" fill="#BAC3CE" font-size="9" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">대륙사면 전파 소요 시간: 약 ${travelTimeMin}분 (실록 '잠시 후 해일 내습' 기록과 일치)</text>
     </svg>
   `;
 }

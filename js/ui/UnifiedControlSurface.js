@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { getEventCoords, isHistoricalRecord, getAllLocalizedEvents } from '../data/eventCatalogHelpers.js';
-import { escapeHtml, sanitizeExternalHref } from '../lib/htmlEscape.js';
+import { escapeHtml, sanitizeExternalHref, formatReadableMathHtml } from '../lib/htmlEscape.js';
 import { computeTsunamiHydrodynamicParams } from '../geophysics/TravelTimeSolvers.js';
 import { renderGeophysicsFolioHTML, initTravelTimeInteractiveProbe, generateTsunamiBathymetrySVG } from './GeophysicsFolioView.js';
 import { getUniversalEventMetadata } from '../3d/terrainDataResolver.js';
@@ -659,7 +659,7 @@ export class UnifiedControlSurface {
         const chk = document.getElementById('chk-auto-continue');
         if (btn && txt) {
           btn.classList.toggle('active', this.autoContinue);
-          txt.textContent = this.autoContinue ? "연속: 켬" : "연속: 끔";
+          txt.textContent = this.autoContinue ? "자동 연속: 켬" : "자동 연속: 끔";
         }
         if (chk) {
           chk.checked = this.autoContinue;
@@ -971,7 +971,7 @@ export class UnifiedControlSurface {
         const keyInsightTextEl = document.getElementById('selected-key-insight-text');
         const insight = this.getKeyInsightForEvent(canonicalEv, isHist);
         if (keyInsightTagEl) {
-          keyInsightTagEl.textContent = isHist ? "사료 핵심 통찰 (ARCHIVAL INSIGHT)" : "정밀 계측 핵심 통찰 (SEISMOLOGICAL INSIGHT)";
+          keyInsightTagEl.textContent = isHist ? "핵심 사료 해설" : "핵심 관측 요약";
         }
         if (keyInsightTextEl) {
           keyInsightTextEl.innerHTML = `<strong style="color:#FFFFFF; font-weight:600;">${escapeHtml(insight.title)}:</strong> ${escapeHtml(insight.body)}`;
@@ -1004,7 +1004,7 @@ export class UnifiedControlSurface {
         // Launch & Back Buttons
         if (btnLaunch) {
           if (hasCoords) {
-            btnLaunch.textContent = isHist ? "현장 강하 · 3D 사료 파동 감상 →" : "현장 강하 · 3D 지진 파동 감상 →";
+            btnLaunch.textContent = isHist ? "3D 역사 지진 파동 보기 →" : "3D 지진 파동 보기 →";
           } else {
             btnLaunch.textContent = "사료 궤도 파동 감상 →";
           }
@@ -1152,7 +1152,7 @@ export class UnifiedControlSurface {
           const counties = ev.feltCounties || [];
           if (counties.length > 0) {
             let tableHtml = `
-              <div class="editorial-sec-header">01-B / 8도 광역 감진 고을 네트워크 (HUMAN SENSOR NETWORK)</div>
+              <div class="editorial-sec-header">01-B / 지역별 체감 흔들림 기록 (8도 감진망)</div>
               <div style="font-family:var(--font-mono); font-size:10px; color:var(--mist); margin-bottom:8px; line-height:1.6;">
                 조선 8도 고을 수령 및 백성의 목격 사료를 바탕으로 복원된 거시 진도(MMI) 및 거리별 지진동 감쇠 데이터
               </div>
@@ -1217,7 +1217,7 @@ export class UnifiedControlSurface {
           const mc = ev.methodologicalCorrections;
           if (mc) {
             methodSection.innerHTML = `
-              <div class="editorial-sec-header">02-A / 사료 비판 4대 학술 보정 체계 (METHODOLOGICAL CORRECTIONS)</div>
+              <div class="editorial-sec-header">02-A / 역사 기록 해석의 4가지 보정 기준</div>
               <div style="font-family:var(--font-mono); font-size:10px; color:var(--mist); line-height:1.6; margin-bottom:4px;">
                 문헌 기록의 정성적 수사와 조선시대 보고 체계의 특성을 현대 과학 데이터로 엄밀하게 전환하기 위해 적용된 4대 비판 기준
               </div>
@@ -1262,10 +1262,10 @@ export class UnifiedControlSurface {
         if (scholarBox) {
           const interps = ev.interpretations || ev.scientificEstimates || [];
           let scholarHtml = `
-            <div class="editorial-sec-header">02-B / 복수 지진학자 경험식 및 규모 추정 매트릭스 (SCHOLAR INVERSION)</div>
+            <div class="editorial-sec-header">02-B / 연구자별 추정 규모 및 진도 비교</div>
             <div class="editorial-formula-box" style="margin-bottom:8px;">
-              <div class="editorial-formula-main">Gutenberg-Richter 경험식: M = 1.0 + (2/3) × I₀ &nbsp;·&nbsp; Utsu 유감반경: M = -3.0 + 3.8 log₁₀(R_v)</div>
-              <div class="editorial-formula-sub">계측기 이전 지진은 단일 확정 규모(magnitude: null)가 존재하지 않으며, 진도(MMI)와 유감 반경에 따른 복수 학자의 경험적 추정 범위만 존재합니다.</div>
+              <div class="editorial-formula-main">구텐베르크-리히터 경험식: M = 1.0 + ⅔ × I₀ &nbsp;·&nbsp; 우쓰(Utsu) 유감반경 식: M = -3.0 + 3.8 log₁₀(Rᵥ)</div>
+              <div class="editorial-formula-sub">지진계 도입 이전의 지진은 단일 확정 규모가 존재하지 않으며, 사료 속 진도(MMI)와 흔들림이 느껴진 거리를 토대로 한 학자들의 추정 범위만 제시합니다.</div>
             </div>
           `;
 
@@ -1318,9 +1318,9 @@ export class UnifiedControlSurface {
             isos.forEach(iso => {
               isoRows += `
                 <tr>
-                  <td class="hist-iso-mmi">${iso.mmi}</td>
-                  <td style="font-family:var(--font-mono);">${iso.semiMajorKm} km</td>
-                  <td style="color:var(--mist); font-size:9.5px;">${iso.label || ""} <span style="font-family:var(--font-mono); color:var(--brass); font-size:9px;">[${iso.attenuationEquation || ""}]</span></td>
+                  <td class="hist-iso-mmi">${escapeHtml(iso.mmi)}</td>
+                  <td style="font-family:var(--font-mono);">${escapeHtml(String(iso.semiMajorKm))} km</td>
+                  <td style="color:var(--mist); font-size:9.5px;">${escapeHtml(iso.label || "")} <span style="font-family:var(--font-mono); color:var(--brass); font-size:9px;">[${formatReadableMathHtml(iso.attenuationEquation || "")}]</span></td>
                 </tr>
               `;
             });
@@ -1328,11 +1328,11 @@ export class UnifiedControlSurface {
             const contoursActive = (typeof window.getShowIsoseismalContours === 'function') && window.getShowIsoseismalContours();
             ellipseSection.innerHTML = `
               <div class="editorial-sec-header" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
-                <span>02-C / 확률론적 진앙 오차 타원 및 8도 등진도 매트릭스 (MACROSEISMIC FIELD &amp; CONFIDENCE ELLIPSE)</span>
+                <span>02-C / 추정 진앙 신뢰 범위 및 예상 진도 분포</span>
                 <button type="button" id="btn-toggle-isoseismal-3d" style="appearance:none; border:1px solid rgba(200,157,84,0.42); background:${contoursActive ? 'rgba(200,157,84,0.22)' : 'rgba(15,23,42,0.7)'}; color:#f1d39a; font-size:10px; padding:3px 9px; border-radius:999px; cursor:pointer;">${contoursActive ? '3D 등진도선 표시 중' : '3D 지구본에 등진도선 표시'}</button>
               </div>
               <div class="editorial-formula-box" style="margin-bottom:8px;">
-                <div class="editorial-formula-main">\\chi^2 = (x' / a)^2 + (y' / b)^2 \\le ${ee.chiSquareCritical || 5.991} &nbsp;&nbsp;(신뢰수준 ${((ee.confidenceLevel || 0.95) * 100).toFixed(0)}%, 자유도 ν=${ee.degreesOfFreedom || 2}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${ee.flatness || 0.35}</div>
+                <div class="editorial-formula-main">χ² = (x' / a)² + (y' / b)² ≤ ${ee.chiSquareCritical || 5.991} &nbsp;&nbsp;(신뢰수준 ${((ee.confidenceLevel || 0.95) * 100).toFixed(0)}%, 자유도 ν=${ee.degreesOfFreedom || 2}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${ee.flatness || 0.35}</div>
                 <div class="editorial-formula-sub">문헌 기록의 한계로 인해 역사지진 진앙은 점이 아닌 타원형 신뢰구간(Error Ellipse)으로 추정되며, 평상시에는 은은한 불확실성 헤일로로, 버튼 선택 시 3D 등진도 파선으로 투영됩니다.</div>
               </div>
               <div class="hist-ellipse-grid">
@@ -1451,24 +1451,24 @@ export class UnifiedControlSurface {
               gp.parameters.forEach(p => {
                 paramsHtml += `
                   <div class="metric-summary-item" style="flex:1 1 45%;">
-                    <span class="metric-s-label">${p.label}</span>
-                    <span class="metric-s-val" style="font-size:11px;">${p.value}</span>
+                    <span class="metric-s-label">${escapeHtml(p.label)}</span>
+                    <span class="metric-s-val" style="font-size:11px;">${formatReadableMathHtml(p.value)}</span>
                   </div>
                 `;
               });
             }
 
             geoContainer.innerHTML = `
-              <div class="editorial-sec-header">03-A / 사료 속 지구물리 이상 현상의 과학적 규명 (${gp.type || "PHYSICS"})</div>
+              <div class="editorial-sec-header">03-A / 기록 속 자연현상의 과학적 원리</div>
               <div class="editorial-formula-box">
-                <div class="editorial-formula-main">${gp.titleKo}: ${gp.equation || ""}</div>
-                ${gp.subFormula ? `<div class="editorial-formula-sub">${gp.subFormula}</div>` : ''}
+                <div class="editorial-formula-main">${escapeHtml(gp.titleKo)}: ${formatReadableMathHtml(gp.equation || "")}</div>
+                ${gp.subFormula ? `<div class="editorial-formula-sub">${formatReadableMathHtml(gp.subFormula)}</div>` : ''}
               </div>
               <div class="metric-summary-strip" style="flex-wrap:wrap; margin-top:4px;">
                 ${paramsHtml}
               </div>
               <p class="editorial-narrative" style="margin-top:6px; font-size:11.5px; color:var(--hanji-muted); line-height:1.7;">
-                ${gp.narrativeKo || ""}
+                ${escapeHtml(gp.narrativeKo || "")}
               </p>
             `;
 
@@ -1479,7 +1479,7 @@ export class UnifiedControlSurface {
               geoContainer.innerHTML += `
                 <div class="hist-tsunami-box" style="margin-top:8px; padding:10px; background:rgba(10,14,20,0.65); border:1px solid var(--hairline); border-radius:2px;">
                   <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:6px;">
-                    <span style="font-family:var(--font-mono); font-size:10px; color:var(--brass); font-weight:600;">동해 울릉분지 대륙사면 천해파 해일 전파 단면 (BATHYMETRY SHOALING)</span>
+                    <span style="font-family:var(--font-mono); font-size:10px; color:var(--brass); font-weight:600;">동해 울릉분지 대륙사면 · 해일 천해화 단면</span>
                     <span style="font-family:var(--font-mono); font-size:9.5px; color:var(--mist);">수심 2,000m → 20m 천해화</span>
                   </div>
                   ${tSvg}
@@ -1498,7 +1498,7 @@ export class UnifiedControlSurface {
           const ac = ev.astronomicalChronology;
           if (ac) {
             chronoContainer.innerHTML = `
-              <div class="editorial-sec-header">03-B / 정밀 천문 역법 환산 (CHRONOLOGY)</div>
+              <div class="editorial-sec-header">03-B / 음력 기록의 양력 환산</div>
               <div class="hist-chrono-grid">
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">왕대 연호</span>
@@ -1548,7 +1548,7 @@ export class UnifiedControlSurface {
               `;
             });
             gazetteerContainer.innerHTML = `
-              <div class="editorial-sec-header">03-C / 사료 고지명 지명사전 (TOPONYMY & GAZETTEER)</div>
+              <div class="editorial-sec-header">03-C / 옛 지명과 현재 위치 대조</div>
               <div style="overflow-x:auto;">
                 <table class="hist-felt-table">
                   <thead>
@@ -1790,7 +1790,7 @@ export class UnifiedControlSurface {
 
         container.innerHTML = `
           <div class="editorial-section">
-            <div class="editorial-sec-header">01 / 단층 파쇄 운동학 & 진원 메커니즘 (KINEMATICS)</div>
+            <div class="editorial-sec-header">01 / 단층 움직임과 지진 규모</div>
             <div class="metric-summary-strip">
               <div class="metric-summary-item">
                 <span class="metric-s-label">단층 파쇄 길이</span>
@@ -1813,7 +1813,7 @@ export class UnifiedControlSurface {
           </div>
 
           <div class="editorial-section">
-            <div class="editorial-sec-header">02 / 관측망 실측 지반가속도 (ACCELEROGRAPH NETWORK PGA)</div>
+            <div class="editorial-sec-header">02 / 주변 관측소 실제 흔들림 계측치</div>
             <div style="overflow-x:auto;">
               <table class="station-table">
                 <thead>
@@ -1913,7 +1913,7 @@ export class UnifiedControlSurface {
           } else if (ratio < 0.75) {
             badgeEl.textContent = "레일리 표면파 너울";
           } else {
-            badgeEl.textContent = "CODA (여운·고요)";
+            badgeEl.textContent = "여진·여운 (안정기)";
           }
         }
 
