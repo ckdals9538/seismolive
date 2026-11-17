@@ -977,4 +977,144 @@
     overflow: hidden !important;
     text-overflow: ellipsis !important;
   }
+
+  /* Unified Top-Left Pill Capsule & Collapsible Detail Sheet (v6.4) */
+  #evac-header-overlay {
+    top: calc(15px + var(--safe-top, env(safe-area-inset-top, 0px))) !important;
+    left: calc(18px + var(--safe-left, env(safe-area-inset-left, 0px))) !important;
+    right: auto !important;
+    width: auto !important;
+    max-width: calc(100vw - 36px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    z-index: 40 !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule {
+    display: inline-flex !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    gap: 3px !important;
+    width: auto !important;
+    max-width: calc(100vw - 156px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    padding: 2px 3px !important;
+    border-radius: 999px !important;
+    background: rgba(10, 16, 26, 0.72) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .evac-hud-root.theme-day #evac-header-overlay .evac-left-capsule {
+    background: rgba(248, 250, 252, 0.9) !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule .top-divider {
+    display: inline-block !important;
+    width: 1px !important;
+    height: 12px !important;
+    margin: 0 1px !important;
+    flex-shrink: 0 !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 7px !important;
+    gap: 4px !important;
+    font-size: 10.5px !important;
+    border-radius: 999px !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    min-width: 0 !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher.open,
+  #evac-header-overlay .evac-left-capsule #btn-region-switcher:hover {
+    background: var(--evac-sky-soft) !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #region-active-label {
+    max-width: 78px !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details {
+    min-height: 24px !important;
+    height: 24px !important;
+    padding: 0 7px !important;
+    font-size: 10px !important;
+    border-radius: 999px !important;
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    box-shadow: none !important;
+  }
+
+  #evac-header-overlay .evac-left-capsule #btn-toggle-context-details.active {
+    background: var(--evac-sky-soft) !important;
+    border-color: rgba(56, 189, 248, 0.45) !important;
+    color: var(--evac-sky) !important;
+  }
+
+  #evac-header-overlay #region-search-popover {
+    top: calc(100% + 8px) !important;
+    left: 0 !important;
+  }
+
+  #evac-header-overlay .evac-summary-card {
+    display: none !important;
+    visibility: hidden !important;
+    width: calc(100vw - 36px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))) !important;
+    max-width: 360px !important;
+    max-height: 58dvh !important;
+    overflow-y: auto !important;
+    margin-top: 8px !important;
+    padding: 11px 13px !important;
+    border-radius: 14px !important;
+  }
+
+  #evac-header-overlay.is-detail-open .evac-summary-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    visibility: visible !important;
+  }
+
+  #evac-header-overlay:has(#region-search-popover.open) .evac-summary-card {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #evac-header-overlay .evac-summary-card .evac-summary-top-meta {
+    display: flex !important;
+  }
+
+  #evac-header-overlay .evac-summary-card .header-eyebrow {
+    display: inline-flex !important;
+  }
+
+  #evac-header-overlay.is-detail-open .evac-summary-card #evac-context-drawer {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+  }
+
+  #evac-header-overlay:not(.is-detail-open) #handoff-context-strip {
+    display: none !important;
+  }
+
+  #evac-header-overlay.is-detail-open #handoff-context-strip.is-visible {
+    display: block !important;
+  }
+
+  #evac-header-overlay .evac-detail-actions {
+    flex-wrap: wrap !important;
+  }
 }

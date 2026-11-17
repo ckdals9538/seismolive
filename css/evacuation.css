@@ -1830,6 +1830,179 @@ body.theme-day .play-route-btn.is-playing {
   border-color: var(--evac-brass);
 }
 
+/* ============================================================================
+   Unified Top-Left Capsule & Collapsible Detail Sheet (v6.4)
+   ============================================================================ */
+#evac-header-overlay {
+  top: calc(22px + var(--safe-top, env(safe-area-inset-top, 0px)));
+  left: calc(26px + var(--safe-left, env(safe-area-inset-left, 0px)));
+  max-width: none;
+}
+
+#evac-header-overlay.is-detail-open {
+  z-index: 60;
+}
+
+.evac-left-capsule {
+  position: relative;
+  pointer-events: auto;
+  width: fit-content;
+  max-width: calc(100vw - 540px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px)));
+}
+
+.evac-left-capsule .region-picker-wrap {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.evac-left-capsule .region-switcher-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--evac-ink);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.evac-left-capsule .region-switcher-btn:hover,
+.evac-left-capsule .region-switcher-btn.open {
+  background: var(--evac-sky-soft);
+  border-color: rgba(56, 189, 248, 0.35);
+  color: var(--evac-sky);
+}
+
+.evac-left-capsule .region-switcher-btn:hover #region-active-label,
+.evac-left-capsule .region-switcher-btn.open #region-active-label {
+  color: var(--evac-ink);
+}
+
+.evac-left-capsule .region-switcher-btn .reg-tag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--evac-sky);
+  letter-spacing: 0.04em;
+}
+
+.evac-left-capsule .reg-caret {
+  font-size: 9px;
+  color: var(--evac-muted);
+  line-height: 1;
+}
+
+.evac-left-capsule #btn-toggle-context-details {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.evac-left-capsule #btn-toggle-context-details.active .reg-caret {
+  color: var(--evac-sky);
+}
+
+.evac-left-capsule #region-search-popover {
+  top: calc(100% + 8px);
+  left: 0;
+}
+
+#evac-header-overlay .evac-summary-card {
+  display: none;
+  visibility: hidden;
+  pointer-events: auto;
+  margin-top: 8px;
+  width: min(440px, calc(100vw - 52px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px))));
+  padding: 13px 15px 12px;
+  border-radius: 14px;
+  background: var(--evac-panel-bg);
+  border: 1px solid var(--evac-hairline);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: var(--evac-shadow);
+}
+
+#evac-header-overlay.is-detail-open .evac-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  visibility: visible;
+}
+
+#evac-header-overlay:has(#region-search-popover.open) .evac-summary-card {
+  display: none;
+  visibility: hidden;
+}
+
+.evac-top-meta-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#evac-header-overlay .evac-summary-card .mode-badge-pill {
+  padding: 2px 8px;
+  font-size: 9.5px;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#evac-header-overlay.is-detail-open #evac-context-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--evac-hairline);
+}
+
+.evac-detail-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 4px;
+  padding-top: 9px;
+  border-top: 1px solid var(--evac-hairline);
+}
+
+#evac-header-overlay .evac-detail-footer #handoff-context-strip {
+  display: none;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+#evac-header-overlay.is-detail-open .evac-detail-footer #handoff-context-strip.is-visible {
+  display: block;
+}
+
+.evac-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
 @media (max-width: 960px) {
   #evac-header-overlay,
   #header-overlay {
@@ -2156,14 +2329,14 @@ body.theme-day .play-route-btn.is-playing {
   #header-overlay {
     top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px)));
     left: calc(12px + var(--safe-left, env(safe-area-inset-left, 0px)));
-    max-width: min(340px, 41vw);
+    max-width: calc(100vw - 24px - var(--safe-left, env(safe-area-inset-left, 0px)) - var(--safe-right, env(safe-area-inset-right, 0px)));
   }
-  .evac-top-action-row {
-    margin-bottom: 4px;
-    gap: 4px;
+  .evac-left-capsule {
+    max-width: min(320px, 42vw);
+    padding: 3px 5px;
   }
-  .region-switcher-btn,
-  .hdr-utility-btn {
+  .evac-left-capsule .region-switcher-btn,
+  .evac-left-capsule #btn-toggle-context-details {
     padding: 3px 8px;
     font-size: 10px;
   }
@@ -2171,8 +2344,11 @@ body.theme-day .play-route-btn.is-playing {
     padding: 3px 8px;
     font-size: 10px;
   }
-  .evac-summary-card {
-    padding: 6px 9px;
+  #evac-header-overlay .evac-summary-card {
+    width: min(360px, 52vw);
+    max-height: calc(100dvh - 110px);
+    overflow-y: auto;
+    padding: 8px 10px;
     border-radius: 10px;
   }
   .evac-summary-top-meta,
@@ -2184,9 +2360,6 @@ body.theme-day .play-route-btn.is-playing {
     font-size: 12.5px;
     line-height: 1.25;
     margin-bottom: 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
   .header-quake-impact {
     margin: 1px 0;
@@ -2203,15 +2376,10 @@ body.theme-day .play-route-btn.is-playing {
     text-overflow: ellipsis;
     min-width: 0;
   }
-  #handoff-context-strip {
-    margin-top: 3px;
-    padding: 4px 6px;
-    gap: 3px;
-  }
   .handoff-meta-line {
     display: none;
   }
-  .handoff-action-row {
+  .evac-detail-actions {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;

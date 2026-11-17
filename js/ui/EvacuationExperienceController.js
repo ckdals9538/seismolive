@@ -124,9 +124,9 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
     </div>
 
     <header id="evac-header-overlay">
-      <div class="evac-top-action-row">
+      <div class="top-capsule evac-left-capsule">
         <div class="region-picker-wrap">
-          <button type="button" class="region-switcher-btn" id="btn-region-switcher" title="지역 검색 · 내 위치(GPS) · 지진 시나리오 전환">
+          <button type="button" class="ctrl-btn region-switcher-btn" id="btn-region-switcher" title="지역 검색 · 내 위치(GPS) · 지진 시나리오 전환">
             <span class="reg-tag">위치</span>
             <span id="region-active-label">지역 선택 필요</span>
             <span class="reg-caret">▾</span>
@@ -163,15 +163,18 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
           </div>
         </div>
 
-        <span class="mode-badge-pill" id="analysis-mode-badge">위치 미선택</span>
-        <button type="button" class="hdr-utility-btn" id="btn-replay-wave" title="반경 4km 지진 파동 전파 및 위험군 재표시">진동 파동</button>
-        <button type="button" class="hdr-utility-btn" id="btn-toggle-context-details" aria-expanded="false" title="관측 출처 · 파형 상태 · 한계 상세 보기">근거 ⓘ</button>
+        <span class="top-divider"></span>
+        <button type="button" class="ctrl-btn" id="btn-toggle-context-details" aria-expanded="false" title="대피 경로 요약 · 지진 출처 · 진동 파동 · 진앙 주변 보기">상세 <span class="reg-caret">▾</span></button>
+        <button type="button" class="ctrl-btn" id="btn-handoff-nearest-urban" style="display:none; color:var(--evac-brass); border-color:var(--evac-brass);" title="인근 도심 대피 동선으로 이동"></button>
       </div>
 
-      <div class="evac-summary-card">
+      <div class="evac-summary-card" id="evac-detail-panel" aria-hidden="true">
         <div class="evac-summary-top-meta">
           <span class="header-eyebrow"><span class="live-dot"></span><span>SEISMOLIVE · 대피 경로</span></span>
-          <span class="route-delta-note" id="route-delta-note"></span>
+          <div class="evac-top-meta-right">
+            <span class="route-delta-note" id="route-delta-note"></span>
+            <span class="mode-badge-pill" id="analysis-mode-badge">위치 미선택</span>
+          </div>
         </div>
         <h1 class="header-route-headline" id="evac-route-headline">위치 선택 후 대피 동선·영향 분석</h1>
         <div class="header-quake-impact" id="quake-impact-summary">
@@ -190,15 +193,16 @@ export function renderEvacuationHudMarkup(mountRoot, { devMode = false } = {}) {
           <div class="impact-sub" id="quake-impact-line">관측 · 사료 · 교육용 가정 구분 및 거리·방위 산출 대기 중</div>
           <div class="dq-lim-text" id="dq-limitation-summary">위치 선택 시 실제 도로망·개활 공간 데이터를 조회합니다</div>
         </div>
-      </div>
-
-      <div id="handoff-context-strip" aria-label="지구본 연동 지진 기준 전환">
-        <div class="handoff-meta-line" id="handoff-quake-meta"></div>
-        <div class="handoff-action-row">
-          <button type="button" class="handoff-action-btn" id="btn-handoff-epicenter">진앙 주변</button>
-          <button type="button" class="handoff-action-btn" id="btn-handoff-my-location">내 위치(GPS)</button>
-          <button type="button" class="handoff-action-btn" id="btn-handoff-pick-region">지역 변경</button>
-          <button type="button" class="handoff-action-btn" id="btn-handoff-nearest-urban" style="display:none; border-color:var(--evac-brass); color:var(--evac-brass);"></button>
+        <div class="evac-detail-footer">
+          <div id="handoff-context-strip" aria-label="지구본 연동 지진 기준 전환">
+            <div class="handoff-meta-line" id="handoff-quake-meta"></div>
+          </div>
+          <div class="evac-detail-actions">
+            <button type="button" class="handoff-action-btn" id="btn-replay-wave" title="반경 4km 지진 파동 전파 및 위험군 재표시">진동 파동</button>
+            <button type="button" class="handoff-action-btn" id="btn-handoff-epicenter" title="현재 연동된 지진의 진앙 주변 공간으로 이동">진앙 주변</button>
+            <button type="button" class="handoff-action-btn" id="btn-handoff-my-location" title="내 현재 위치(GPS)로 전환">내 위치(GPS)</button>
+            <button type="button" class="handoff-action-btn" id="btn-handoff-pick-region" title="지역 검색 창 열기">지역 변경</button>
+          </div>
         </div>
       </div>
     </header>
@@ -1351,7 +1355,9 @@ export class EvacuationExperienceController {
       }
       const epiBtn = this._el('btn-handoff-epicenter');
       if (epiBtn) {
-        epiBtn.disabled = !(Number.isFinite(handed?.epicenterLat) && Number.isFinite(handed?.epicenterLon));
+        const hasEpicenter = Boolean(handed && Number.isFinite(handed?.epicenterLat) && Number.isFinite(handed?.epicenterLon));
+        epiBtn.style.display = handed ? 'inline-flex' : 'none';
+        epiBtn.disabled = !hasEpicenter;
       }
       const nearUrbanBtn = this._el('btn-handoff-nearest-urban');
       const anchor = this.activeSpatialPkg?.metadata?.anchor;
@@ -1385,6 +1391,10 @@ export class EvacuationExperienceController {
       }
       this._syncEmptyRegionCallout(bestUrban);
     } else {
+      const epiBtn = this._el('btn-handoff-epicenter');
+      if (epiBtn) epiBtn.style.display = 'none';
+      const nearUrbanBtn = this._el('btn-handoff-nearest-urban');
+      if (nearUrbanBtn) nearUrbanBtn.style.display = 'none';
       this._syncEmptyRegionCallout(null);
     }
   }
@@ -2648,10 +2658,11 @@ export class EvacuationExperienceController {
       });
     });
 
-    // Globe Event Handoff strip actions (#handoff-context-strip)
+    // Unified Detail Panel Handoff & Context Actions
     this._el('btn-handoff-epicenter')?.addEventListener('click', () => {
       const handed = this.session?.handedGlobeEvent;
       if (!handed || !Number.isFinite(handed.epicenterLat) || !Number.isFinite(handed.epicenterLon)) return;
+      this._setDetailOpen(false);
       this.switchToRegion(handed.epicenterLat, handed.epicenterLon, {
         regionId: `EPI_${handed.eventId || 'GLOBE'}`,
         locationSource: 'FREE_MODE',
@@ -2661,15 +2672,18 @@ export class EvacuationExperienceController {
       });
     });
     this._el('btn-handoff-my-location')?.addEventListener('click', () => {
+      this._setDetailOpen(false);
       this._handleGateMyLocation();
     });
     this._el('btn-handoff-pick-region')?.addEventListener('click', () => {
+      this._setDetailOpen(false);
       this._hideEntryModeGate();
       this._setRegionPopoverOpen(true);
     });
     this._el('btn-handoff-nearest-urban')?.addEventListener('click', () => {
       const btn = this._el('btn-handoff-nearest-urban');
       if (!btn?.dataset.lat) return;
+      this._setDetailOpen(false);
       this.switchToRegion(Number(btn.dataset.lat), Number(btn.dataset.lon), {
         regionId: btn.dataset.regionId || 'urban_fallback',
         locationSource: 'FREE_MODE',
@@ -2806,18 +2820,11 @@ export class EvacuationExperienceController {
     });
     this._el('btn-replay-wave')?.addEventListener('click', () => {
       this.localSpatialLayer.replaySeismicWavefront?.();
+      this._setDetailOpen(false);
     });
     this._el('btn-toggle-context-details')?.addEventListener('click', () => {
-      const btn = this._el('btn-toggle-context-details');
-      const drawer = this._el('evac-context-drawer');
-      if (!drawer) return;
-      const open = drawer.classList.toggle('is-open');
-      if (open) this._setRegionPopoverOpen(false);
-      drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
-      btn?.classList.toggle('active', open);
-      btn?.setAttribute('aria-expanded', open ? 'true' : 'false');
-      this._el('handoff-context-strip')?.classList.toggle('is-mobile-expanded', open);
-      this._syncResponsiveTopBarOffset();
+      const isOpen = Boolean(this._el('evac-header-overlay')?.classList.contains('is-detail-open'));
+      this._setDetailOpen(!isOpen);
     });
 
     this._el('btn-stage-local4km')?.addEventListener('click', () => this.setCameraStage(CAMERA_STAGES.REGIONAL_APPROACH, { animate: true }));
@@ -3041,11 +3048,17 @@ export class EvacuationExperienceController {
 
     this._onDocumentPointerDownOutsidePopover = e => {
       const pop = this._el('region-search-popover');
-      if (!pop?.classList.contains('open')) return;
-      if (e.target?.closest?.('#region-search-popover, #btn-region-switcher, #btn-handoff-pick-region, #btn-erc-pick-region, #btn-gate-free-mode')) {
-        return;
+      if (pop?.classList.contains('open')) {
+        if (!e.target?.closest?.('#region-search-popover, #btn-region-switcher, #btn-erc-pick-region, #btn-gate-free-mode')) {
+          this._setRegionPopoverOpen(false);
+        }
       }
-      this._setRegionPopoverOpen(false);
+      const hdr = this._el('evac-header-overlay');
+      if (hdr?.classList.contains('is-detail-open')) {
+        if (!e.target?.closest?.('#evac-detail-panel, #btn-toggle-context-details')) {
+          this._setDetailOpen(false);
+        }
+      }
     };
     if (typeof document !== 'undefined') {
       document.addEventListener('pointerdown', this._onDocumentPointerDownOutsidePopover);
@@ -3338,6 +3351,26 @@ export class EvacuationExperienceController {
     };
   }
 
+  _setDetailOpen(open) {
+    const next = Boolean(open);
+    const hdr = this._el('evac-header-overlay');
+    const panel = this._el('evac-detail-panel');
+    const drawer = this._el('evac-context-drawer');
+    const btn = this._el('btn-toggle-context-details');
+    if (next) this._setRegionPopoverOpen(false);
+    hdr?.classList.toggle('is-detail-open', next);
+    panel?.setAttribute('aria-hidden', next ? 'false' : 'true');
+    drawer?.classList.toggle('is-open', next);
+    drawer?.setAttribute('aria-hidden', next ? 'false' : 'true');
+    btn?.classList.toggle('active', next);
+    btn?.setAttribute('aria-expanded', next ? 'true' : 'false');
+    this._el('handoff-context-strip')?.classList.toggle('is-mobile-expanded', next);
+    if (btn) {
+      btn.innerHTML = next ? '상세 <span class="reg-caret">▴</span>' : '상세 <span class="reg-caret">▾</span>';
+    }
+    this._syncResponsiveTopBarOffset();
+  }
+
   _setRegionPopoverOpen(open, { focusDesktop = true } = {}) {
     const pop = this._el('region-search-popover');
     const btn = this._el('btn-region-switcher');
@@ -3345,14 +3378,7 @@ export class EvacuationExperienceController {
     pop?.classList.toggle('open', next);
     btn?.classList.toggle('open', next);
     if (next) {
-      const drawer = this._el('evac-context-drawer');
-      if (drawer?.classList.contains('is-open')) {
-        drawer.classList.remove('is-open');
-        drawer.setAttribute('aria-hidden', 'true');
-        this._el('btn-toggle-context-details')?.classList.remove('active');
-        this._el('btn-toggle-context-details')?.setAttribute('aria-expanded', 'false');
-        this._el('handoff-context-strip')?.classList.remove('is-mobile-expanded');
-      }
+      this._setDetailOpen(false);
       // Avoid auto-opening mobile keyboard on phone taps when preset chips are right inside the popover.
       if (focusDesktop && (typeof window === 'undefined' || window.innerWidth > 640)) {
         this._el('korea-region-search-input')?.focus();
