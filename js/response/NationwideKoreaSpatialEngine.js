@@ -825,11 +825,11 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
     dataLimitations.push('보행 가능 도로·보도 네트워크가 확인되지 않아 실측 경로를 계산할 수 없습니다.');
   }
   if (reachableCandidates.length === 0) {
-    dataLimitations.push(facilityEval.limitations || '접근 가능한 확인된 대피소 또는 개활 안전 후보를 찾지 못했습니다.');
+    dataLimitations.push(facilityEval.limitations || '접근 가능한 대피 후보가 없습니다.');
   } else if ((opts.officialShelters || []).length > 0 || facilityEval.overallStatus === CANDIDATE_STATUS.CONFIRMED) {
-    dataLimitations.push('행정안전부 지진옥외대피장소 공식 지정 DB 연동이 확인되었으며, 재난 당시 실제 개방 및 진입로 안전 여부는 현장 확인이 필요합니다.');
+    dataLimitations.push('행안부 공식 대피소 연동 · 재난 시 현장 개방 확인');
   } else {
-    dataLimitations.push('공식 행정안전부 지진옥외대피장소 미확인 구간에서는 OSM 개활 공터·집결지 태그를 조건부(CONDITIONAL) 후보로 제시합니다.');
+    dataLimitations.push('OSM 개활 후보 기준 · 현장 개방 및 지정 여부 확인');
   }
   if (terrainGrid.provenance === 'SYNTHETIC_SLOPE_FALLBACK' || terrainGrid.provenance === 'DEFAULT_FLAT_GRID') {
     dataLimitations.push('실시간 DEM 고도 타일(Terrarium AWS) 미연결로 기본 표고 평면을 표시합니다.');
@@ -982,7 +982,7 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
   let ovTimer = null;
   try {
     const controller = new AbortController();
-    ovTimer = setTimeout(() => controller.abort(), 7000);
+    ovTimer = setTimeout(() => controller.abort(), 3800);
     const includeBuildings = clampedSpan <= 2400
       ? `way["building"](${south},${west},${north},${east});`
       : '';
@@ -990,7 +990,7 @@ async function fetchOsmRegionElements(lat, lon, halfSpanMeters = 900) {
       ? `way["highway"](${south},${west},${north},${east});`
       : `way["highway"~"primary|secondary|tertiary|unclassified|residential|footway|pedestrian|path|steps"](${south},${west},${north},${east});`;
     const overpassQuery =
-      `[out:json][timeout:7];` +
+      `[out:json][timeout:4];` +
       `(` +
         includeBuildings +
         roadSelector +
@@ -1145,34 +1145,39 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
     maxExtentMeters = cachedRaw.maxExtentMeters;
   } else {
     const demPromise = fetchTerrariumTerrainGrid(lat, lon, { halfExtentMeters: maxExtentMeters, nx: 64, nz: 64 });
-    const osmPromise = (async () => {
-      if (opts.osmJsonOverride) return opts.osmJsonOverride;
-      if (opts.osmJson) return opts.osmJson;
-      if (typeof fetch !== 'function' || opts.offlineOnly) return null;
-
-      // 1. Compact urban fetch (~1.8km span)
-      let json = await fetchOsmRegionElements(lat, lon, 900);
-      const hasOpenShelterTag = el => el.type === 'way' && (el.tags?.leisure === 'park' || el.tags?.leisure === 'pitch' || el.tags?.leisure === 'stadium' || el.tags?.amenity === 'school' || el.tags?.emergency === 'assembly_point');
-      const wayCount = json?.elements?.filter(e => e.type === 'way')?.length || 0;
-      const candCount = json?.elements?.filter(hasOpenShelterTag)?.length || 0;
-
-      // 2. Single wide regional expansion (~4.8km span / 2.4km half-radius) if dense roads or open shelters missing
-      if (!json || wayCount < 15 || candCount === 0) {
-        const expanded = await fetchOsmRegionElements(lat, lon, 2400);
-        if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (json?.elements?.length || 0)) {
-          json = expanded;
-          queryRadiusMeters = 2400;
-          maxExtentMeters = 2400;
-        }
-      }
-      return json;
-    })();
-
     const shelterPromise = (!opts.offlineOnly && !opts.osmJsonOverride && typeof fetch === 'function')
       ? liveSeismicDataService.fetchOfficialSheltersNear(lat, lon, Math.max(2500, queryRadiusMeters), { timeoutMs: 4500 })
       : Promise.resolve({ status: 'OFFLINE_OR_SKIPPED', shelters: [] });
 
-    [terrainGrid, liveOsmJson, officialShelterRes] = await Promise.all([demPromise, osmPromise, shelterPromise]);
+    const coreOsmPromise = (async () => {
+      if (opts.osmJsonOverride) return opts.osmJsonOverride;
+      if (opts.osmJson) return opts.osmJson;
+      if (typeof fetch !== 'function' || opts.offlineOnly) return null;
+      return fetchOsmRegionElements(lat, lon, 900);
+    })();
+
+    const [terrainRes, initialOsmJson, initialShelters] = await Promise.all([demPromise, coreOsmPromise, shelterPromise]);
+    terrainGrid = terrainRes;
+    officialShelterRes = initialShelters;
+    liveOsmJson = initialOsmJson;
+
+    const hasOfficialShelters = Array.isArray(officialShelterRes?.shelters) && officialShelterRes.shelters.length > 0;
+    const shouldExpand = !opts.osmJsonOverride && !opts.osmJson && !opts.offlineOnly && typeof fetch === 'function';
+    if (shouldExpand) {
+      const hasOpenShelterTag = el => el.type === 'way' && (el.tags?.leisure === 'park' || el.tags?.leisure === 'pitch' || el.tags?.leisure === 'stadium' || el.tags?.amenity === 'school' || el.tags?.emergency === 'assembly_point');
+      const wayCount = liveOsmJson?.elements?.filter(e => e.type === 'way')?.length || 0;
+      const candCount = liveOsmJson?.elements?.filter(hasOpenShelterTag)?.length || 0;
+
+      // Skip slow 2.4km Overpass expansion when MOIS official shelters are already live alongside a road network
+      if (!liveOsmJson || wayCount < 15 || (!hasOfficialShelters && candCount === 0)) {
+        const expanded = await fetchOsmRegionElements(lat, lon, 2400);
+        if (expanded && Array.isArray(expanded.elements) && expanded.elements.length > (liveOsmJson?.elements?.length || 0)) {
+          liveOsmJson = expanded;
+          queryRadiusMeters = 2400;
+          maxExtentMeters = 2400;
+        }
+      }
+    }
 
     if (canUseSpatialCache && liveOsmJson?.elements?.length > 0) {
       setCachedRegionalFetch(cacheKey, {

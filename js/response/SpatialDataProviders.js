@@ -1132,10 +1132,10 @@ export class FacilityProvider {
           : CANDIDATE_FACILITY_TYPES.OPEN_SPACE_ALTERNATIVE;
 
       const defaultLabel = isExplicitAssembly
-        ? '지진 옥외집결지 표기 지점(OSM)'
+        ? '옥외 집결지'
         : isPublicSchoolOrStadium
-          ? '학교·운동장 개활 공간(미지정 대안)'
-          : '개활 공원·광장(공식 대피소 아님)';
+          ? '학교·운동장 개활지'
+          : '개활 공원·광장';
 
       rawCandidates.push({
         id: isExplicitAssembly ? `OSM-AP-${el.id}` : `OSM-OPEN-${el.id}`,
@@ -1252,16 +1252,16 @@ export class FacilityProvider {
         category: evaluated.length === 0 ? 'PRIMARY_SHELTER' : 'REGIONAL_SHELTER',
         candidateStatus: status,
         subtitle: c.isOfficialDesignated
-          ? `공식 대피소(개방 현장확인) · ${linearDistMeters}m`
-          : `${c.isOsmAssemblyTagged ? 'OSM 집결지(미검증)' : '개활 후보(공식아님)'} · ${linearDistMeters}m`,
+          ? `공식 대피소 · ${linearDistMeters}m`
+          : `${c.isOsmAssemblyTagged ? 'OSM 집결지' : '개활 후보'} · ${linearDistMeters}m`,
         positionThree: [Number(c.east_m.toFixed(2)), Number(y.toFixed(2)), Number((-c.north_m).toFixed(2))],
         east_m: c.east_m,
         north_m: c.north_m,
         priority: Math.max(10, Math.round((graphConnected ? 65 : hasLocalRoadAccess ? 25 : 10) + (c.isOfficialDesignated ? 35 : 0) + (c.isOsmAssemblyTagged ? 20 : 0) + Math.min(20, clearanceMeters * 0.5) - distPenalty)),
         provenance: c.isOfficialDesignated ? VERIFICATION_STATUS.VERIFIED : VERIFICATION_STATUS.PROVISIONAL,
         provenanceLabel: c.isOfficialDesignated
-          ? '행정안전부 공식 지정 대피장소 (현장 개방 별도 확인)'
-          : (c.isOsmAssemblyTagged ? 'OSM 집결지 태그 (공식 API 미확인)' : 'OSM 개활 공터 후보 (공식 대피소 아님)'),
+          ? '행안부 공식 지정'
+          : (c.isOsmAssemblyTagged ? 'OSM 집결지' : '개활 공터 후보'),
         dimensions,
         justification: {
           id: c.id,
@@ -1271,8 +1271,8 @@ export class FacilityProvider {
           clearanceRadiusMeters: Math.round(clearanceMeters),
           tallestSurroundingHeightM: Math.round(tallestSurroundingH),
           provenanceLabel: c.isOfficialDesignated
-            ? '공식 지진옥외대피장소 지정 확인 · 개방 현장 확인 필요'
-            : (c.isOsmAssemblyTagged ? 'OSM 집결지 태그 · 개방 미확인' : '개활지·운동장 추출 (공식 대피소 지정 미확인)'),
+            ? '행안부 공식 지정'
+            : (c.isOsmAssemblyTagged ? 'OSM 집결지 · 미지정' : '개활 공터 · 미지정'),
           selectionReason,
           hazardCaveat: nearWater
             ? '인접 하천 수계(45m 이내)가 탐지되어 여진·제방 위험을 우선 점검해야 합니다.'

@@ -886,10 +886,10 @@ export class EvacuationExperienceController {
     const destStatus = pkg?.destinationAssessment?.overallStatus || (pkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.UNKNOWN);
     if (destEl) {
       destEl.textContent =
-        destStatus === CANDIDATE_STATUS.CONFIRMED ? '공식 지정 대피소' :
-        destStatus === CANDIDATE_STATUS.CONDITIONAL ? '개활 후보 · 현장 확인 필요' :
+        destStatus === CANDIDATE_STATUS.CONFIRMED ? '공식 대피소' :
+        destStatus === CANDIDATE_STATUS.CONDITIONAL ? '개활 후보' :
         destStatus === CANDIDATE_STATUS.UNKNOWN ? '목적지 미확인 (UNKNOWN)' :
-        '대피 후보 없음 (UNAVAILABLE)';
+        '대피 후보 없음';
       destEl.className = `dq-badge ${(destStatus === CANDIDATE_STATUS.UNAVAILABLE || destStatus === CANDIDATE_STATUS.UNKNOWN) ? 'is-insufficient' : destStatus === CANDIDATE_STATUS.CONDITIONAL ? 'is-conditional' : ''}`;
     }
     if (limEl) {
@@ -2182,12 +2182,12 @@ export class EvacuationExperienceController {
       const candStatus = shelterCand?.candidateStatus || (this.activeSpatialPkg?.isHanyangNative ? CANDIDATE_STATUS.CONFIRMED : CANDIDATE_STATUS.CONDITIONAL);
 
       this._el('sr-step-meta').textContent = candStatus === CANDIDATE_STATUS.CONFIRMED
-        ? '도착 완료 · 공식 지정 대피소'
-        : '도착 완료 · 개활 후보 (현장 개방 확인)';
+        ? '도착 완료 · 공식 대피소'
+        : '도착 완료 · 개활 후보';
       this._el('sr-headline').textContent = `${shelterName} 도달`;
       this._el('sr-body').textContent = candStatus === CANDIDATE_STATUS.CONFIRMED
         ? '보행 이동이 완료되었습니다. 현장 대피소 안내를 따라 주변 건물과 거리를 두고 대기하십시오.'
-        : '조건부 개활 후보 지점입니다. 공식 대피소 표지 및 출입·낙하물 안전을 직접 확인하십시오.';
+        : '지정 외 개활 후보지입니다. 출입 가능 여부와 주변 낙하물 안전을 직접 확인하십시오.';
       const warnEl = this._el('sr-caution');
       warnEl.textContent = just?.hazardCaveat || '여진에 대비해 주변 전신주·외벽으로부터 건물 높이 1/2 이상 떨어져 대기하십시오.';
       warnEl.classList.remove('is-critical');

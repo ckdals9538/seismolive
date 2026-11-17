@@ -561,7 +561,7 @@ export class ResponseUIAdapter {
     } else if (act.tacticalState === 'S6_SHELTER_ARRIVAL') {
       const shelterName = this.facility?.shelter?.officialName || this.context.spatial?.destinationName || '개활 대피 후보지';
       phaseHeadline = `목적지 도달 — ${shelterName}`;
-      badgeKorean = this.facility?.shelter?.candidateStatus === 'CONFIRMED' ? '공식 지진옥외대피장소' : '조건부 개활 후보지 (현장 확인 필요)';
+      badgeKorean = this.facility?.shelter?.candidateStatus === 'CONFIRMED' ? '공식 대피소' : '개활 후보 (현장 확인)';
     } else if (act.tacticalState === 'SHELTER_IN_PLACE') {
       phaseHeadline = '탈출로 차단 — 실내 격리 방호 및 구조 요청 (건물 안전 보증 아님)';
       badgeKorean = '실내 방호 격리 조치 발령';

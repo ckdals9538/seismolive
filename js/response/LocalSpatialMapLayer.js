@@ -1773,15 +1773,15 @@ export class LocalSpatialMapLayer {
         : this._sampleTerrainHeight(s.east_m, s.north_m);
       const isConditional = status === 'CONDITIONAL';
       const titlePrefix = status === 'UNAVAILABLE'
-        ? '접근 불가 후보 · '
+        ? '단절 · '
         : isConditional
-          ? (isPrimary ? '개활 대피 후보(미확정) · ' : '후보 · ')
+          ? ''
           : (isPrimary ? '대피소 · ' : '');
       const capText = s.justification?.capacityEstimate
-        ? `약 ${Number(s.justification.capacityEstimate).toLocaleString()}명(추정)`
+        ? `약 ${Number(s.justification.capacityEstimate).toLocaleString()}명`
         : '';
       const defaultSub = isConditional
-        ? `조건부 후보 · 개방 현장 확인 필요${capText ? ` · ${capText}` : ''}`
+        ? `개활 후보${capText ? ` · ${capText}` : ''}`
         : (s.subtitle || (isPrimary ? `대피 목적지${capText ? ` · ${capText}` : ''}` : ''));
 
       this.labelAnchors.push({
