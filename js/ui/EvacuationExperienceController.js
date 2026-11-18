@@ -3260,8 +3260,18 @@ export class EvacuationExperienceController {
     this.walkerGroup.visible = canShowWalker;
 
     if (canShowWalker) {
+      const activeAlt = this.activeAltRouteIndex > 0 ? this.alternativeRoutes?.[this.activeAltRouteIndex] : null;
+      const totalD = activeAlt?.totalDistanceMeters
+        || guidance.replanStatus?.totalDistanceMeters
+        || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
+        || 0;
+
       if (this.walkPlaying && !this._isScrubbingRoute && this.experiencePhase === EXPERIENCE_PHASES.EVACUATION_ACTIVE) {
-        const nextT = this.routeProgressT + dt * 0.045;
+        // Scale playback speed proportionally to physical route length (~38 m/s 3D map speed, clamped 4.5s..22.0s)
+        // so short routes play briskly instead of crawling at a fixed 22.2s normalized duration.
+        const effectiveMeters = totalD > 0 ? totalD : 400;
+        const targetDurationSec = Math.min(22.0, Math.max(4.5, 2.5 + effectiveMeters / 38.0));
+        const nextT = this.routeProgressT + dt / targetDurationSec;
         if (nextT >= 0.996) {
           // 피드백 4: STOP cleanly at shelter arrival instead of infinite jarring loop
           this.routeProgressT = 1.0;
@@ -3276,9 +3286,6 @@ export class EvacuationExperienceController {
             this._prevStepId = prevId;
             this._updateSafetyRuleForProgress();
           } else {
-            const totalD = guidance.replanStatus?.totalDistanceMeters
-              || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
-              || 0;
             const prog = evaluatePathProgressState(this.activeCheckpoints, this.routeProgressT, totalD);
             const remEl = this._el('dock-remaining-dist');
             const etaEl = this._el('dock-walk-eta');
@@ -3290,8 +3297,9 @@ export class EvacuationExperienceController {
         }
       }
 
+      const lookAheadT = totalD > 0 ? Math.min(0.03, Math.max(0.005, 4.0 / totalD)) : 0.02;
       const curSample = samplePointAlong3D(activePts, this.routeProgressT);
-      const lookSample = samplePointAlong3D(activePts, Math.min(1.0, this.routeProgressT + 0.02));
+      const lookSample = samplePointAlong3D(activePts, Math.min(1.0, this.routeProgressT + lookAheadT));
       this.walkerGroup.position.set(curSample.point[0], curSample.point[1] + 1.35, curSample.point[2]);
       this._walkerNextVec.set(lookSample.point[0], lookSample.point[1] + 1.35, lookSample.point[2]);
 
@@ -3332,9 +3340,6 @@ export class EvacuationExperienceController {
         const sx = (this._walkerProjVec.x * 0.5 + 0.5) * vw;
         const sy = (-this._walkerProjVec.y * 0.5 + 0.5) * vh;
         if (inFront && sx > 40 && sx < vw - 40 && sy > 70 && sy < vh - 165) {
-          const totalD = guidance.replanStatus?.totalDistanceMeters
-            || this.activeFacilityPkg?.routeBaselines?.PATH_SHORTEST_RAPID?.targetLengthMeters
-            || 0;
           const remM = Math.max(0, Math.round((1 - this.routeProgressT) * totalD));
           walkerCalloutEl.style.display = 'inline-flex';
           walkerCalloutEl.textContent = (this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED || remM <= 10)
