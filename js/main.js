@@ -2945,127 +2945,6 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
     }
 
-    const GLOBE_REFERENCE_LANDMARKS = [
-      { id: 'ref_seoul', label: '서울', lat: 37.65, lon: 126.20, kind: 'anchor' },
-      { id: 'ref_gyeongju', label: '경주·포항', lat: 35.15, lon: 129.65, kind: 'anchor' },
-      { id: 'ref_eastsea', label: '동해 (East Sea)', lat: 38.80, lon: 135.20, kind: 'sea' },
-      { id: 'ref_baekdu', label: '백두산', lat: 42.35, lon: 128.00, kind: 'sub' }
-    ];
-    const _refLandmarkRoot = document.getElementById('globe-reference-landmarks');
-    const _refPinDomMap = new Map();
-    const _refPosVec = new THREE.Vector3();
-    const _refCenterVec = new THREE.Vector3();
-    const _refNormVec = new THREE.Vector3();
-    const _refToCamVec = new THREE.Vector3();
-    const _refProjVec = new THREE.Vector3();
-
-    function updateGlobeReferenceLandmarks() {
-      if (!_refLandmarkRoot) return;
-      const surfaceState = controlSurface?.currentState;
-      const shouldHide =
-        Boolean(exhibitionModeManager?.isLocalModeActive?.()) ||
-        flightState === FLIGHT_STATES.DESCEND ||
-        flightState === FLIGHT_STATES.ASCEND ||
-        surfaceState === 'DISCOVER' ||
-        surfaceState === 'SELECTED';
-      if (shouldHide) {
-        _refLandmarkRoot.style.display = 'none';
-        return;
-      }
-      _refLandmarkRoot.style.display = 'block';
-
-      const [cx, cy, cz] = ecefToThree([0, 0, 0], currentSceneOriginLat, currentSceneOriginLon);
-      _refCenterVec.set(cx, cy, cz);
-
-      const activeCoords = currentParsedEvent?.spatialCoords;
-      const showEpi =
-        (flightState === FLIGHT_STATES.PERFORMANCE || flightState === FLIGHT_STATES.CODA) &&
-        activeCoords &&
-        Number.isFinite(activeCoords.lat) &&
-        Number.isFinite(activeCoords.lon);
-
-      const items = [...GLOBE_REFERENCE_LANDMARKS];
-      if (showEpi) {
-        const evTitle = String(currentParsedEvent.titleKo || currentParsedEvent.place || '진앙').split('(')[0].trim();
-        items.unshift({
-          id: 'ref_active_epicenter',
-          label: `진앙 · ${evTitle}`,
-          lat: activeCoords.lat,
-          lon: activeCoords.lon,
-          kind: 'epicenter'
-        });
-      }
-
-      const vw = Math.max(1, window.innerWidth || 1280);
-      const vh = Math.max(1, window.innerHeight || 800);
-      const placed = [];
-
-      const activeIds = new Set();
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        activeIds.add(item.id);
-        let pin = _refPinDomMap.get(item.id);
-        if (!pin) {
-          pin = document.createElement('div');
-          pin.className = `globe-ref-pin kind-${item.kind}`;
-          pin.innerHTML = `<span class="ref-dot"></span><span class="ref-label"></span>`;
-          _refLandmarkRoot.appendChild(pin);
-          _refPinDomMap.set(item.id, pin);
-        }
-        const labelSpan = pin.lastElementChild;
-        if (labelSpan && labelSpan.textContent !== item.label) {
-          labelSpan.textContent = item.label;
-        }
-
-        const [tx, ty, tz] = geodeticToThree(item.lat, item.lon, 800.0, currentSceneOriginLat, currentSceneOriginLon, 0.0);
-        _refPosVec.set(tx, ty, tz);
-        _refNormVec.copy(_refPosVec).sub(_refCenterVec).normalize();
-        _refToCamVec.copy(camera.position).sub(_refPosVec).normalize();
-        // Require front-facing hemisphere
-        if (_refNormVec.dot(_refToCamVec) <= 0.14) {
-          pin.style.display = 'none';
-          continue;
-        }
-
-        _refProjVec.copy(_refPosVec).project(camera);
-        if (_refProjVec.z < -1 || _refProjVec.z > 1) {
-          pin.style.display = 'none';
-          continue;
-        }
-
-        const sx = (_refProjVec.x * 0.5 + 0.5) * vw;
-        const sy = (-_refProjVec.y * 0.5 + 0.5) * vh;
-        const bottomSafe = surfaceState === 'PERFORMANCE' ? 148 : 112;
-        if (sx < 56 || sx > vw - 56 || sy < 72 || sy > vh - bottomSafe) {
-          pin.style.display = 'none';
-          continue;
-        }
-
-        const estW = Math.min(130, item.label.length * 6.5 + 14);
-        const estH = 15;
-        const rect = {
-          left: sx - estW * 0.5,
-          right: sx + estW * 0.5,
-          top: sy - estH * 0.5,
-          bottom: sy + estH * 0.5
-        };
-        const collides = placed.some(r => !(rect.right + 2 < r.left || rect.left - 2 > r.right || rect.bottom + 2 < r.top || rect.top - 2 > r.bottom));
-        if (collides) {
-          pin.style.display = 'none';
-          continue;
-        }
-        placed.push(rect);
-        pin.style.display = 'inline-flex';
-        pin.style.transform = `translate3d(${Math.round(rect.left)}px, ${Math.round(rect.top)}px, 0)`;
-      }
-
-      for (const [id, pin] of _refPinDomMap.entries()) {
-        if (!activeIds.has(id)) {
-          pin.style.display = 'none';
-        }
-      }
-    }
-
     function animate(now) {
       requestAnimationFrame(animate);
 
@@ -3170,7 +3049,6 @@ import { UnifiedControlSurface } from './ui/UnifiedControlSurface.js?v=5.0';
       }
 
       renderer.render(scene, camera);
-      updateGlobeReferenceLandmarks();
     }
 
     init();

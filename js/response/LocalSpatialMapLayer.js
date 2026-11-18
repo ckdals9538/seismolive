@@ -733,7 +733,6 @@ export class LocalSpatialMapLayer {
     this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
     this._epicenterRayMat = null;
     this._epicenterWaveArcs = [];
-    this._activeSeismicBearingMeta = null;
     const initOrig = this.pkg?.defaultOriginMeta || (this.pkg?.isHanyangNative !== false && this.pkg?.metadata?.packageId?.includes('HANYANG')
       ? { id: 'BLDG_212_ENG1', name: '제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 }
       : null);
@@ -2142,16 +2141,7 @@ export class LocalSpatialMapLayer {
     this._waveLastElapsed = 0;
     this._waveStartSec = null;
 
-    if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) {
-      this._activeSeismicBearingMeta = null;
-      const prevEpiEl = this._labelDomMap.get('EPICENTER_BEARING_ANCHOR');
-      if (prevEpiEl) {
-        prevEpiEl.remove();
-        this._labelDomMap.delete('EPICENTER_BEARING_ANCHOR');
-      }
-      this._buildLabelAnchors();
-      return;
-    }
+    if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) return;
 
     const palette = this._getThemePalette();
     const isDay = this.state.theme === 'ARCHITECTURAL_DAY';
@@ -2161,17 +2151,6 @@ export class LocalSpatialMapLayer {
     const dirZ = -Math.cos(rad);
     const ox = this._activeOriginMeta?.east_m ?? 0;
     const oz = -(this._activeOriginMeta?.north_m ?? 0);
-    this._activeSeismicBearingMeta = {
-      bearingDeg: seismicCtx.bearingDeg,
-      distanceKm: seismicCtx.distanceKm,
-      ox,
-      oz
-    };
-    const prevEpiEl = this._labelDomMap.get('EPICENTER_BEARING_ANCHOR');
-    if (prevEpiEl) {
-      prevEpiEl.remove();
-      this._labelDomMap.delete('EPICENTER_BEARING_ANCHOR');
-    }
 
     // 1. Subdivided sightline along outer approach zone (r = 480m -> 2210m) + close-range origin bearing compass arc
     if (!this._epicenterRayMat) {
@@ -2387,7 +2366,6 @@ export class LocalSpatialMapLayer {
       facadeLines.name = 'FacadeRiskBaseHairlines';
       this.epicenterGuideGroup.add(facadeLines);
     }
-    this._buildLabelAnchors();
   }
 
   replaySeismicWavefront() {
@@ -2653,24 +2631,6 @@ export class LocalSpatialMapLayer {
         });
         if (seenWaterNames.size >= 3) break;
       }
-    }
-
-    // 3.5 In-View Epicenter Bearing Compass Anchor (strictly derived from active seismic context)
-    if (this._activeSeismicBearingMeta && Number.isFinite(this._activeSeismicBearingMeta.bearingDeg)) {
-      const { bearingDeg, distanceKm, ox, oz } = this._activeSeismicBearingMeta;
-      const rad = (bearingDeg * Math.PI) / 180.0;
-      const distLabel = Number.isFinite(distanceKm) ? `${Math.round(distanceKm)}km` : '';
-      const anchorX = ox + Math.sin(rad) * 165.0;
-      const anchorZ = oz - Math.cos(rad) * 165.0;
-      this.labelAnchors.push({
-        id: 'EPICENTER_BEARING_ANCHOR',
-        title: `진앙 방향 · ${Math.round(bearingDeg)}°${distLabel ? ` (${distLabel})` : ''}`,
-        subtitle: '지진파 유입',
-        category: 'EPICENTER_GUIDE',
-        provisional: false,
-        priority: 84,
-        worldPos: new THREE.Vector3(anchorX, this._sampleTerrainHeight(anchorX, -anchorZ) + 6.0, anchorZ)
-      });
     }
 
     // 4. Secondary Named Context Landmarks
