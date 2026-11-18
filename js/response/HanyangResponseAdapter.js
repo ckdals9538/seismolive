@@ -749,15 +749,20 @@ export class HanyangResponseAdapter {
             ? mix(0.62, 1.0, smoothstep(1.2, 2.2, abs(mod(vNavUv.y, 9.0) - 4.5)))
             : 1.0;
 
-          vec3 activeCore = mix(uCoreColor, uChevronColor, chevShape * 0.92 * aheadFactor);
-          vec3 traveledCore = mix(uWalkedColor, activeCore, 0.26);
+          // 50m cartographic distance stationing ticks on outer ahead corridor shoulders
+          float tickBand = 1.0 - smoothstep(0.45 - aaV * 0.4, 0.90 + aaV * 0.4, abs(mod(vNavUv.y, 50.0) - 25.0));
+          float tickMask = tickBand * smoothstep(0.44, 0.62, absU) * aheadFactor;
+
+          vec3 activeCore = mix(uCoreColor, uChevronColor, chevShape * 0.94 * aheadFactor);
+          activeCore = mix(activeCore, vec3(1.0, 0.92, 0.72), tickMask * 0.85);
+          vec3 traveledCore = mix(uWalkedColor, activeCore, 0.14);
           vec3 finalCore = mix(traveledCore, activeCore, aheadFactor);
 
           // Subtle spine luminance along dead center
           finalCore += vec3(0.05) * (1.0 - smoothstep(0.0, 0.35, absU)) * aheadFactor;
 
           vec3 rgb = mix(uCasingColor, finalCore, coreMask);
-          float alpha = outerAlpha * uOpacity * mix(0.54, 1.0, aheadFactor) * dashMask;
+          float alpha = outerAlpha * uOpacity * mix(0.42, 1.0, aheadFactor) * dashMask;
           if (alpha < 0.02) discard;
           gl_FragColor = vec4(rgb, alpha);
         }

@@ -535,20 +535,20 @@
     }
     /* Archival Ledger Row */
     .discover-event-card {
-      background: transparent;
+      background: rgba(18, 24, 36, 0.55);
       border: none;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.09);
       border-radius: 0;
-      padding: 10px 10px;
+      padding: 12px 12px;
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
     }
     .discover-event-card:hover {
-      background: rgba(255, 255, 255, 0.03);
-      border-bottom-color: rgba(200, 157, 84, 0.25);
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom-color: rgba(200, 157, 84, 0.35);
       transform: none;
       box-shadow: none;
     }
@@ -566,9 +566,9 @@
     }
     .card-era {
       font-family: "SF Mono", Menlo, monospace;
-      font-size: 10px;
-      color: #C89D54;
-      letter-spacing: 0.06em;
+      font-size: 11px;
+      color: #E0B46A;
+      letter-spacing: 0.05em;
     }
     .ledger-title-line {
       display: flex;
@@ -578,23 +578,23 @@
     }
     .card-coords {
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--mist);
+      font-size: 10.5px;
+      color: #A9B8CB;
       white-space: nowrap;
       flex-shrink: 0;
     }
     .card-title {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 14px;
-      font-weight: 500;
-      color: #EAE4D5;
+      font-size: 15px;
+      font-weight: 600;
+      color: #F5F0E6;
       letter-spacing: 0.01em;
     }
     .card-snippet {
       font-family: "Noto Serif KR", Batang, serif;
-      font-size: 11.5px;
-      line-height: 1.55;
-      color: rgba(234, 228, 213, 0.62);
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: rgba(245, 240, 230, 0.85);
       font-style: italic;
       white-space: nowrap;
       overflow: hidden;
@@ -623,9 +623,39 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
       border-bottom: 1px solid var(--hairline);
       padding-bottom: 7px;
       flex-shrink: 0;
+    }
+    .selected-header-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .text-size-toggle {
+      appearance: none;
+      padding: 3px 9px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      border: 1px solid rgba(200, 157, 84, 0.45);
+      background: rgba(200, 157, 84, 0.12);
+      color: #F5F0E6;
+      border-radius: 4px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+    .text-size-toggle:hover {
+      background: rgba(200, 157, 84, 0.22);
+      border-color: var(--brass);
+    }
+    .text-size-toggle.active {
+      background: rgba(200, 157, 84, 0.30);
+      border-color: #E0B46A;
+      color: #ffffff;
     }
     .selected-era-badge {
       font-family: var(--font-mono);
@@ -713,9 +743,9 @@
     }
     .insight-text {
       font-family: var(--font-sans);
-      font-size: 11.5px;
-      color: var(--hanji);
-      line-height: 1.5;
+      font-size: 12.5px;
+      color: #F5F0E6;
+      line-height: 1.55;
       margin: 0;
       word-break: keep-all;
     }
@@ -794,15 +824,13 @@
 
     /* Museum Archival Folio Inscription */
     .selected-quote-card {
-      background: rgba(255, 255, 255, 0.018);
-      border: none;
-      border-top: 1px solid var(--hairline);
-      border-bottom: 1px solid var(--hairline);
+      background: rgba(22, 30, 44, 0.92);
+      border: 1px solid rgba(200, 157, 84, 0.28);
       padding: 16px 20px;
-      border-radius: 0;
+      border-radius: 4px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 9px;
     }
     .quote-header {
       display: flex;
@@ -812,30 +840,30 @@
     }
     .quote-source-label {
       font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--brass);
-      font-weight: 500;
+      font-size: 11px;
+      color: #E0B46A;
+      font-weight: 600;
       letter-spacing: 0.04em;
     }
     .quote-confidence-badge {
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--mist);
+      font-size: 10.5px;
+      color: #B4C2D4;
     }
     .quote-text {
       font-family: var(--font-serif);
-      font-size: 15px;
-      line-height: 2.0;
-      color: var(--hanji);
+      font-size: 16px;
+      line-height: 1.9;
+      color: #F7F3E9;
       letter-spacing: 0.01em;
       margin: 0;
     }
     .quote-hanja-row {
       font-family: var(--font-serif);
-      font-size: 11.5px;
-      color: var(--mist);
-      line-height: 1.7;
-      border-top: 1px solid var(--hairline);
+      font-size: 12.5px;
+      color: rgba(234, 228, 213, 0.84);
+      line-height: 1.75;
+      border-top: 1px solid var(--hairline-strong);
       padding-top: 8px;
     }
 
@@ -892,24 +920,24 @@
       width: 100%;
       border-collapse: collapse;
       font-family: var(--font-sans);
-      font-size: 11px;
+      font-size: 12.5px;
     }
     .hist-felt-table th {
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--mist);
-      font-weight: 500;
+      font-size: 10.5px;
+      color: #E0B46A;
+      font-weight: 600;
       text-align: left;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--hairline);
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--hairline-strong);
       letter-spacing: 0.04em;
     }
     .hist-felt-table td {
-      padding: 7px 8px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--hanji);
+      padding: 8px 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #F5F0E6;
       vertical-align: top;
-      line-height: 1.5;
+      line-height: 1.6;
     }
     .hist-felt-row {
       cursor: pointer;
@@ -966,13 +994,13 @@
       gap: 8px;
     }
     .hist-method-card {
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--hairline);
-      padding: 10px 12px;
-      border-radius: 2px;
+      background: rgba(20, 27, 40, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 12px 14px;
+      border-radius: 4px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
     }
     .hist-method-card-header {
       display: flex;
@@ -982,24 +1010,24 @@
     }
     .hist-method-title {
       font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--brass);
+      font-size: 11px;
+      color: #E0B46A;
       font-weight: 600;
       letter-spacing: 0.03em;
     }
     .hist-method-tag {
       font-family: var(--font-mono);
-      font-size: 8.5px;
-      color: var(--mist);
-      padding: 1px 4px;
-      background: rgba(255, 255, 255, 0.04);
-      border-radius: 2px;
+      font-size: 9.5px;
+      color: #B4C2D4;
+      padding: 2px 5px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 3px;
     }
     .hist-method-body {
       font-family: var(--font-sans);
-      font-size: 10.5px;
-      color: var(--hanji);
-      line-height: 1.55;
+      font-size: 12.5px;
+      color: #F5F0E6;
+      line-height: 1.65;
     }
 
     /* Geophysical Phenomena Deep-Dive & Chronology */
@@ -1013,44 +1041,44 @@
     .hist-chrono-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.35);
-      border: 1px solid var(--hairline);
-      padding: 10px 12px;
-      border-radius: 2px;
+      gap: 10px;
+      background: rgba(20, 27, 40, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 12px 14px;
+      border-radius: 4px;
     }
     .hist-chrono-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
     }
     .hist-chrono-label {
       font-family: var(--font-mono);
-      font-size: 9px;
-      color: var(--mist);
+      font-size: 10px;
+      color: #A9B8CB;
       letter-spacing: 0.04em;
     }
     .hist-chrono-val {
       font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--hanji);
-      font-weight: 500;
+      font-size: 12px;
+      color: #F5F0E6;
+      font-weight: 600;
     }
 
     /* Archival Sequence Chain */
     .sequence-chain-box {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      padding: 10px 14px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--hairline);
-      border-radius: 2px;
+      gap: 8px;
+      padding: 12px 14px;
+      background: rgba(20, 27, 40, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 4px;
     }
     .sequence-chain-title {
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      color: var(--brass);
+      font-size: 10.5px;
+      color: #E0B46A;
       font-weight: 600;
       letter-spacing: 0.05em;
       text-transform: uppercase;
@@ -1062,23 +1090,23 @@
     }
     .seq-step-pill {
       font-family: var(--font-mono);
-      font-size: 10px;
-      padding: 4px 10px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--hairline);
-      color: var(--hanji);
-      border-radius: 2px;
+      font-size: 11px;
+      padding: 5px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #F5F0E6;
+      border-radius: 3px;
     }
 
     /* Archival Provenance & Scholar Box */
     .archival-provenance-box {
-      background: rgba(255, 255, 255, 0.015);
-      border: 1px solid var(--hairline);
-      border-radius: 2px;
-      padding: 10px 16px;
+      background: rgba(20, 27, 40, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 4px;
+      padding: 12px 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 7px;
     }
     .provenance-detail-row {
       display: flex;
@@ -1086,28 +1114,28 @@
       justify-content: space-between;
       gap: 12px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 11.5px;
     }
     .p-label {
-      color: var(--mist);
+      color: #B4C2D4;
       flex-shrink: 0;
     }
     .p-val {
-      color: var(--hanji);
+      color: #F5F0E6;
       text-align: right;
     }
     .scholar-compare-box {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      padding: 12px 16px;
-      background: rgba(255, 255, 255, 0.015);
-      border: 1px solid var(--hairline);
-      border-radius: 2px;
+      padding: 14px 16px;
+      background: rgba(20, 27, 40, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 4px;
       font-family: var(--font-sans);
-      font-size: 11px;
-      line-height: 1.6;
-      color: var(--mist);
+      font-size: 12.5px;
+      line-height: 1.68;
+      color: #F0EAE0;
     }
 
     /* Editorial Sections inside Instrumental Tabs */
@@ -1205,9 +1233,9 @@
     }
     .editorial-narrative {
       font-family: var(--font-serif);
-      font-size: 12px;
-      color: var(--hanji);
-      line-height: 1.7;
+      font-size: 13.5px;
+      color: #F5F0E6;
+      line-height: 1.75;
       margin: 0;
       word-break: keep-all;
     }
@@ -1274,23 +1302,23 @@
       width: 100%;
       border-collapse: collapse;
       font-family: var(--font-mono);
-      font-size: 10.5px;
+      font-size: 11.5px;
       margin-top: 4px;
     }
     .station-table th {
       text-align: left;
-      font-size: 9px;
-      color: var(--mist);
-      font-weight: 500;
+      font-size: 10px;
+      color: #E0B46A;
+      font-weight: 600;
       letter-spacing: 0.06em;
       text-transform: uppercase;
-      padding: 6px 10px;
+      padding: 7px 10px;
       border-bottom: 1px solid var(--hairline-strong);
     }
     .station-table td {
-      padding: 7px 10px;
+      padding: 8px 10px;
       border-bottom: 1px solid var(--hairline);
-      color: var(--hanji);
+      color: #F5F0E6;
     }
     .station-table tr:hover td {
       background: rgba(255, 255, 255, 0.02);
@@ -1350,6 +1378,43 @@
     .surface-text-link:hover {
       color: var(--hanji);
       text-decoration-color: var(--brass);
+    }
+    #btn-selected-local-response.surface-text-link {
+      padding: 5px 11px;
+      border: 1px solid rgba(200, 157, 84, 0.55);
+      background: rgba(200, 157, 84, 0.14);
+      color: #F5F0E6;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background 0.16s ease, border-color 0.16s ease;
+    }
+    #btn-selected-local-response.surface-text-link:hover {
+      background: rgba(200, 157, 84, 0.26);
+      border-color: #E0B46A;
+    }
+
+    /* Accessible Large-Text Reading Mode (Toggle: #btn-toggle-large-text) */
+    #unified-control-surface.is-large-text .quote-text {
+      font-size: 18.5px;
+      line-height: 1.9;
+    }
+    #unified-control-surface.is-large-text .quote-hanja-row {
+      font-size: 14px;
+    }
+    #unified-control-surface.is-large-text .hist-method-body,
+    #unified-control-surface.is-large-text .scholar-compare-box,
+    #unified-control-surface.is-large-text .hist-felt-table,
+    #unified-control-surface.is-large-text .editorial-narrative {
+      font-size: 14.5px;
+      line-height: 1.75;
+    }
+    #unified-control-surface.is-large-text .provenance-detail-row,
+    #unified-control-surface.is-large-text .station-table {
+      font-size: 13px;
+    }
+    #unified-control-surface.is-large-text .insight-text {
+      font-size: 13.5px;
     }
 
     /* Post-Wave Narrative Invitation Card floating cleanly above Performance Bar & Chronicle Subtitle */
@@ -2183,6 +2248,10 @@
       }
       .selected-fixed-top {
         padding: 12px 14px 0;
+      }
+      .text-size-toggle {
+        padding: 2px 7px;
+        font-size: 10px;
       }
       .selected-title {
         font-size: 17px;

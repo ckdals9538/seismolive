@@ -41,6 +41,7 @@ export class UnifiedControlSurface {
         this.autoContinue = false;
         this.isScrubbing = false;
         this.activeDossierTab = 'hist_corpus';
+        this.largeTextMode = false;
         this._invDismissedEventIds = new Set();
         this._invShownEventId = null;
 
@@ -422,6 +423,20 @@ export class UnifiedControlSurface {
             } else {
               this.setState('EXPLORE');
             }
+          });
+        }
+
+        const btnToggleLargeText = document.getElementById('btn-toggle-large-text');
+        if (btnToggleLargeText) {
+          btnToggleLargeText.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.largeTextMode = !this.largeTextMode;
+            if (this.container) {
+              this.container.classList.toggle('is-large-text', this.largeTextMode);
+            }
+            btnToggleLargeText.classList.toggle('active', this.largeTextMode);
+            btnToggleLargeText.setAttribute('aria-pressed', this.largeTextMode ? 'true' : 'false');
+            btnToggleLargeText.textContent = this.largeTextMode ? '기본 글씨 A-' : '큰 글씨 A+';
           });
         }
 
@@ -1925,7 +1940,7 @@ export class UnifiedControlSurface {
           curId &&
           !this._invDismissedEventIds.has(curId) &&
           this._invShownEventId !== curId &&
-          (time >= 6.5 || (maxTime > 0 && time / maxTime >= 0.19))
+          (time >= 3.2 || (maxTime > 0 && time / maxTime >= 0.10))
         ) {
           this._invShownEventId = curId;
           this._showPerformanceInvitation();

@@ -1691,7 +1691,8 @@ export class EvacuationExperienceController {
     this.experiencePhase = EXPERIENCE_PHASES.SEISMIC_BRIEF;
     this.walkPlaying = false;
     this.routeProgressT = 0.0;
-    this.shelterSetbackGroup.visible = false;
+    this.walkerGroup.visible = Boolean(this.activeFacilityPkg);
+    this._syncShelterSetbackVisuals?.();
     this._syncPlayButton();
     this._renderSafetyRuleCard();
 
@@ -1708,7 +1709,7 @@ export class EvacuationExperienceController {
     }
     banner?.classList.add('is-active');
 
-    const holdMs = opts.durationMs || 2300;
+    const holdMs = opts.durationMs || 900;
     this.briefTimerId = setTimeout(() => {
       this.beginActiveEvacuation();
     }, holdMs);
@@ -1722,7 +1723,7 @@ export class EvacuationExperienceController {
     this._isScrubbingRoute = false;
     this._el('seismic-brief-banner')?.classList.remove('is-active');
     this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-    this.shelterSetbackGroup.visible = false;
+    this._syncShelterSetbackVisuals?.();
     this.walkPlaying = true;
     if (this.routeProgressT >= 0.99) this.routeProgressT = 0.0;
     this._syncPlayButton();
@@ -1843,7 +1844,7 @@ export class EvacuationExperienceController {
     this.hanyangAdapter.setThemeColors(this.activeVisualTheme === 'ARCHITECTURAL_DAY');
     this.routeProgressT = 0.02;
     this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-    this.shelterSetbackGroup.visible = false;
+    this._syncShelterSetbackVisuals?.();
     if (opts.autoPlay !== false) {
       this.walkPlaying = true;
       this._syncPlayButton();
@@ -1918,7 +1919,7 @@ export class EvacuationExperienceController {
     this.hanyangAdapter.setThemeColors(this.activeVisualTheme === 'ARCHITECTURAL_DAY');
     this.routeProgressT = 0.04;
     this.experiencePhase = opts.skipBrief === false ? EXPERIENCE_PHASES.SEISMIC_BRIEF : EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-    this.shelterSetbackGroup.visible = false;
+    this._syncShelterSetbackVisuals?.();
     if (opts.autoPlay !== false && this.experiencePhase === EXPERIENCE_PHASES.EVACUATION_ACTIVE) {
       this.walkPlaying = true;
       this._syncPlayButton();
@@ -2343,6 +2344,35 @@ export class EvacuationExperienceController {
     }
   }
 
+  _syncShelterSetbackVisuals() {
+    if (!this.shelterSetbackGroup) return;
+    const g = this.uiAdapter?.lastGuidance;
+    const isOutside = this.activeImpactEval?.impactStatus === IMPACT_ZONE_STATUS.OUTSIDE_IMPACT_ZONE;
+    const activePts = this.hanyangAdapter?.getActiveRoutePoints?.() || [];
+    if (!this.activeFacilityPkg || isOutside || activePts.length < 2 || (g && !g.canNavigate)) {
+      this.shelterSetbackGroup.visible = false;
+      return;
+    }
+    const endPt = activePts[activePts.length - 1];
+    const ex = Array.isArray(endPt) ? (endPt[0] || 0) : (endPt?.x || 0);
+    const ez = Array.isArray(endPt) ? (endPt[2] || 0) : (endPt?.z || 0);
+    const key = `${this.activeSpatialPkg?.metadata?.packageId}:${ex.toFixed(1)}:${ez.toFixed(1)}`;
+    if (this._lastSetbackKey !== key) {
+      this._lastSetbackKey = key;
+      this._drapeSetbackRingMesh(this.setbackInnerRing, ex, ez, 14.0, 15.4, 56);
+      this._drapeSetbackRingMesh(this.setbackOuterRing, ex, ez, 24.0, 25.3, 64);
+    }
+    const isArrived = this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED || this.routeProgressT >= 0.996;
+    if (this.setbackInnerRing?.material) {
+      this.setbackInnerRing.material.opacity = isArrived ? 0.88 : 0.56;
+    }
+    if (this.setbackOuterRing?.material) {
+      this.setbackOuterRing.material.opacity = isArrived ? 0.52 : 0.34;
+    }
+    this.shelterSetbackGroup.visible = true;
+    this.shelterSetbackGroup.position.set(ex, 0, ez);
+  }
+
   _updateSafetyRuleForProgress() {
     const g = this.uiAdapter.lastGuidance;
     const impStatus = this.activeImpactEval?.impactStatus;
@@ -2392,22 +2422,8 @@ export class EvacuationExperienceController {
       }
     }
 
-    // Position terrain-draped shelter setback rings cleanly on destination slope
-    if (activePts.length >= 2 && this.experiencePhase === EXPERIENCE_PHASES.SHELTER_ARRIVED) {
-      const endPt = activePts[activePts.length - 1];
-      const ex = Array.isArray(endPt) ? (endPt[0] || 0) : (endPt?.x || 0);
-      const ez = Array.isArray(endPt) ? (endPt[2] || 0) : (endPt?.z || 0);
-      const key = `${this.activeSpatialPkg?.metadata?.packageId}:${ex.toFixed(1)}:${ez.toFixed(1)}`;
-      if (this._lastSetbackKey !== key) {
-        this._lastSetbackKey = key;
-        this._drapeSetbackRingMesh(this.setbackInnerRing, ex, ez, 14.0, 15.4, 56);
-        this._drapeSetbackRingMesh(this.setbackOuterRing, ex, ez, 24.0, 25.3, 64);
-      }
-      this.shelterSetbackGroup.visible = true;
-      this.shelterSetbackGroup.position.set(ex, 0, ez);
-    } else {
-      this.shelterSetbackGroup.visible = false;
-    }
+    // Keep terrain-draped shelter safety zone rings visible throughout approach & emphasized on arrival
+    this._syncShelterSetbackVisuals();
     this._syncResponsiveTopBarOffset();
   }
 
@@ -2965,14 +2981,14 @@ export class EvacuationExperienceController {
       if (this.routeProgressT >= 0.996) {
         this.routeProgressT = 0.0;
         this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-        this.shelterSetbackGroup.visible = false;
+        this._syncShelterSetbackVisuals();
         this.walkPlaying = true;
       } else {
         const nextPlaying = !this.walkPlaying;
         this.walkPlaying = nextPlaying;
         if (nextPlaying) {
           this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-          this.shelterSetbackGroup.visible = false;
+          this._syncShelterSetbackVisuals();
         }
       }
       this._syncPlayButton();
@@ -2983,7 +2999,7 @@ export class EvacuationExperienceController {
       if (!this.activeFacilityPkg) return;
       this.routeProgressT = 0.0;
       this.experiencePhase = EXPERIENCE_PHASES.EVACUATION_ACTIVE;
-      this.shelterSetbackGroup.visible = false;
+      this._syncShelterSetbackVisuals();
       this.walkPlaying = true;
       this._syncPlayButton();
       this._updateSafetyRuleForProgress();

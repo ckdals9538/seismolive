@@ -2,10 +2,10 @@
     :root {
       --void: #020408;
       --basalt: #161A22;
-      --basalt-surface: rgba(22, 26, 34, 0.88);
-      --basalt-elevated: rgba(28, 34, 46, 0.96);
-      --hanji: #EAE4D5;
-      --hanji-muted: rgba(234, 228, 213, 0.72);
+      --basalt-surface: rgba(16, 21, 30, 0.94);
+      --basalt-elevated: rgba(12, 16, 24, 0.98);
+      --hanji: #F4EFE4;
+      --hanji-muted: rgba(244, 239, 228, 0.82);
       --cinnabar: #D94E34;
       --brass: #C89D54;
       --brass-dim: rgba(200, 157, 84, 0.35);
@@ -265,5 +265,79 @@
       }
       #chronicle-subtitle-container {
         bottom: calc(64px + var(--safe-bottom));
+      }
+    }
+
+    /* Globe Geographic Reference Landmarks (Clarity for Spatial Orientation) */
+    body.in-local-evac-mode #globe-reference-landmarks {
+      display: none !important;
+    }
+    #globe-reference-landmarks {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .globe-ref-pin {
+      position: fixed;
+      left: 0;
+      top: 0;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(8, 13, 22, 0.78);
+      border: 1px solid rgba(135, 151, 172, 0.34);
+      color: #EAE4D5;
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+      will-change: transform;
+    }
+    .globe-ref-pin .ref-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #9fb8d8;
+      flex-shrink: 0;
+    }
+    .globe-ref-pin.kind-sea {
+      background: rgba(6, 12, 22, 0.56);
+      border-color: rgba(125, 211, 252, 0.25);
+      color: rgba(186, 220, 245, 0.85);
+      font-style: italic;
+      font-size: 10.5px;
+    }
+    .globe-ref-pin.kind-sea .ref-dot {
+      display: none;
+    }
+    .globe-ref-pin.kind-epicenter {
+      background: rgba(36, 18, 14, 0.88);
+      border-color: rgba(217, 78, 52, 0.78);
+      color: #FFEAD5;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(217, 78, 52, 0.28);
+    }
+    .globe-ref-pin.kind-epicenter .ref-dot {
+      width: 7px;
+      height: 7px;
+      background: #D94E34;
+      box-shadow: 0 0 8px rgba(217, 78, 52, 0.85);
+    }
+    @media (max-width: 600px) {
+      .globe-ref-pin {
+        font-size: 10px;
+        padding: 2.5px 7px;
+      }
+      .globe-ref-pin.kind-sub,
+      .globe-ref-pin.kind-sea {
+        display: none !important;
       }
     }

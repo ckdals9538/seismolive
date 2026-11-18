@@ -55,8 +55,8 @@ export const LOCAL_VISUAL_THEMES = Object.freeze({
     rimColor: 0x6b93c4,
     rimIntensity: 0.68,
     xrayColor: 0x1e293b,
-    treeConifer: 0x1b3933,
-    treeBroadleaf: 0x24473f,
+    treeConifer: 0x17262b,
+    treeBroadleaf: 0x1d3036,
     horizonRing: 0x334155,
     epicenterRay: 0xe2c799
   }),
@@ -733,6 +733,7 @@ export class LocalSpatialMapLayer {
     this.epicenterGuideGroup.name = 'EpicenterBearingHorizonGuide';
     this._epicenterRayMat = null;
     this._epicenterWaveArcs = [];
+    this._activeSeismicBearingMeta = null;
     const initOrig = this.pkg?.defaultOriginMeta || (this.pkg?.isHanyangNative !== false && this.pkg?.metadata?.packageId?.includes('HANYANG')
       ? { id: 'BLDG_212_ENG1', name: '제1공학관(212동)', east_m: 52.0, north_m: 74.0, height_m: 21.5 }
       : null);
@@ -1132,7 +1133,8 @@ export class LocalSpatialMapLayer {
       uContourColor: { value: new THREE.Color(palette.contour) },
       uContourOpacity: { value: palette.contourOpacity }
     };
-    terrainMat.customProgramCacheKey = () => 'seismolive_terrain_contour_v1';
+    terrainMat.extensions = { ...(terrainMat.extensions || {}), derivatives: true };
+    terrainMat.customProgramCacheKey = () => 'seismolive_terrain_contour_v2';
     terrainMat.onBeforeCompile = (shader) => {
       shader.uniforms.uContourColor = this._terrainUniforms.uContourColor;
       shader.uniforms.uContourOpacity = this._terrainUniforms.uContourOpacity;
@@ -1163,8 +1165,10 @@ export class LocalSpatialMapLayer {
            float hT = vSeismoTerrainWPos.y;
            #if __VERSION__ >= 300 || defined(GL_OES_standard_derivatives)
              float fwH = clamp(fwidth(hT), 0.04, 0.9);
+             vec2 fwXZ = max(vec2(0.08), fwidth(vSeismoTerrainWPos.xz));
            #else
              float fwH = 0.22;
+             vec2 fwXZ = vec2(0.35);
            #endif
            float minorBand = 1.0 - smoothstep(0.0, fwH * 1.4, abs(fract(hT / 5.0 + 0.5) - 0.5) * 5.0);
            float majorBand = 1.0 - smoothstep(0.0, fwH * 1.7, abs(fract(hT / 25.0 + 0.5) - 0.5) * 25.0);
@@ -1172,6 +1176,11 @@ export class LocalSpatialMapLayer {
            float distFade = 1.0 - smoothstep(380.0, 2100.0, camD);
            float contourStrength = max(minorBand * 0.42, majorBand * 0.92) * distFade * uContourOpacity;
            diffuseColor.rgb = mix(diffuseColor.rgb, uContourColor, clamp(contourStrength, 0.0, 0.52));
+           // Architectural 50m / 100m spatial scale grid fading cleanly into distance
+           vec2 g50 = 1.0 - smoothstep(vec2(0.0), fwXZ * 1.45, abs(fract(vSeismoTerrainWPos.xz / 50.0 + 0.5) - 0.5) * 50.0);
+           vec2 g100 = 1.0 - smoothstep(vec2(0.0), fwXZ * 1.85, abs(fract(vSeismoTerrainWPos.xz / 100.0 + 0.5) - 0.5) * 100.0);
+           float microGridMask = max(max(g50.x, g50.y) * 0.24, max(g100.x, g100.y) * 0.52) * (1.0 - smoothstep(260.0, 950.0, camD)) * uContourOpacity;
+           diffuseColor.rgb = mix(diffuseColor.rgb, uContourColor * 1.15, clamp(microGridMask, 0.0, 0.34));
            float paperGrain = (fract(sin(dot(floor(vSeismoTerrainWPos.xz * 0.55), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.012;
            diffuseColor.rgb = max(vec3(0.015), diffuseColor.rgb + paperGrain * (0.35 + 0.65 * distFade));`
         );
@@ -1904,6 +1913,10 @@ export class LocalSpatialMapLayer {
 
     const ringGeo = this._track(new THREE.RingGeometry(14.0, 17.5, 32));
     ringGeo.rotateX(-Math.PI / 2);
+    const padGeo = this._track(new THREE.CircleGeometry(14.0, 36));
+    padGeo.rotateX(-Math.PI / 2);
+    const outerRingGeo = this._track(new THREE.RingGeometry(21.0, 22.0, 48));
+    outerRingGeo.rotateX(-Math.PI / 2);
 
     const shelters = this.pkg.sheltersAndFacilities || [];
     for (const s of shelters) {
@@ -1924,15 +1937,39 @@ export class LocalSpatialMapLayer {
       sGroup.name = `FacilityPin_${s.id}`;
       sGroup.position.set(s.positionThree[0], groundY, s.positionThree[2]);
 
+      const padMat = this._track(new THREE.MeshBasicMaterial({
+        color,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: isUnavailable ? 0.04 : (isPrimary ? 0.16 : 0.08),
+        depthWrite: false
+      }));
+      const padMesh = new THREE.Mesh(padGeo, padMat);
+      padMesh.position.y = 0.24;
+      sGroup.add(padMesh);
+
       const ringMat = this._track(new THREE.MeshBasicMaterial({
         color,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: isUnavailable ? 0.22 : isPrimary ? 0.65 : 0.45
+        opacity: isUnavailable ? 0.22 : isPrimary ? 0.72 : 0.45
       }));
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.y = 0.35;
       sGroup.add(ring);
+
+      if (!isUnavailable) {
+        const outerMat = this._track(new THREE.MeshBasicMaterial({
+          color: isPrimary ? 0x38bdf8 : color,
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: isPrimary ? 0.45 : 0.25,
+          depthWrite: false
+        }));
+        const outerRing = new THREE.Mesh(outerRingGeo, outerMat);
+        outerRing.position.y = 0.30;
+        sGroup.add(outerRing);
+      }
 
       // Subtle vertical architectural plumb line (non-glowing, thin slate/ivory line)
       const lineGeo = this._track(new THREE.BufferGeometry().setFromPoints([
@@ -1987,7 +2024,7 @@ export class LocalSpatialMapLayer {
           if (isBlockedByUrban(e, n)) continue;
           const h = this._sampleTerrainHeight(e, n);
           if (h < -15.2) continue;
-          const sc = 4.2 + rand() * 4.8;
+          const sc = 2.5 + rand() * 2.6;
           const yaw = rand() * Math.PI * 2;
           const tone = 0.85 + rand() * 0.28;
           if ((i + j + s) % 3 === 0) {
@@ -2105,7 +2142,16 @@ export class LocalSpatialMapLayer {
     this._waveLastElapsed = 0;
     this._waveStartSec = null;
 
-    if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) return;
+    if (!seismicCtx || !Number.isFinite(seismicCtx.bearingDeg)) {
+      this._activeSeismicBearingMeta = null;
+      const prevEpiEl = this._labelDomMap.get('EPICENTER_BEARING_ANCHOR');
+      if (prevEpiEl) {
+        prevEpiEl.remove();
+        this._labelDomMap.delete('EPICENTER_BEARING_ANCHOR');
+      }
+      this._buildLabelAnchors();
+      return;
+    }
 
     const palette = this._getThemePalette();
     const isDay = this.state.theme === 'ARCHITECTURAL_DAY';
@@ -2115,8 +2161,19 @@ export class LocalSpatialMapLayer {
     const dirZ = -Math.cos(rad);
     const ox = this._activeOriginMeta?.east_m ?? 0;
     const oz = -(this._activeOriginMeta?.north_m ?? 0);
+    this._activeSeismicBearingMeta = {
+      bearingDeg: seismicCtx.bearingDeg,
+      distanceKm: seismicCtx.distanceKm,
+      ox,
+      oz
+    };
+    const prevEpiEl = this._labelDomMap.get('EPICENTER_BEARING_ANCHOR');
+    if (prevEpiEl) {
+      prevEpiEl.remove();
+      this._labelDomMap.delete('EPICENTER_BEARING_ANCHOR');
+    }
 
-    // 1. Subdivided sightline along outer approach zone (r = 480m -> 2210m) so campus stays uncluttered
+    // 1. Subdivided sightline along outer approach zone (r = 480m -> 2210m) + close-range origin bearing compass arc
     if (!this._epicenterRayMat) {
       this._epicenterRayMat = this._track(new THREE.LineDashedMaterial({
         color: palette.epicenterRay,
@@ -2143,6 +2200,36 @@ export class LocalSpatialMapLayer {
       rayLine.name = 'EpicenterBearingVectorLine';
       this.epicenterGuideGroup.add(rayLine);
     }
+
+    // In-view Origin Epicenter Bearing Compass Arcs (r = 78m & 86m, +/-22 deg + directional tick)
+    const compassMat = new THREE.LineBasicMaterial({
+      color: isDay ? 0xc2410c : 0xe2c799,
+      transparent: true,
+      opacity: 0.68
+    });
+    for (const rArc of [78.0, 86.0]) {
+      const cPts = [];
+      for (let d = -22; d <= 22; d += 2) {
+        const theta = rad + (d * Math.PI) / 180.0;
+        const px = ox + Math.sin(theta) * rArc;
+        const pz = oz - Math.cos(theta) * rArc;
+        cPts.push(new THREE.Vector3(px, this._sampleTerrainHeight(px, -pz) + 0.72, pz));
+      }
+      if (cPts.length >= 2) {
+        const cGeo = new THREE.BufferGeometry().setFromPoints(cPts);
+        const cLine = new THREE.Line(cGeo, compassMat);
+        cLine.name = `OriginEpicenterBearingArc_${rArc}`;
+        this.epicenterGuideGroup.add(cLine);
+      }
+    }
+    const tickPts = [
+      new THREE.Vector3(ox + dirX * 78.0, this._sampleTerrainHeight(ox + dirX * 78.0, -(oz + dirZ * 78.0)) + 0.75, oz + dirZ * 78.0),
+      new THREE.Vector3(ox + dirX * 108.0, this._sampleTerrainHeight(ox + dirX * 108.0, -(oz + dirZ * 108.0)) + 0.75, oz + dirZ * 108.0)
+    ];
+    const tickGeo = new THREE.BufferGeometry().setFromPoints(tickPts);
+    const tickLine = new THREE.Line(tickGeo, compassMat);
+    tickLine.name = 'OriginEpicenterBearingTick';
+    this.epicenterGuideGroup.add(tickLine);
 
     // 2. Outer directional horizon arcs
     for (let k = 0; k < 2; k++) {
@@ -2246,44 +2333,61 @@ export class LocalSpatialMapLayer {
     waveMesh.renderOrder = 2;
     this.epicenterGuideGroup.add(waveMesh);
 
-    // 4. Subtle tall-building architectural facade setback base hairlines (height >= 20m, no rainbow heatmap)
-    const obbList = this.pkg?.obbRawList || [];
+    // 4. Tall-building architectural facade setback base dual-hairlines (height >= 16m within 650m of origin)
+    const obbList = this.pkg?.obbRawList;
+    const flatObb = this.pkg?.obbBuildingsFloat32 || this._buildingDataRef;
     const segVerts = [];
-    for (let i = 0; i < obbList.length; i++) {
-      const ob = obbList[i];
-      if ((ob.height_m || 0) < 20.0) continue;
-      if (Math.hypot(ob.east_m - ox, -ob.north_m - oz) > 1550) continue;
-      const hw = ob.width_m * 0.5 + 1.8;
-      const hd = ob.depth_m * 0.5 + 1.8;
-      const ca = Math.cos(ob.yaw_rad || 0);
-      const sa = Math.sin(ob.yaw_rad || 0);
-      const cx = ob.east_m;
-      const cz = -ob.north_m;
-      const baseY = this._sampleTerrainHeight(cx, -cz) + 0.48;
-      const cPts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([lx, lz]) => [
-        cx + ca * lx + sa * lz,
-        baseY,
-        cz - sa * lx + ca * lz
-      ]);
-      for (let k = 0; k < 4; k++) {
-        const a = cPts[k];
-        const b = cPts[(k + 1) % 4];
-        segVerts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+    const pushFacadeBox = (e, n, w, d, yaw, h) => {
+      if ((h || 0) < 16.0) return false;
+      const cx = e;
+      const cz = -n;
+      if (Math.hypot(cx - ox, cz - oz) > 650) return false;
+      const ca = Math.cos(yaw || 0);
+      const sa = Math.sin(yaw || 0);
+      const baseY = this._sampleTerrainHeight(cx, n) + 0.52;
+      for (const padM of [1.8, 3.4]) {
+        const hw = w * 0.5 + padM;
+        const hd = d * 0.5 + padM;
+        const cPts = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([lx, lz]) => [
+          cx + ca * lx + sa * lz,
+          baseY,
+          cz - sa * lx + ca * lz
+        ]);
+        for (let k = 0; k < 4; k++) {
+          const a = cPts[k];
+          const b = cPts[(k + 1) % 4];
+          segVerts.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+        }
       }
-      if (segVerts.length >= 24000) break;
+      return true;
+    };
+    if (Array.isArray(obbList) && obbList.length > 0) {
+      for (let i = 0; i < obbList.length; i++) {
+        const ob = obbList[i];
+        pushFacadeBox(ob.east_m, ob.north_m, ob.width_m, ob.depth_m, ob.yaw_rad, ob.height_m);
+        if (segVerts.length >= 24000) break;
+      }
+    } else if (flatObb && flatObb.length >= OBB_BUILDING_STRIDE) {
+      const totalObb = Math.floor(flatObb.length / OBB_BUILDING_STRIDE);
+      for (let i = 0; i < totalObb; i++) {
+        const b = i * OBB_BUILDING_STRIDE;
+        pushFacadeBox(flatObb[b], flatObb[b + 1], flatObb[b + 2], flatObb[b + 3], flatObb[b + 4], flatObb[b + 5]);
+        if (segVerts.length >= 24000) break;
+      }
     }
     if (segVerts.length >= 6) {
       const facadeGeo = new THREE.BufferGeometry();
       facadeGeo.setAttribute('position', new THREE.Float32BufferAttribute(segVerts, 3));
       this._facadeRiskMat = new THREE.LineBasicMaterial({
-        color: isDay ? 0xb45309 : 0xd4a359,
+        color: isDay ? 0xb45309 : 0xe0b46a,
         transparent: true,
-        opacity: 0.24
+        opacity: 0.45
       });
       const facadeLines = new THREE.LineSegments(facadeGeo, this._facadeRiskMat);
       facadeLines.name = 'FacadeRiskBaseHairlines';
       this.epicenterGuideGroup.add(facadeLines);
     }
+    this._buildLabelAnchors();
   }
 
   replaySeismicWavefront() {
@@ -2551,6 +2655,24 @@ export class LocalSpatialMapLayer {
       }
     }
 
+    // 3.5 In-View Epicenter Bearing Compass Anchor (strictly derived from active seismic context)
+    if (this._activeSeismicBearingMeta && Number.isFinite(this._activeSeismicBearingMeta.bearingDeg)) {
+      const { bearingDeg, distanceKm, ox, oz } = this._activeSeismicBearingMeta;
+      const rad = (bearingDeg * Math.PI) / 180.0;
+      const distLabel = Number.isFinite(distanceKm) ? `${Math.round(distanceKm)}km` : '';
+      const anchorX = ox + Math.sin(rad) * 165.0;
+      const anchorZ = oz - Math.cos(rad) * 165.0;
+      this.labelAnchors.push({
+        id: 'EPICENTER_BEARING_ANCHOR',
+        title: `진앙 방향 · ${Math.round(bearingDeg)}°${distLabel ? ` (${distLabel})` : ''}`,
+        subtitle: '지진파 유입',
+        category: 'EPICENTER_GUIDE',
+        provisional: false,
+        priority: 84,
+        worldPos: new THREE.Vector3(anchorX, this._sampleTerrainHeight(anchorX, -anchorZ) + 6.0, anchorZ)
+      });
+    }
+
     // 4. Secondary Named Context Landmarks
     for (const b of (this.pkg.namedBuildings || [])) {
       const matchesOrigin = orig && (
@@ -2762,7 +2884,7 @@ export class LocalSpatialMapLayer {
     }
 
     // Collect fixed HUD obstacle bounding rects
-    const avoidSelector = options.avoidSelector || '#header-overlay, #evac-header-overlay, .evac-left-capsule, #region-search-popover.open, #evac-header-overlay.is-detail-open #evac-detail-panel, #handoff-context-strip, #entry-mode-gate, #exhibition-bar, #guidance-container, #bottom-stage-stack, #evac-dock, #safety-rule-popup, #map-controls';
+    const avoidSelector = options.avoidSelector || '#header-overlay, #evac-header-overlay, .evac-left-capsule, #region-search-popover.open, #evac-header-overlay.is-detail-open #evac-detail-panel, #handoff-context-strip, #entry-mode-gate, #exhibition-bar, #guidance-container, #bottom-stage-stack, #evac-dock, #safety-rule-popup, #map-controls, #walker-callout';
     const obstacleRects = [];
     if (typeof document !== 'undefined' && avoidSelector) {
       document.querySelectorAll(avoidSelector).forEach((el) => {
@@ -2863,8 +2985,8 @@ export class LocalSpatialMapLayer {
     }
     if (this._facadeRiskMat) {
       this._facadeRiskMat.opacity = sweepAge < 4.5
-        ? 0.22 + 0.34 * Math.sin(Math.min(1, sweepAge / 4.2) * Math.PI)
-        : 0.16;
+        ? 0.38 + 0.32 * Math.sin(Math.min(1, sweepAge / 4.2) * Math.PI)
+        : 0.38;
     }
     if (!this._epicenterWaveArcs || this._epicenterWaveArcs.length === 0) return;
     for (const arc of this._epicenterWaveArcs) {

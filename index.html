@@ -10,13 +10,15 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="format-detection" content="telephone=no">
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="css/theme.css?v=6.6">
-  <link rel="stylesheet" href="css/surface.css?v=6.6">
-  <link rel="stylesheet" href="css/evacuation.css?v=6.6">
-  <link rel="stylesheet" href="css/mobile-app.css?v=6.6">
+  <link rel="stylesheet" href="css/theme.css?v=6.7">
+  <link rel="stylesheet" href="css/surface.css?v=6.7">
+  <link rel="stylesheet" href="css/evacuation.css?v=6.7">
+  <link rel="stylesheet" href="css/mobile-app.css?v=6.7">
 </head>
 <body>
-  <div id="canvas-container"></div>
+  <div id="canvas-container">
+    <div id="globe-reference-landmarks" aria-hidden="true"></div>
+  </div>
 
   <!-- Minimal Whispering Gallery Brand (Top-Left) -->
   <div id="gallery-header">
@@ -164,7 +166,10 @@
         <div class="selected-header">
           <button id="btn-back-to-discover" class="surface-btn text-link">&lsaquo; 목록으로 복귀</button>
           <div class="selected-era-badge" id="selected-era-badge">조선 숙종 7년 (1681)</div>
-          <button id="btn-close-selected" class="surface-btn icon close" title="닫기">&times;</button>
+          <div class="selected-header-right">
+            <button type="button" id="btn-toggle-large-text" class="surface-btn text-size-toggle" aria-pressed="false" title="설명 글자 크기 확대/기본 전환">큰 글씨 A+</button>
+            <button id="btn-close-selected" class="surface-btn icon close" title="닫기">&times;</button>
+          </div>
         </div>
 
         <div class="selected-hero">
