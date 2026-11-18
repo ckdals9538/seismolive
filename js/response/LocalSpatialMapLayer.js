@@ -2762,7 +2762,7 @@ export class LocalSpatialMapLayer {
     }
 
     // Collect fixed HUD obstacle bounding rects
-    const avoidSelector = options.avoidSelector || '#header-overlay, #evac-header-overlay, #handoff-context-strip, #entry-mode-gate, #exhibition-bar, #guidance-container, #bottom-stage-stack, #evac-dock, #safety-rule-popup, #map-controls';
+    const avoidSelector = options.avoidSelector || '#header-overlay, #evac-header-overlay, .evac-left-capsule, #region-search-popover.open, #evac-header-overlay.is-detail-open #evac-detail-panel, #handoff-context-strip, #entry-mode-gate, #exhibition-bar, #guidance-container, #bottom-stage-stack, #evac-dock, #safety-rule-popup, #map-controls';
     const obstacleRects = [];
     if (typeof document !== 'undefined' && avoidSelector) {
       document.querySelectorAll(avoidSelector).forEach((el) => {
@@ -2776,7 +2776,7 @@ export class LocalSpatialMapLayer {
     const camDist = camera.position ? camera.position.length() : 1000;
     const isMacroView = camDist > 920;
 
-    const vec = new THREE.Vector3();
+    const vec = this._labelProjVec || (this._labelProjVec = new THREE.Vector3());
     const candidates = [];
 
     for (const anchor of this.labelAnchors) {
@@ -2807,7 +2807,7 @@ export class LocalSpatialMapLayer {
     }
 
     const result = solveLabelCollisions2D(candidates, obstacleRects, { width, height }, 14);
-    const visibleSet = new Set(result.visibleLabels.map(v => v.id));
+    const visibleMap = new Map(result.visibleLabels.map(v => [v.id, v]));
 
     for (const el of this._labelDomMap.values()) {
       el.style.display = 'none';
@@ -2834,8 +2834,8 @@ export class LocalSpatialMapLayer {
       }
       if (!el) continue;
 
-      if (visibleSet.has(item.id)) {
-        const placed = result.visibleLabels.find(v => v.id === item.id);
+      const placed = visibleMap.get(item.id);
+      if (placed) {
         el.style.display = 'flex';
         el.style.transform = `translate3d(${Math.round(placed.rect.left)}px, ${Math.round(placed.rect.top)}px, 0)`;
       } else {

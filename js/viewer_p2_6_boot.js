@@ -68,7 +68,7 @@ const controller = new EvacuationExperienceController({
   }
 });
 
-if (requestedRegionId && requestedRegionId !== 'seoul_hanyang') {
+if (requestedRegionId && !(requestedRegionId === 'seoul_hanyang' && controller.devMode)) {
   const reg = KOREA_BENCHMARK_REGIONS.find(r => r.id === requestedRegionId);
   if (reg) {
     controller.switchToRegion(reg.lat, reg.lon, { regionId: reg.id, name: reg.name, shortName: reg.shortName });
@@ -100,9 +100,14 @@ function animate() {
 animate();
 
 window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = Math.max(1, window.innerWidth);
+  const h = Math.max(1, window.innerHeight);
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  const nextBaseDpr = Math.min(window.devicePixelRatio || 1, 2);
+  controller.baseDpr = nextBaseDpr;
+  renderer.setPixelRatio(controller?.localSpatialLayer?.state?.ecoMode ? 1.0 : nextBaseDpr);
+  renderer.setSize(w, h);
   if (controller.labelContainer) {
     controller.localSpatialLayer.updateOverlayLabels(camera, controller.labelContainer, { force: true });
   }

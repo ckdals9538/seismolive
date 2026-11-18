@@ -31,6 +31,13 @@
       flex-direction: column;
       gap: 8px;
     }
+    body:has(#contextual-benchmarks-shelf[style*="block"]) #chronicle-subtitle-container {
+      bottom: calc(184px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))) !important;
+    }
+    body:has(#perf-evac-invitation.is-visible) #chronicle-subtitle-container {
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
     .shelf-header {
       display: flex;
       align-items: center;
@@ -1526,7 +1533,7 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      flex-shrink: 1;
+      flex-shrink: 0;
       min-width: 0;
     }
     .transport-time-label {
@@ -1971,10 +1978,12 @@
 
     @media (max-width: 1060px) {
       #unified-control-surface.state-explore {
-        width: calc(100vw - 32px);
+        width: max-content;
+        max-width: calc(100vw - 32px);
       }
       #unified-control-surface.state-performance {
-        width: calc(100vw - 32px);
+        width: max-content;
+        max-width: calc(100vw - 32px);
       }
       .brand-sub {
         display: none;
@@ -1982,11 +1991,63 @@
       #benchmarks-historical button:nth-child(n+4) {
         display: none;
       }
-      #transport-scrubber {
-        width: 120px;
+      #btn-transport-immersive,
+      #transport-volume,
+      .transport-phase-badge,
+      #btn-performance-discover {
+        display: none;
+      }
+      .view-performance {
+        padding: 6px 11px;
+        gap: 8px;
       }
       .transport-event-info {
-        min-width: 140px;
+        min-width: 0;
+        flex-shrink: 0;
+      }
+      .transport-event-name {
+        max-width: clamp(92px, 14vw, 140px);
+      }
+      .transport-controls {
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+      #transport-scrubber {
+        width: clamp(72px, 12vw, 130px);
+        min-width: 68px;
+      }
+    }
+    @media (max-width: 740px) {
+      #btn-transport-shot {
+        display: none;
+      }
+      #unified-control-surface.state-performance {
+        max-width: calc(100vw - 20px);
+      }
+      .view-performance {
+        padding: 5px 8px;
+        gap: 6px;
+      }
+      .transport-event-info {
+        max-width: 112px;
+        overflow: hidden;
+      }
+      .transport-event-name {
+        max-width: 100%;
+      }
+      .transport-controls {
+        gap: 4px;
+      }
+      .transport-scrubber-group {
+        gap: 4px;
+      }
+      #transport-scrubber {
+        width: clamp(52px, 10vw, 88px);
+        min-width: 48px;
+      }
+      .transport-time-label {
+        min-width: auto;
+        font-size: 9px;
       }
     }
     @media (max-width: 860px) {
@@ -2195,6 +2256,9 @@
     }
 
     @media (max-height: 520px) and (orientation: landscape) {
+      body:has(#contextual-benchmarks-shelf[style*="block"]) #chronicle-subtitle-container {
+        display: none !important;
+      }
       #top-right-earth-dock {
         top: calc(8px + var(--safe-top, env(safe-area-inset-top, 0px)));
         right: calc(12px + var(--safe-right, env(safe-area-inset-right, 0px)));
@@ -2212,5 +2276,39 @@
       #unified-control-surface.state-discover,
       #unified-control-surface.state-selected {
         height: min(86dvh, calc(100dvh - 54px));
+      }
+      #unified-control-surface.state-selected .selected-fixed-top {
+        padding: 8px 16px 0 16px;
+        gap: 4px;
+      }
+      #unified-control-surface.state-selected .selected-header {
+        padding-bottom: 4px;
+      }
+      #unified-control-surface.state-selected .selected-title {
+        font-size: 15px;
+        line-height: 1.25;
+      }
+      #unified-control-surface.state-selected .selected-geodetic-strip {
+        gap: 4px 12px;
+        padding: 0;
+        font-size: 10px;
+      }
+      #unified-control-surface.state-selected .selected-lead-insight {
+        display: none;
+      }
+      #unified-control-surface.state-selected .dossier-tab-btn {
+        padding: 4px 10px;
+        font-size: 10px;
+      }
+      #unified-control-surface.state-selected .selected-scroll-body {
+        padding: 10px 16px;
+        gap: 10px;
+      }
+      #unified-control-surface.state-selected .selected-action-row {
+        padding: 6px 16px;
+      }
+      #unified-control-surface.state-selected .selected-action-row .surface-btn {
+        padding: 5px 12px;
+        font-size: 11px;
       }
     }

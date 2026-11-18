@@ -733,8 +733,8 @@ export class EvacuationExperienceController {
       t === SCENARIO_TYPES.HISTORICAL_RECORD ? '사료' : '교육'
     );
     row.innerHTML = PRESET_EARTHQUAKE_SCENARIOS.map(sc => `
-      <button type="button" class="scenario-tab-btn ${this.activeScenarioSpec?.id === sc.id ? 'active' : ''}" data-scenario-id="${sc.id}">
-        [${typeLabel(sc.scenarioType)}] ${sc.title.split('(')[0].trim()}
+      <button type="button" class="scenario-tab-btn ${this.activeScenarioSpec?.id === sc.id ? 'active' : ''}" data-scenario-id="${escapeHtml(sc.id)}">
+        [${typeLabel(sc.scenarioType)}] ${escapeHtml(sc.title.split('(')[0].trim())}
       </button>
     `).join('');
     row.querySelectorAll('[data-scenario-id]').forEach(btn => {
@@ -1224,8 +1224,8 @@ export class EvacuationExperienceController {
     const grid = this._el('region-chips-grid');
     if (!grid) return;
     grid.innerHTML = KOREA_BENCHMARK_REGIONS.map(r => `
-      <button type="button" class="region-chip-btn ${r.id === this.activeRegionId ? 'active' : ''}" data-kr-region="${r.id}">
-        <strong>${r.shortName}</strong>
+      <button type="button" class="region-chip-btn ${r.id === this.activeRegionId ? 'active' : ''}" data-kr-region="${escapeHtml(r.id)}">
+        <strong>${escapeHtml(r.shortName)}</strong>
         <small>${r.lat.toFixed(3)}°N, ${r.lon.toFixed(3)}°E</small>
       </button>
     `).join('');
@@ -1233,8 +1233,7 @@ export class EvacuationExperienceController {
       btn.addEventListener('click', () => {
         const reg = KOREA_BENCHMARK_REGIONS.find(item => item.id === btn.dataset.krRegion);
         if (reg) {
-          this._el('region-search-popover')?.classList.remove('open');
-          this._el('btn-region-switcher')?.classList.remove('open');
+          this._setRegionPopoverOpen(false);
           this.switchToRegion(reg.lat, reg.lon, { regionId: reg.id, locationSource: 'FREE_MODE', name: reg.name, shortName: reg.shortName });
         }
       });
@@ -1244,8 +1243,7 @@ export class EvacuationExperienceController {
   async _handleRegionSearchSubmit(query) {
     const parsedCoord = LocationProvider.parseCoordinateInput(query);
     if (parsedCoord) {
-      this._el('region-search-popover')?.classList.remove('open');
-      this._el('btn-region-switcher')?.classList.remove('open');
+      this._setRegionPopoverOpen(false);
       return this.switchToRegion(parsedCoord.lat, parsedCoord.lon, {
         regionId: `COORD_${parsedCoord.lat.toFixed(3)}_${parsedCoord.lon.toFixed(3)}`,
         name: `지정 좌표 (${parsedCoord.lat.toFixed(4)}°N, ${parsedCoord.lon.toFixed(4)}°E)`,
@@ -1272,8 +1270,7 @@ export class EvacuationExperienceController {
       btn.addEventListener('click', () => {
         const hit = hits[Number(btn.dataset.hitIdx)];
         if (hit) {
-          this._el('region-search-popover')?.classList.remove('open');
-          this._el('btn-region-switcher')?.classList.remove('open');
+          this._setRegionPopoverOpen(false);
           this.switchToRegion(hit.lat, hit.lon, {
             regionId: hit.id,
             name: hit.displayName,
@@ -2209,7 +2206,7 @@ export class EvacuationExperienceController {
       msRow.innerHTML = this.activeCheckpoints.map((cp, idx) => `
         <button type="button" class="milestone-btn" data-cp-idx="${idx}" data-cp-t="${cp.tAnchor}">
           <span class="m-dot"></span>
-          <span>${cp.stepNo} ${cp.shortLabel}</span>
+          <span>${escapeHtml(cp.stepNo)} ${escapeHtml(cp.shortLabel)}</span>
         </button>
       `).join('');
       msRow.querySelectorAll('.milestone-btn').forEach(btn => {
@@ -2411,6 +2408,7 @@ export class EvacuationExperienceController {
     } else {
       this.shelterSetbackGroup.visible = false;
     }
+    this._syncResponsiveTopBarOffset();
   }
 
   setRouteProgress(nextT, focusCamera = false) {
@@ -2567,14 +2565,7 @@ export class EvacuationExperienceController {
     if (!bar || !hdr) return;
 
     const isMobileLandscape = window.innerWidth > window.innerHeight && window.innerHeight <= 520;
-    if (window.innerWidth > 640 && window.innerWidth <= 960 && !isMobileLandscape) {
-      const rect = hdr.getBoundingClientRect();
-      if (rect.height > 20) {
-        bar.style.top = `${Math.round(rect.bottom + 8)}px`;
-      }
-    } else {
-      bar.style.top = '';
-    }
+    bar.style.top = '';
 
     if (this.localWorldGroup?.visible && this.camera?.isPerspectiveCamera) {
       const isPortraitPhone = window.innerWidth <= 640 && window.innerHeight > window.innerWidth;
@@ -2590,10 +2581,10 @@ export class EvacuationExperienceController {
         const stackRect = stack.getBoundingClientRect();
         if (stackRect.height > 30) {
           const safeOffset = Math.max(96, Math.round(stackRect.height + 16));
-          mapCtrl.style.bottom = `calc(${safeOffset}px + env(safe-area-inset-bottom, 0px))`;
+          mapCtrl.style.setProperty('bottom', `calc(${safeOffset}px + env(safe-area-inset-bottom, 0px))`, 'important');
         }
       } else {
-        mapCtrl.style.bottom = '';
+        mapCtrl.style.removeProperty('bottom');
       }
     }
   }
@@ -2751,8 +2742,7 @@ export class EvacuationExperienceController {
       this.session?.setGpsLocationResult(pos);
       if (btn) btn.textContent = '현위치(GPS)';
       if (pos.ok) {
-        this._el('region-search-popover')?.classList.remove('open');
-        this._el('btn-region-switcher')?.classList.remove('open');
+        this._setRegionPopoverOpen(false);
         this._hideEntryModeGate();
         await this.switchToRegion(pos.lat, pos.lon, {
           regionId: 'USER_GPS_CURRENT',
@@ -2797,8 +2787,7 @@ export class EvacuationExperienceController {
       const mag = Number.isFinite(magVal) ? Math.max(1.0, Math.min(9.5, magVal)) : 5.2;
       const depthKm = Number.isFinite(depthVal) ? Math.max(0, Math.min(700, depthVal)) : 10;
 
-      this._el('region-search-popover')?.classList.remove('open');
-      this._el('btn-region-switcher')?.classList.remove('open');
+      this._setRegionPopoverOpen(false);
       this.applyScenarioSpec({
         id: 'SYNTH-CUSTOM-USER',
         scenarioType: SCENARIO_TYPES.EDUCATIONAL_SYNTHETIC,
@@ -3324,16 +3313,20 @@ export class EvacuationExperienceController {
       if (this.followCameraEnabled && !isTransitioning && this.controls) {
         this._desiredTargetPos.copy(this.walkerGroup.position).addScaledVector(this._tangentDir, 18.0);
         this._desiredCamPos.copy(this.walkerGroup.position)
-          .addScaledVector(this._tangentDir, -105.0)
-          .add(new THREE.Vector3(-42.0, 82.0, 0));
+          .addScaledVector(this._tangentDir, -105.0);
+        this._desiredCamPos.x -= 42.0;
+        this._desiredCamPos.y += 82.0;
         this.controls.target.lerp(this._desiredTargetPos, 0.06);
         this.camera.position.lerp(this._desiredCamPos, 0.05);
         this.controls.update();
       }
 
-      const walkerCalloutEl = this._el('walker-callout');
+      if (!this._walkerCalloutEl) this._walkerCalloutEl = this._el('walker-callout');
+      const walkerCalloutEl = this._walkerCalloutEl;
       if (walkerCalloutEl) {
-        this._walkerProjVec.copy(this.walkerGroup.position).add(new THREE.Vector3(0, 15.5, 0)).project(this.camera);
+        this._walkerProjVec.copy(this.walkerGroup.position);
+        this._walkerProjVec.y += 15.5;
+        this._walkerProjVec.project(this.camera);
         const inFront = this._walkerProjVec.z >= -1 && this._walkerProjVec.z <= 1;
         const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
         const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
@@ -3351,7 +3344,8 @@ export class EvacuationExperienceController {
         }
       }
     } else {
-      const wc = this._el('walker-callout');
+      if (!this._walkerCalloutEl) this._walkerCalloutEl = this._el('walker-callout');
+      const wc = this._walkerCalloutEl;
       if (wc) wc.style.display = 'none';
     }
 
@@ -3407,11 +3401,16 @@ export class EvacuationExperienceController {
     btn?.classList.toggle('open', next);
     if (next) {
       this._setDetailOpen(false);
-      // Avoid auto-opening mobile keyboard on phone taps when preset chips are right inside the popover.
-      if (focusDesktop && (typeof window === 'undefined' || window.innerWidth > 640)) {
+      // Avoid auto-opening mobile/tablet keyboard on touch taps when preset chips are right inside the popover.
+      const isCoarseTouch = typeof window !== 'undefined' && Boolean(
+        window.matchMedia?.('(pointer: coarse)')?.matches ||
+        ('ontouchstart' in window && window.innerWidth <= 1024)
+      );
+      if (focusDesktop && (typeof window === 'undefined' || (window.innerWidth > 1024 && !isCoarseTouch))) {
         this._el('korea-region-search-input')?.focus();
       }
     }
+    this._syncResponsiveTopBarOffset();
   }
 
   dispose() {

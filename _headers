@@ -3,6 +3,7 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), camera=(), microphone=()
+  Cross-Origin-Opener-Policy: same-origin
 
 /assets/terrain/*
   Cache-Control: public, max-age=86400

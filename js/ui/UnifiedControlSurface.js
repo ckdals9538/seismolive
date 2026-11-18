@@ -1183,15 +1183,15 @@ export class UnifiedControlSurface {
               const tSP = dist / 8.0;
 
               tableHtml += `
-                <tr class="hist-felt-row" data-county="${c.countyKo}" data-dist="${dist}" data-mmi="${c.intensityMMI}">
-                  <td><strong style="color:var(--hanji); font-weight:600;">${c.countyKo}</strong></td>
-                  <td style="color:var(--mist); font-size:10px;">${c.modernLocation}</td>
+                <tr class="hist-felt-row" data-county="${escapeHtml(c.countyKo)}" data-dist="${escapeHtml(dist)}" data-mmi="${escapeHtml(c.intensityMMI)}">
+                  <td><strong style="color:var(--hanji); font-weight:600;">${escapeHtml(c.countyKo)}</strong></td>
+                  <td style="color:var(--mist); font-size:10px;">${escapeHtml(c.modernLocation)}</td>
                   <td style="font-family:var(--font-mono); color:var(--brass);">
-                    ${c.distanceKm} km
+                    ${escapeHtml(c.distanceKm)} km
                     <div style="font-size:8.5px; color:var(--mist); margin-top:2px;">S파 +${tS.toFixed(1)}s <span style="opacity:0.65;">(P-S ${tSP.toFixed(1)}s)</span></div>
                   </td>
-                  <td><span class="hist-mmi-badge ${badgeCls}">${c.intensityMMI}</span></td>
-                  <td style="font-size:10.5px; color:var(--hanji-muted);">${c.phenomenonKo}</td>
+                  <td><span class="hist-mmi-badge ${badgeCls}">${escapeHtml(c.intensityMMI)}</span></td>
+                  <td style="font-size:10.5px; color:var(--hanji-muted);">${escapeHtml(c.phenomenonKo)}</td>
                 </tr>
               `;
             });
@@ -1225,30 +1225,30 @@ export class UnifiedControlSurface {
                 <div class="hist-method-card">
                   <div class="hist-method-card-header">
                     <span class="hist-method-title">01 / 가옥 구조 취약성 보정</span>
-                    <span class="hist-method-tag">${mc.structuralVulnerability?.status || "VERIFIED"}</span>
+                    <span class="hist-method-tag">${escapeHtml(mc.structuralVulnerability?.status || "VERIFIED")}</span>
                   </div>
-                  <div class="hist-method-body">${mc.structuralVulnerability?.analysisKo || ""}</div>
+                  <div class="hist-method-body">${escapeHtml(mc.structuralVulnerability?.analysisKo || "")}</div>
                 </div>
                 <div class="hist-method-card">
                   <div class="hist-method-card-header">
                     <span class="hist-method-title">02 / 천인감응설 수사 배제</span>
-                    <span class="hist-method-tag">${mc.tianRenFilter?.status || "AUDITED"}</span>
+                    <span class="hist-method-tag">${escapeHtml(mc.tianRenFilter?.status || "AUDITED")}</span>
                   </div>
-                  <div class="hist-method-body">${mc.tianRenFilter?.analysisKo || ""}</div>
+                  <div class="hist-method-body">${escapeHtml(mc.tianRenFilter?.analysisKo || "")}</div>
                 </div>
                 <div class="hist-method-card">
                   <div class="hist-method-card-header">
                     <span class="hist-method-title">03 / 시공간 일괄 보고 분리</span>
-                    <span class="hist-method-tag">${mc.batchSeparation?.status || "RESOLVED"}</span>
+                    <span class="hist-method-tag">${escapeHtml(mc.batchSeparation?.status || "RESOLVED")}</span>
                   </div>
-                  <div class="hist-method-body">${mc.batchSeparation?.analysisKo || ""}</div>
+                  <div class="hist-method-body">${escapeHtml(mc.batchSeparation?.analysisKo || "")}</div>
                 </div>
                 <div class="hist-method-card">
                   <div class="hist-method-card-header">
                     <span class="hist-method-title">04 / 치소 중심 편향 극복</span>
-                    <span class="hist-method-tag">${mc.seatBiasOffset?.status || "CORRECTED"}</span>
+                    <span class="hist-method-tag">${escapeHtml(mc.seatBiasOffset?.status || "CORRECTED")}</span>
                   </div>
-                  <div class="hist-method-body">${mc.seatBiasOffset?.analysisKo || ""}</div>
+                  <div class="hist-method-body">${escapeHtml(mc.seatBiasOffset?.analysisKo || "")}</div>
                 </div>
               </div>
             `;
@@ -1332,7 +1332,7 @@ export class UnifiedControlSurface {
                 <button type="button" id="btn-toggle-isoseismal-3d" style="appearance:none; border:1px solid rgba(200,157,84,0.42); background:${contoursActive ? 'rgba(200,157,84,0.22)' : 'rgba(15,23,42,0.7)'}; color:#f1d39a; font-size:10px; padding:3px 9px; border-radius:999px; cursor:pointer;">${contoursActive ? '3D 등진도선 표시 중' : '3D 지구본에 등진도선 표시'}</button>
               </div>
               <div class="editorial-formula-box" style="margin-bottom:8px;">
-                <div class="editorial-formula-main">χ² = (x' / a)² + (y' / b)² ≤ ${ee.chiSquareCritical || 5.991} &nbsp;&nbsp;(신뢰수준 ${((ee.confidenceLevel || 0.95) * 100).toFixed(0)}%, 자유도 ν=${ee.degreesOfFreedom || 2}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${ee.flatness || 0.35}</div>
+                <div class="editorial-formula-main">χ² = (x' / a)² + (y' / b)² ≤ ${escapeHtml(ee.chiSquareCritical || 5.991)} &nbsp;&nbsp;(신뢰수준 ${escapeHtml(((ee.confidenceLevel || 0.95) * 100).toFixed(0))}%, 자유도 ν=${escapeHtml(ee.degreesOfFreedom || 2)}) &nbsp;&nbsp;&nbsp;&nbsp; f = 1 - b/a = ${escapeHtml(ee.flatness || 0.35)}</div>
                 <div class="editorial-formula-sub">문헌 기록의 한계로 인해 역사지진 진앙은 점이 아닌 타원형 신뢰구간(Error Ellipse)으로 추정되며, 평상시에는 은은한 불확실성 헤일로로, 버튼 선택 시 3D 등진도 파선으로 투영됩니다.</div>
               </div>
               <div class="hist-ellipse-grid">
@@ -1343,19 +1343,19 @@ export class UnifiedControlSurface {
                   <div class="hist-ellipse-params-grid">
                     <div class="hist-param-pill">
                       <span class="hist-param-label">장축 반경 a</span>
-                      <span class="hist-param-val">${ee.semiMajorKm} km</span>
+                      <span class="hist-param-val">${escapeHtml(ee.semiMajorKm)} km</span>
                     </div>
                     <div class="hist-param-pill">
                       <span class="hist-param-label">단축 반경 b</span>
-                      <span class="hist-param-val">${ee.semiMinorKm} km</span>
+                      <span class="hist-param-val">${escapeHtml(ee.semiMinorKm)} km</span>
                     </div>
                     <div class="hist-param-pill">
                       <span class="hist-param-label">편향 주향 θ</span>
-                      <span class="hist-param-val">N ${ee.azimuthDeg}° E</span>
+                      <span class="hist-param-val">N ${escapeHtml(ee.azimuthDeg)}° E</span>
                     </div>
                     <div class="hist-param-pill">
                       <span class="hist-param-label">편평률 f</span>
-                      <span class="hist-param-val">${ee.flatness}</span>
+                      <span class="hist-param-val">${escapeHtml(ee.flatness)}</span>
                     </div>
                   </div>
                   <table class="hist-iso-table">
@@ -1371,7 +1371,7 @@ export class UnifiedControlSurface {
                     </tbody>
                   </table>
                   <div style="font-size:9.5px; color:var(--mist); line-height:1.5; margin-top:2px;">
-                    ${ee.methodologyNotesKo || "8도 감진망 보고 관아 좌표 분산 및 지형 조건 공분산 행렬 역산 결과"}
+                    ${escapeHtml(ee.methodologyNotesKo || "8도 감진망 보고 관아 좌표 분산 및 지형 조건 공분산 행렬 역산 결과")}
                   </div>
                 </div>
               </div>
@@ -1412,7 +1412,7 @@ export class UnifiedControlSurface {
           const isoRot = iso.azimuthDeg || rotDeg;
           isoSvg += `
             <ellipse cx="${cx}" cy="${cy}" rx="${isoBPx}" ry="${isoAPx}" transform="rotate(${isoRot}, ${cx}, ${cy})" fill="rgba(135,151,172,0.03)" stroke="rgba(135,151,172,0.30)" stroke-dasharray="3 3" stroke-width="1"/>
-            <text x="${cx + isoBPx * 0.7}" y="${cy - isoAPx * 0.7}" fill="#8797AC" font-size="7.5" font-family="'SF Mono', Menlo, monospace" text-anchor="start">${iso.mmi}</text>
+            <text x="${cx + isoBPx * 0.7}" y="${cy - isoAPx * 0.7}" fill="#8797AC" font-size="7.5" font-family="'SF Mono', Menlo, monospace" text-anchor="start">${escapeHtml(iso.mmi)}</text>
           `;
         }
 
@@ -1432,7 +1432,7 @@ export class UnifiedControlSurface {
 
             <circle cx="${cx}" cy="${cy}" r="3" fill="#EAE6DF" stroke="#10141D" stroke-width="1.5"/>
             <text x="${cx}" y="${cy + 14}" fill="#C89D54" font-size="8.5" font-family="'SF Mono', Menlo, monospace" text-anchor="middle">95% 신뢰 타원</text>
-            <text x="${cx + 4}" y="${cy - 6}" fill="#EAE6DF" font-size="8" font-family="'SF Mono', Menlo, monospace">θ=${rotDeg}°</text>
+            <text x="${cx + 4}" y="${cy - 6}" fill="#EAE6DF" font-size="8" font-family="'SF Mono', Menlo, monospace">θ=${escapeHtml(rotDeg)}°</text>
           </svg>
         `;
       }
@@ -1502,27 +1502,27 @@ export class UnifiedControlSurface {
               <div class="hist-chrono-grid">
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">왕대 연호</span>
-                  <span class="hist-chrono-val">${ac.reignTitle || "미상"}</span>
+                  <span class="hist-chrono-val">${escapeHtml(ac.reignTitle || "미상")}</span>
                 </div>
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">음력 일자</span>
-                  <span class="hist-chrono-val">${ac.lunarDate || "미상"}</span>
+                  <span class="hist-chrono-val">${escapeHtml(ac.lunarDate || "미상")}</span>
                 </div>
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">일진 (干支)</span>
-                  <span class="hist-chrono-val">${ac.sexagenaryDay || "미상"}</span>
+                  <span class="hist-chrono-val">${escapeHtml(ac.sexagenaryDay || "미상")}</span>
                 </div>
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">십이지시 (時)</span>
-                  <span class="hist-chrono-val">${ac.doubleHour || "미상"}</span>
+                  <span class="hist-chrono-val">${escapeHtml(ac.doubleHour || "미상")}</span>
                 </div>
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">서력 정밀 환산</span>
-                  <span class="hist-chrono-val" style="color:var(--brass);">${ac.solarCalendar || "미상"}</span>
+                  <span class="hist-chrono-val" style="color:var(--brass);">${escapeHtml(ac.solarCalendar || "미상")}</span>
                 </div>
                 <div class="hist-chrono-item">
                   <span class="hist-chrono-label">시간 불확실도</span>
-                  <span class="hist-chrono-val" style="font-size:9.5px; color:var(--mist);">${ac.timePrecisionKo || "일 단위 확정"}</span>
+                  <span class="hist-chrono-val" style="font-size:9.5px; color:var(--mist);">${escapeHtml(ac.timePrecisionKo || "일 단위 확정")}</span>
                 </div>
               </div>
             `;

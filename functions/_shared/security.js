@@ -49,6 +49,7 @@ export function applySecurityHeaders(headersInput, request, { isHtml = false } =
   headers.set('X-Frame-Options', 'DENY');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'geolocation=(self), camera=(), microphone=()');
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 
   if (isHtml) {
     let isHttps = true;
