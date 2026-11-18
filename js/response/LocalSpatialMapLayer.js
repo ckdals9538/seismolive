@@ -798,6 +798,50 @@ export class LocalSpatialMapLayer {
   /**
    * Pick a rendered building (either extruded OSM polygon or OBB instance) via Three.js Raycaster.
    */
+  _getNamedBuildingMap() {
+    if (this._namedByObbIdx && this._namedMapPkgRef === this.pkg) {
+      return this._namedByObbIdx;
+    }
+    const map = new Map();
+    const namedList = this.pkg?.namedBuildings || [];
+    const data = this._buildingDataRef;
+    const nObb = data ? Math.floor(data.length / OBB_BUILDING_STRIDE) : 0;
+    if (namedList.length > 0 && nObb > 0) {
+      for (const nb of namedList) {
+        let bestIdx = -1;
+        let bestD = 22.0;
+        for (let i = 0; i < nObb; i++) {
+          const base = i * OBB_BUILDING_STRIDE;
+          const d = Math.hypot(data[base] - nb.east_m, data[base + 1] - nb.north_m);
+          if (d < bestD) {
+            bestD = d;
+            bestIdx = i;
+          }
+        }
+        if (bestIdx >= 0 && !map.has(bestIdx)) {
+          map.set(bestIdx, nb);
+        }
+      }
+    }
+    this._namedByObbIdx = map;
+    this._namedMapPkgRef = this.pkg;
+    return map;
+  }
+
+  _resolvePickedBuildingIdentity(idx, east_m, north_m, width_m, depth_m, fallbackId, fallbackName) {
+    const exactNamed = this._getNamedBuildingMap().get(idx) || null;
+    if (exactNamed) {
+      return { buildingId: exactNamed.id, name: exactNamed.name };
+    }
+    const nearNamed = (this.pkg?.namedBuildings || []).find(b =>
+      Math.hypot(b.east_m - east_m, b.north_m - north_m) < Math.max(width_m, depth_m, 22)
+    );
+    return {
+      buildingId: fallbackId,
+      name: nearNamed ? `${nearNamed.name} 인근 #${idx}` : fallbackName
+    };
+  }
+
   pickBuildingOBBAtRaycast(raycaster) {
     if (!raycaster) return null;
 
@@ -817,13 +861,13 @@ export class LocalSpatialMapLayer {
         }
         if (found) {
           const b = found.bldg;
-          const named = (this.pkg?.namedBuildings || []).find(nb =>
-            nb.id === b.buildingId || Math.hypot(nb.east_m - b.east_m, nb.north_m - b.north_m) < Math.max(b.width_m, b.depth_m, 35)
+          const exact = (this.pkg?.namedBuildings || []).find(nb =>
+            nb.id === b.buildingId || Math.hypot(nb.east_m - b.east_m, nb.north_m - b.north_m) < 12
           );
           return {
             instanceId: found.bldgIdx,
-            buildingId: named ? named.id : b.buildingId,
-            name: named ? named.name : b.name,
+            buildingId: exact ? exact.id : b.buildingId,
+            name: exact ? exact.name : b.name,
             east_m: b.east_m,
             north_m: b.north_m,
             width_m: b.width_m,
@@ -851,13 +895,13 @@ export class LocalSpatialMapLayer {
     const depth_m = data[base + 3];
     const yaw_rad = data[base + 4];
     const height_m = data[base + 5];
-    const named = (this.pkg?.namedBuildings || []).find(b =>
-      Math.hypot(b.east_m - east_m, b.north_m - north_m) < Math.max(width_m, depth_m, 35)
+    const identity = this._resolvePickedBuildingIdentity(
+      idx, east_m, north_m, width_m, depth_m, `OSM_OBB_${idx}`, `도시 건축물 #${idx}`
     );
     return {
       instanceId: idx,
-      buildingId: named ? named.id : `OSM_OBB_${idx}`,
-      name: named ? named.name : `도시 건축물 #${idx}`,
+      buildingId: identity.buildingId,
+      name: identity.name,
       east_m,
       north_m,
       width_m,
@@ -874,6 +918,8 @@ export class LocalSpatialMapLayer {
    */
   setSpatialPackage(newSpatialPackage) {
     if (!newSpatialPackage) return;
+    this._namedByObbIdx = null;
+    this._namedMapPkgRef = null;
     this.setEpicenterContext(null);
     this.setHazardAvoidPolygons([]);
     this.chunkMeshes.clear();

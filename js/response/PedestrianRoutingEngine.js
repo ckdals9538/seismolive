@@ -759,13 +759,21 @@ export class PedestrianRoutingEngine {
       });
     }
     const goalXZ = options.goalXZ || [shelterLC[0], shelterLC[2]];
-    const centerXZ = options.originCentroidXZ || [
-      f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
-      f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
-    ];
+    const dynMeta = f.dynamicOriginMeta || null;
+    const centerXZ = options.originCentroidXZ || (dynMeta
+      ? [dynMeta.east_m ?? startXZ[0], -(dynMeta.north_m ?? -startXZ[1])]
+      : [
+          f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
+          f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
+        ]);
+    const dynamicBypassRad = dynMeta
+      ? (f.buildingMetadata?.id === 'BLDG_212_ENG1'
+        ? 32.0
+        : Math.min(28.0, Math.hypot(dynMeta.width_m || 18, dynMeta.depth_m || 18) * 0.52 + 2.5))
+      : ((f.buildingMetadata?.id === 'BLDG_212_ENG1') ? 32.0 : 0.0);
     const activeAvoidPolygons = [...this.avoidPolygons.values(), ...(options.avoidPolygons || [])];
     const cacheKey = (!options.startXZ && !options.goalXZ && !options.buildingOBBs && !options.customWalkGraph && !options.avoidPolygons && !options.blockedEdges)
-      ? `${f.packageId || 'F'}|${f.shelter?.shelterId || ''}|${excludeStairs}|${isWheelchair}|${options.penalizeEdgeKeys ? [...options.penalizeEdgeKeys].join(',') : ''}|${this.blockedEdges.size}|${this.linkStates.size}|${activeAvoidPolygons.map(p => p.id).join(',')}|${this.groundDataManager ? this.groundDataManager.getChecklistSummary(f.buildingMetadata?.id || 'BLDG_212_ENG1').isWheelchairRouteFullyVerified : false}`
+      ? `${f.packageId || 'F'}|${startXZ[0].toFixed(1)},${startXZ[1].toFixed(1)}|${goalXZ[0].toFixed(1)},${goalXZ[1].toFixed(1)}|${f.shelter?.shelterId || ''}|${excludeStairs}|${isWheelchair}|${options.penalizeEdgeKeys ? [...options.penalizeEdgeKeys].join(',') : ''}|${this.blockedEdges.size}|${this.linkStates.size}|${activeAvoidPolygons.map(p => p.id).join(',')}|${this.groundDataManager ? this.groundDataManager.getChecklistSummary(f.buildingMetadata?.id || 'BLDG_212_ENG1').isWheelchairRouteFullyVerified : false}`
       : null;
 
     if (cacheKey && this._routeSolveCache?.has(cacheKey)) {
@@ -781,7 +789,7 @@ export class PedestrianRoutingEngine {
       elevationSampler: options.elevationSampler ?? this.elevationSampler,
       targetShelterId: f.shelter?.shelterId || f.shelter?.officialId || 'DESTINATION_SHELTER',
       originCentroidXZ: centerXZ,
-      originExclusionRadius: options.originExclusionRadius ?? ((f.buildingMetadata?.id === 'BLDG_212_ENG1') ? 32.0 : 0.0),
+      originExclusionRadius: options.originExclusionRadius ?? dynamicBypassRad,
       seismicDebrisAware: options.seismicDebrisAware !== false,
       blockedEdges: new Set([...this.blockedEdges, ...(options.blockedEdges || [])]),
       avoidPolygons: activeAvoidPolygons,

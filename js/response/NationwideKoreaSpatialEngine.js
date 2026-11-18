@@ -26,6 +26,188 @@ import {
   sampleTerrainHeight as sampleHanyangTerrainHeight
 } from './HanyangLocalSpatialData.js';
 import { HANYANG_CAMPUS_WALK_GRAPH } from './HanyangCampusWalkData.js';
+
+/**
+ * Hanyang 4km walk graph = detailed campus graph + real OSM arterial/footway centerlines
+ * covering the full 4km building extent. Without this, buildings outside the campus core
+ * (≈ E -260..494 m, N -296..355 m) fall beyond snap range and no route can be produced.
+ */
+let _hanyangExtendedWalkGraph = null;
+function getHanyangExtendedWalkGraph() {
+  if (_hanyangExtendedWalkGraph) return _hanyangExtendedWalkGraph;
+  const base = HANYANG_CAMPUS_WALK_GRAPH;
+  const nodes = base.nodes.map(nd => nd.slice());
+  const edges = base.edges.map(ed => ed.slice());
+  const roads = HANYANG_LOCAL_4KM_PACKAGE.denseRoadNetwork || [];
+  const waterPolys = HANYANG_LOCAL_4KM_PACKAGE.terrainAndHydrology?.waterPolygons || [];
+  const inWater = (e, n) => {
+    for (const item of waterPolys) {
+      const poly = item?.outer || item;
+      if (!Array.isArray(poly) || poly.length < 3) continue;
+      let inside = false;
+      for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+        if (((yi > n) !== (yj > n)) && (e < ((xj - xi) * (n - yi)) / ((yj - yi) || 1e-9) + xi)) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  };
+
+  // Spatial hash of existing campus nodes so road vertices that coincide reuse them
+  const CELL = 4;
+  const grid = new Map();
+  const cellKey = (e, n) => `${Math.floor(e / CELL)},${Math.floor(n / CELL)}`;
+  const indexNode = (idx) => {
+    const k = cellKey(nodes[idx][1], nodes[idx][2]);
+    if (!grid.has(k)) grid.set(k, []);
+    grid.get(k).push(idx);
+  };
+  const findNear = (e, n, r) => {
+    const cx = Math.floor(e / CELL), cy = Math.floor(n / CELL), span = Math.ceil(r / CELL);
+    let best = -1, bestD = r;
+    for (let dx = -span; dx <= span; dx++) for (let dy = -span; dy <= span; dy++) {
+      for (const idx of grid.get(`${cx + dx},${cy + dy}`) || []) {
+        const d = Math.hypot(nodes[idx][1] - e, nodes[idx][2] - n);
+        if (d <= bestD) { bestD = d; best = idx; }
+      }
+    }
+    return best;
+  };
+  nodes.forEach((_, i) => indexNode(i));
+  const campusCount = nodes.length;
+  const degree = new Array(campusCount).fill(0);
+  edges.forEach(ed => { degree[ed[0]]++; degree[ed[1]]++; });
+
+  const addRoadNode = (e, n) => {
+    const hit = findNear(e, n, 3.5);
+    if (hit >= 0) return hit;
+    const idx = nodes.length;
+    nodes.push([`HY_RD_${idx}`, Number(e.toFixed(2)), Number(n.toFixed(2)), Number(sampleHanyangTerrainHeight(e, n).toFixed(2))]);
+    indexNode(idx);
+    return idx;
+  };
+
+  const ingestChain = (type, isBridge, pts) => {
+    for (let i = 1; i < pts.length; i++) {
+      const [e0, n0] = pts[i - 1];
+      const [e1, n1] = pts[i];
+      const dist = Math.hypot(e1 - e0, n1 - n0);
+      if (dist < 0.35) continue;
+      if (!isBridge && inWater((e0 + e1) / 2, (n0 + n1) / 2)) continue;
+      // Densify long arterial segments so mid-block buildings snap to nearby vertices
+      const steps = Math.max(1, Math.ceil(dist / 25));
+      let prev = addRoadNode(e0, n0);
+      for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        const cur = addRoadNode(e0 + (e1 - e0) * t, n0 + (n1 - n0) * t);
+        if (cur !== prev) {
+          const d = Math.hypot(nodes[cur][1] - nodes[prev][1], nodes[cur][2] - nodes[prev][2]);
+          edges.push([prev, cur, Number(d.toFixed(2)), type, 0, isBridge ? 0.25 : (type === 'footway' ? 0.08 : 0.14), isBridge ? 1 : 0, 0, 1]);
+        }
+        prev = cur;
+      }
+    }
+  };
+
+  for (const [type, isBridge, pts] of roads) {
+    if (type === 'rail' || type === 'trunk' || type === 'motorway') continue; // not pedestrian-walkable
+    ingestChain(type, isBridge, pts);
+  }
+  for (const r of HANYANG_LOCAL_4KM_PACKAGE.roadNetwork || []) {
+    if (!Array.isArray(r?.pointsEN) || r.pointsEN.length < 2) continue;
+    const hw = r.hierarchy === 'ARTERIAL' ? 'primary' : 'secondary';
+    ingestChain(hw, 0, r.pointsEN);
+  }
+
+  // Stitch campus dead-ends / boundary nodes to the arterial layer where they don't share a vertex
+  for (let i = 0; i < campusCount; i++) {
+    if (degree[i] > 1) continue;
+    const [, e, n] = nodes[i];
+    let best = -1, bestD = 30;
+    const cx = Math.floor(e / CELL), cy = Math.floor(n / CELL), span = Math.ceil(30 / CELL);
+    for (let dx = -span; dx <= span; dx++) for (let dy = -span; dy <= span; dy++) {
+      for (const idx of grid.get(`${cx + dx},${cy + dy}`) || []) {
+        if (idx < campusCount) continue;
+        const d = Math.hypot(nodes[idx][1] - e, nodes[idx][2] - n);
+        if (d < bestD) { bestD = d; best = idx; }
+      }
+    }
+    if (best >= 0 && !inWater((e + nodes[best][1]) / 2, (n + nodes[best][2]) / 2)) {
+      edges.push([i, best, Number(bestD.toFixed(2)), 'footway', 0, 0.08, 0, 0, 1]);
+    }
+  }
+
+  // Bridge disconnected road islands within 95m to main component & strip remaining tiny isolated islands
+  const buildComponents = () => {
+    const adjList = Array.from({ length: nodes.length }, () => []);
+    for (const ed of edges) {
+      adjList[ed[0]].push(ed[1]);
+      adjList[ed[1]].push(ed[0]);
+    }
+    const comp = new Int32Array(nodes.length).fill(-1);
+    const groups = [];
+    for (let i = 0; i < nodes.length; i++) {
+      if (comp[i] !== -1) continue;
+      const cid = groups.length;
+      const q = [i];
+      comp[i] = cid;
+      for (let h = 0; h < q.length; h++) {
+        for (const v of adjList[q[h]]) {
+          if (comp[v] === -1) { comp[v] = cid; q.push(v); }
+        }
+      }
+      groups.push(q);
+    }
+    groups.sort((a, b) => b.length - a.length);
+    return groups;
+  };
+
+  let bridged = true;
+  while (bridged) {
+    bridged = false;
+    const groups = buildComponents();
+    if (groups.length <= 1) break;
+    const mainNodes = groups[0];
+    const CELL_B = 50;
+    const mainGrid = new Map();
+    for (const idx of mainNodes) {
+      const k = `${Math.floor(nodes[idx][1] / CELL_B)},${Math.floor(nodes[idx][2] / CELL_B)}`;
+      if (!mainGrid.has(k)) mainGrid.set(k, []);
+      mainGrid.get(k).push(idx);
+    }
+    for (let gIdx = 1; gIdx < groups.length; gIdx++) {
+      let bestU = -1, bestV = -1, bestD = 95.0;
+      for (const u of groups[gIdx]) {
+        const ue = nodes[u][1], un = nodes[u][2];
+        const cx = Math.floor(ue / CELL_B), cy = Math.floor(un / CELL_B);
+        for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
+          for (const v of mainGrid.get(`${cx + dx},${cy + dy}`) || []) {
+            const d = Math.hypot(nodes[v][1] - ue, nodes[v][2] - un);
+            if (d < bestD && !inWater((ue + nodes[v][1]) * 0.5, (un + nodes[v][2]) * 0.5)) {
+              bestD = d; bestU = u; bestV = v;
+            }
+          }
+        }
+      }
+      if (bestU >= 0) {
+        edges.push([bestU, bestV, Number(bestD.toFixed(2)), 'footway', 0, 0.1, 0, 0, 1]);
+        bridged = true;
+      }
+    }
+  }
+
+  // Omit edges belonging to tiny isolated fragments that remain disconnected from the main component
+  const finalGroups = buildComponents();
+  let finalEdges = edges;
+  if (finalGroups.length > 1) {
+    const mainSet = new Set(finalGroups[0]);
+    finalEdges = edges.filter(ed => mainSet.has(ed[0]) && mainSet.has(ed[1]));
+  }
+
+  _hanyangExtendedWalkGraph = Object.freeze({ anchor: base.anchor, nodes, edges: finalEdges });
+  return _hanyangExtendedWalkGraph;
+}
 import {
   polygonArea2D,
   buildDynamicFacilityFromPoint,
@@ -1068,7 +1250,7 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
           height_m: defaultOriginMeta.height_m,
           hasIndoorData: defaultOriginMeta.hasIndoorData,
           anchor: HANYANG_LOCAL_SPATIAL_METADATA.anchor,
-          walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
+          walkGraph: getHanyangExtendedWalkGraph(),
           buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32,
           waterPolygons: HANYANG_LOCAL_4KM_PACKAGE.terrainAndHydrology?.waterPolygons || [],
           waterways: HANYANG_LOCAL_4KM_PACKAGE.terrainAndHydrology?.waterways || [],
@@ -1080,7 +1262,7 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
 
     return {
       ...HANYANG_LOCAL_4KM_PACKAGE,
-      walkGraph: HANYANG_CAMPUS_WALK_GRAPH,
+      walkGraph: getHanyangExtendedWalkGraph(),
       defaultOriginMeta,
       initialFacilityPackage: hanyangInitialFacility?.outdoorGraph?.edges?.length ? hanyangInitialFacility : null,
       shelterJustifications: HANYANG_SHELTER_JUSTIFICATION,

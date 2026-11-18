@@ -1102,7 +1102,17 @@ export class EvacuationExperienceController {
       }
     });
 
+    let solvedCount = 0;
+    let bestRouted = Infinity;
     for (const cand of evalSet) {
+      // Early stop: a candidate whose straight-line distance already exceeds the best routed walk
+      // cannot be shorter on foot; skipping it avoids multi-second exhaustive searches on large graphs.
+      if (solvedCount >= 3 || (solvedCount > 0 && cand._euclidMeters > bestRouted * 1.15)) {
+        cand._routedMeters = Infinity;
+        cand._mcdaScore = Infinity;
+        cand.dimensions._unreachableFromOrigin = false;
+        continue;
+      }
       let sol = solveCampusWalkGraph({
         startXZ: exitSpec.footwayXZ,
         goalXZ: [cand.east_m, -cand.north_m],
@@ -1114,7 +1124,7 @@ export class EvacuationExperienceController {
         targetShelterId: cand.officialId || cand.id || 'SHELTER',
         waterPolygons: waterPolys,
         waterways,
-        originCentroidXZ: [originE, originN],
+        originCentroidXZ: [originE, -originN],
         originExclusionRadius: originBypassRad
       });
       // Fallback: if single street portal lies on wrong side of an enclosed block, test origin perimeter
@@ -1130,12 +1140,14 @@ export class EvacuationExperienceController {
           targetShelterId: cand.officialId || cand.id || 'SHELTER',
           waterPolygons: waterPolys,
           waterways,
-          originCentroidXZ: [originE, originN],
+          originCentroidXZ: [originE, -originN],
           originExclusionRadius: originBypassRad
         });
       }
 
       if (sol.found && sol.totalDistanceMeters > 0) {
+        solvedCount++;
+        bestRouted = Math.min(bestRouted, sol.totalDistanceMeters);
         const mcda = evaluateDestinationMcdaScore(cand, sol, { shakingMmi });
         cand._routedMeters = sol.totalDistanceMeters;
         cand._mcdaScore = mcda.totalScore;
@@ -1890,12 +1902,18 @@ export class EvacuationExperienceController {
       this.localSpatialLayer.setEpicenterContext(this.activeSeismicCtx);
     }
 
-    // Remove temporary dynamic origin pill if switching back to named Hanyang preset
+    // Update origin pill consistently for both devMode presets and standard mode
     this._el('btn-fac-dynamic')?.remove();
-    this._qAll('#btn-fac-212, #btn-fac-hit, #btn-fac-paiknam').forEach(b => b.classList.remove('active'));
-    if (this.activeFacilityId === 'BLDG_701_HIT') this._el('btn-fac-hit')?.classList.add('active');
-    else if (this.activeFacilityId === 'BLDG_104_PAIKNAM') this._el('btn-fac-paiknam')?.classList.add('active');
-    else this._el('btn-fac-212')?.classList.add('active');
+    const originGroup = this._el('origin-select-group');
+    if (originGroup && this.activeSpatialPkg?.isHanyangNative && this.devMode) {
+      this._qAll('#btn-fac-212, #btn-fac-hit, #btn-fac-paiknam').forEach(b => b.classList.remove('active'));
+      if (this.activeFacilityId === 'BLDG_701_HIT') this._el('btn-fac-hit')?.classList.add('active');
+      else if (this.activeFacilityId === 'BLDG_104_PAIKNAM') this._el('btn-fac-paiknam')?.classList.add('active');
+      else this._el('btn-fac-212')?.classList.add('active');
+    } else if (originGroup) {
+      const originLabel = `선택 건물 · ${pkg.buildingMetadata?.name || `${pkg.buildingMetadata?.unitNumber || '212'}동`}`;
+      originGroup.innerHTML = `<button type="button" class="origin-pill active" id="btn-fac-dynamic">${escapeHtml(originLabel)}</button>`;
+    }
 
     if (opts.snapStage !== false || this.camTransition.currentStage === CAMERA_STAGES.GLOBAL_ORBIT) {
       this.setCameraStage(CAMERA_STAGES.CAMPUS_OVERVIEW);
@@ -1904,6 +1922,10 @@ export class EvacuationExperienceController {
     this.routeProgressT = 0.04;
     this.experiencePhase = opts.skipBrief === false ? EXPERIENCE_PHASES.SEISMIC_BRIEF : EXPERIENCE_PHASES.EVACUATION_ACTIVE;
     this.shelterSetbackGroup.visible = false;
+    if (opts.autoPlay !== false && this.experiencePhase === EXPERIENCE_PHASES.EVACUATION_ACTIVE) {
+      this.walkPlaying = true;
+      this._syncPlayButton();
+    }
     this.renderUI();
     return this.activeFacilityId;
   }
@@ -3148,20 +3170,23 @@ export class EvacuationExperienceController {
       this._raycaster.setFromCamera(this._pointerNDC, this.camera);
 
       const picked = this.localSpatialLayer.pickBuildingOBBAtRaycast(this._raycaster);
-      if (!picked || picked.buildingId === this.activeFacilityId) return;
+      if (!picked) return;
+      const prevMeta = this.activeFacilityPkg?.dynamicOriginMeta;
+      const sameSpot = prevMeta && Math.hypot((picked.east_m ?? 0) - (prevMeta.east_m ?? 0), (picked.north_m ?? 0) - (prevMeta.north_m ?? 0)) < 1.5;
+      if (picked.buildingId === this.activeFacilityId && sameSpot && this.walkPlaying) return;
 
-      // Smart Match named Hanyang buildings when in Hanyang
-      if (this.activeSpatialPkg.isHanyangNative) {
+      // Smart Match pilot indoor facility packages ONLY in devMode; standard clicks route dynamically via MCDA
+      if (this.activeSpatialPkg.isHanyangNative && this.devMode) {
         if (picked.buildingId === 'BLDG_212_ENG1' || picked.name.includes('제1공학관')) {
-          this.switchFacilityPackage('BLDG_212_ENG1', { snapStage: false });
+          this.switchFacilityPackage('BLDG_212_ENG1', { snapStage: false, autoPlay: true });
           return;
         }
         if (picked.buildingId === 'CTX_HIT' || picked.name.includes('HIT')) {
-          this.switchFacilityPackage('BLDG_701_HIT', { snapStage: false });
+          this.switchFacilityPackage('BLDG_701_HIT', { snapStage: false, autoPlay: true });
           return;
         }
         if (picked.buildingId === 'CTX_PAIKNAM' || picked.name.includes('백남')) {
-          this.switchFacilityPackage('BLDG_104_PAIKNAM', { snapStage: false });
+          this.switchFacilityPackage('BLDG_104_PAIKNAM', { snapStage: false, autoPlay: true });
           return;
         }
       }
