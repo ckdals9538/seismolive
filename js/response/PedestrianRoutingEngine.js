@@ -766,11 +766,7 @@ export class PedestrianRoutingEngine {
           f.buildingMetadata?.id === 'BLDG_212_ENG1' ? 52.0 : (conn.doorPos?.[0] ?? startXZ[0]),
           f.buildingMetadata?.id === 'BLDG_212_ENG1' ? -74.0 : (conn.doorPos?.[2] ?? startXZ[1])
         ]);
-    const dynamicBypassRad = dynMeta
-      ? (f.buildingMetadata?.id === 'BLDG_212_ENG1'
-        ? 32.0
-        : Math.min(28.0, Math.hypot(dynMeta.width_m || 18, dynMeta.depth_m || 18) * 0.52 + 2.5))
-      : ((f.buildingMetadata?.id === 'BLDG_212_ENG1') ? 32.0 : 0.0);
+    const dynamicBypassRad = 0.0;
     const activeAvoidPolygons = [...this.avoidPolygons.values(), ...(options.avoidPolygons || [])];
     const cacheKey = (!options.startXZ && !options.goalXZ && !options.buildingOBBs && !options.customWalkGraph && !options.avoidPolygons && !options.blockedEdges)
       ? `${f.packageId || 'F'}|${startXZ[0].toFixed(1)},${startXZ[1].toFixed(1)}|${goalXZ[0].toFixed(1)},${goalXZ[1].toFixed(1)}|${f.shelter?.shelterId || ''}|${excludeStairs}|${isWheelchair}|${options.penalizeEdgeKeys ? [...options.penalizeEdgeKeys].join(',') : ''}|${this.blockedEdges.size}|${this.linkStates.size}|${activeAvoidPolygons.map(p => p.id).join(',')}|${this.groundDataManager ? this.groundDataManager.getChecklistSummary(f.buildingMetadata?.id || 'BLDG_212_ENG1').isWheelchairRouteFullyVerified : false}`

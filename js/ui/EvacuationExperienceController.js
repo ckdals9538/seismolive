@@ -999,15 +999,20 @@ export class EvacuationExperienceController {
     const anchor = this.activeSpatialPkg?.metadata?.anchor;
     if (!anchor || !Number.isFinite(anchor.lat) || !Number.isFinite(anchor.lon)) return null;
     const isHanyang = Boolean(this.activeSpatialPkg?.isHanyangNative);
+    const hasOriginBuilding = orig?.originHasBuilding !== undefined
+      ? Boolean(orig.originHasBuilding)
+      : (orig?.id !== 'OUTDOOR_ANALYSIS_ORIGIN' && orig?.indoorScope !== 'OUTDOOR_ONLY');
     return buildDynamicFacilityFromPoint({
       buildingId: orig.id,
       name: orig.name,
       east_m: orig.east_m,
       north_m: orig.north_m,
-      width_m: orig.width_m || 18,
-      depth_m: orig.depth_m || 18,
+      width_m: orig.width_m || (hasOriginBuilding ? 18 : 4),
+      depth_m: orig.depth_m || (hasOriginBuilding ? 18 : 4),
       yaw_rad: orig.yaw_rad || 0,
-      height_m: orig.height_m || 18,
+      height_m: hasOriginBuilding ? (orig.height_m || 18) : 0,
+      originHasBuilding: hasOriginBuilding,
+      indoorScope: orig.indoorScope || (hasOriginBuilding ? 'HEIGHT_ONLY_3D' : 'OUTDOOR_ONLY'),
       hasIndoorData: Boolean(orig.hasIndoorData),
       anchor,
       walkGraph: this.activeWalkGraph,
@@ -1069,25 +1074,27 @@ export class EvacuationExperienceController {
       return null;
     }
 
-    const bWidth = originMeta?.width_m || 18;
-    const bDepth = originMeta?.depth_m || 18;
-    const isLegacyHanyang212 = originMeta?.id === 'BLDG_212_ENG1';
-    const originBypassRad = isLegacyHanyang212
-      ? 32.0
-      : (originMeta?.originHasBuilding === false ? 0.0 : Math.min(28.0, Math.hypot(bWidth, bDepth) * 0.52 + 2.5));
+    const hasOriginBuilding = originMeta?.originHasBuilding !== undefined
+      ? Boolean(originMeta.originHasBuilding)
+      : (originMeta?.id !== 'OUTDOOR_ANALYSIS_ORIGIN' && originMeta?.indoorScope !== 'OUTDOOR_ONLY');
+    const bWidth = originMeta?.width_m || (hasOriginBuilding ? 18 : 4);
+    const bDepth = originMeta?.depth_m || (hasOriginBuilding ? 18 : 4);
+    const originBypassRad = 0.0;
 
-    // Step 1: Neutral street-adjacent doorway without cross-river Euclidean shelter bias
-    const exitSpec = buildNeutralStreetExit({
-      east_m: originE,
-      north_m: originN,
-      width_m: bWidth,
-      depth_m: bDepth,
-      yaw_rad: originMeta?.yaw_rad || 0,
-      height_m: originMeta?.height_m || 18,
-      walkGraph: this.activeWalkGraph,
-      buildingOBBs: pkg.obbBuildingsFloat32,
-      preferredTargetXZ: null
-    });
+    // Step 1: Neutral street-adjacent doorway for buildings, or direct street anchor for outdoor origins
+    const evalStartXZ = hasOriginBuilding
+      ? buildNeutralStreetExit({
+          east_m: originE,
+          north_m: originN,
+          width_m: bWidth,
+          depth_m: bDepth,
+          yaw_rad: originMeta?.yaw_rad || 0,
+          height_m: originMeta?.height_m || 18,
+          walkGraph: this.activeWalkGraph,
+          buildingOBBs: pkg.obbBuildingsFloat32,
+          preferredTargetXZ: null
+        }).footwayXZ
+      : [originE, -originN];
     const evalSampler = (e, n) => sampleGridHeightAt(pkg.terrainGrid, e, n);
     const shakingMmi = this._getActiveShakingMmi();
     const waterPolys = pkg.terrainAndHydrology?.waterPolygons || [];
@@ -1114,7 +1121,7 @@ export class EvacuationExperienceController {
         continue;
       }
       let sol = solveCampusWalkGraph({
-        startXZ: exitSpec.footwayXZ,
+        startXZ: evalStartXZ,
         goalXZ: [cand.east_m, -cand.north_m],
         excludeStairs: false,
         shakingMmi,
@@ -1128,7 +1135,7 @@ export class EvacuationExperienceController {
         originExclusionRadius: originBypassRad
       });
       // Fallback: if single street portal lies on wrong side of an enclosed block, test origin perimeter
-      if (!sol.found && originBypassRad > 0) {
+      if (!sol.found && hasOriginBuilding) {
         sol = solveCampusWalkGraph({
           startXZ: [originE, -originN],
           goalXZ: [cand.east_m, -cand.north_m],
@@ -1801,7 +1808,8 @@ export class EvacuationExperienceController {
       name: facilityPkg.buildingMetadata?.name || '출발 건물',
       east_m: (facilityPkg.connector?.doorPos?.[0] ?? 0),
       north_m: -(facilityPkg.connector?.doorPos?.[2] ?? 0),
-      height_m: 18,
+      height_m: facilityPkg.originHasBuilding === false ? 0 : 18,
+      originHasBuilding: facilityPkg.originHasBuilding !== false && this.activeFacilityId !== 'OUTDOOR_ANALYSIS_ORIGIN',
       hasIndoorData
     };
     const effectiveMarkerMode = opts.markerMode || this.originMarkerMode || (originMeta.originHasBuilding === false ? 'FREE_MODE_ANCHOR' : 'PICKED_BUILDING');

@@ -103,7 +103,7 @@ function getHanyangExtendedWalkGraph() {
         const cur = addRoadNode(e0 + (e1 - e0) * t, n0 + (n1 - n0) * t);
         if (cur !== prev) {
           const d = Math.hypot(nodes[cur][1] - nodes[prev][1], nodes[cur][2] - nodes[prev][2]);
-          edges.push([prev, cur, Number(d.toFixed(2)), type, 0, isBridge ? 0.25 : (type === 'footway' ? 0.08 : 0.14), isBridge ? 1 : 0, 0, 1]);
+          edges.push([prev, cur, Number(d.toFixed(2)), type, 0, isBridge ? 0.25 : (type === 'footway' ? 0.08 : 0.14), isBridge ? 1 : 0, 0, 0]);
         }
         prev = cur;
       }
@@ -114,13 +114,10 @@ function getHanyangExtendedWalkGraph() {
     if (type === 'rail' || type === 'trunk' || type === 'motorway') continue; // not pedestrian-walkable
     ingestChain(type, isBridge, pts);
   }
-  for (const r of HANYANG_LOCAL_4KM_PACKAGE.roadNetwork || []) {
-    if (!Array.isArray(r?.pointsEN) || r.pointsEN.length < 2) continue;
-    const hw = r.hierarchy === 'ARTERIAL' ? 'primary' : 'secondary';
-    ingestChain(hw, 0, r.pointsEN);
-  }
 
-  // Stitch campus dead-ends / boundary nodes to the arterial layer where they don't share a vertex
+  const hanyangOBBs = HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32;
+
+  // Stitch campus dead-ends / boundary nodes to the arterial layer where they are unobstructed by buildings
   for (let i = 0; i < campusCount; i++) {
     if (degree[i] > 1) continue;
     const [, e, n] = nodes[i];
@@ -130,11 +127,15 @@ function getHanyangExtendedWalkGraph() {
       for (const idx of grid.get(`${cx + dx},${cy + dy}`) || []) {
         if (idx < campusCount) continue;
         const d = Math.hypot(nodes[idx][1] - e, nodes[idx][2] - n);
-        if (d < bestD) { bestD = d; best = idx; }
+        if (d < bestD &&
+          !inWater((e + nodes[idx][1]) / 2, (n + nodes[idx][2]) / 2) &&
+          isSegmentClearOfBuildingOBBs([e, -n], [nodes[idx][1], -nodes[idx][2]], hanyangOBBs, 0.05)) {
+          bestD = d; best = idx;
+        }
       }
     }
-    if (best >= 0 && !inWater((e + nodes[best][1]) / 2, (n + nodes[best][2]) / 2)) {
-      edges.push([i, best, Number(bestD.toFixed(2)), 'footway', 0, 0.08, 0, 0, 1]);
+    if (best >= 0) {
+      edges.push([i, best, Number(bestD.toFixed(2)), 'footway', 0, 0.08, 0, 0, 0]);
     }
   }
 
@@ -184,14 +185,16 @@ function getHanyangExtendedWalkGraph() {
         for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
           for (const v of mainGrid.get(`${cx + dx},${cy + dy}`) || []) {
             const d = Math.hypot(nodes[v][1] - ue, nodes[v][2] - un);
-            if (d < bestD && !inWater((ue + nodes[v][1]) * 0.5, (un + nodes[v][2]) * 0.5)) {
+            if (d < bestD &&
+              !inWater((ue + nodes[v][1]) * 0.5, (un + nodes[v][2]) * 0.5) &&
+              isSegmentClearOfBuildingOBBs([ue, -un], [nodes[v][1], -nodes[v][2]], hanyangOBBs, 0.05)) {
               bestD = d; bestU = u; bestV = v;
             }
           }
         }
       }
       if (bestU >= 0) {
-        edges.push([bestU, bestV, Number(bestD.toFixed(2)), 'footway', 0, 0.1, 0, 0, 1]);
+        edges.push([bestU, bestV, Number(bestD.toFixed(2)), 'footway', 0, 0.1, 0, 0, 0]);
         bridged = true;
       }
     }
@@ -212,6 +215,7 @@ import {
   polygonArea2D,
   buildDynamicFacilityFromPoint,
   doesSegmentIntersectOBBXZ,
+  isSegmentClearOfBuildingOBBs,
   enrichWalkGraphWithSeismicRisk,
   evaluateDestinationMcdaScore,
   solveCampusWalkGraph
@@ -973,6 +977,7 @@ export function compileOsmJsonToSpatialPackage(osmJson, opts = {}) {
       yaw_rad: defaultOrigin.yaw_rad,
       height_m: defaultOrigin.height_m,
       hasIndoorData: false,
+      originHasBuilding: defaultOrigin.originHasBuilding ?? false,
       indoorScope: defaultOrigin.indoorScope || INDOOR_SPATIAL_SCOPE.OUTDOOR_ONLY,
       levelsKnown: defaultOrigin.levelsKnown ?? null,
       anchor: { lat: anchorLat, lon: anchorLon, h: terrainGrid.anchorElevationMeters || 20 },
@@ -1249,6 +1254,8 @@ export async function loadRegionalSpatialPackage(lat, lon, opts = {}) {
           yaw_rad: 0,
           height_m: defaultOriginMeta.height_m,
           hasIndoorData: defaultOriginMeta.hasIndoorData,
+          originHasBuilding: defaultOriginMeta.originHasBuilding,
+          indoorScope: defaultOriginMeta.indoorScope,
           anchor: HANYANG_LOCAL_SPATIAL_METADATA.anchor,
           walkGraph: getHanyangExtendedWalkGraph(),
           buildingOBBs: HANYANG_LOCAL_4KM_PACKAGE.obbBuildingsFloat32,

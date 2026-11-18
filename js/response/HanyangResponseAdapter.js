@@ -24,6 +24,7 @@ import {
   VERIFICATION_STATUS
 } from './HanyangBuildingData.js';
 import { PedestrianRoutingEngine } from './PedestrianRoutingEngine.js';
+import { isSegmentClearOfBuildingOBBs } from './CampusWalkRouter.js';
 
 export { BLDG_212_OSM_FOOTPRINT_METERS };
 
@@ -186,7 +187,20 @@ export class HanyangResponseAdapter {
   // 2. PROCEDURAL ARCHITECTURAL WIREFRAME (Nocturnal Monolith Aesthetic)
   // --------------------------------------------------------------------------
 
+  _isOutdoorOrigin() {
+    return Boolean(
+      this.facility?.originHasBuilding === false ||
+      this.facility?.buildingMetadata?.id === 'OUTDOOR_ANALYSIS_ORIGIN' ||
+      this.facility?.dynamicOriginMeta?.originHasBuilding === false ||
+      (this.facility?.buildingMetadata?.levels?.aboveGround ?? 1) <= 0
+    );
+  }
+
   buildBuildingStructure() {
+    if (this._isOutdoorOrigin()) {
+      this.build1FEgressConnector();
+      return;
+    }
     const footprint = this.facility.footprintMeters || BLDG_212_OSM_FOOTPRINT_METERS;
     const hFloor = this.config.floorHeightMeters;
     const baseY = this.facility.groundElevationY ?? 0.0;
@@ -401,41 +415,46 @@ export class HanyangResponseAdapter {
     const fp = conn.footwayPos || [73.68, -0.15, -43.61];
     const doorPos = new THREE.Vector3(dp[0], dp[1], dp[2]);
     const footwayPos = new THREE.Vector3(fp[0], fp[1], fp[2]);
+    const isOutdoor = this._isOutdoorOrigin();
 
-    // Doorway frame (width 1.8m, height 2.1m) anchored at ground level
-    const dw = 1.8;
-    const dh = 2.1;
-    const dy = doorPos.y;
-    const doorFramePoints = [
-      new THREE.Vector3(doorPos.x, dy, doorPos.z), new THREE.Vector3(doorPos.x, dy + dh, doorPos.z),
-      new THREE.Vector3(doorPos.x, dy + dh, doorPos.z), new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7),
-      new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7), new THREE.Vector3(doorPos.x + dw * 0.7, dy, doorPos.z + dw * 0.7)
-    ];
-    const doorGeo = new THREE.BufferGeometry().setFromPoints(doorFramePoints);
-    const doorMat = new THREE.LineBasicMaterial({
-      color: VISUAL_THEME.CONNECTOR_WIRE,
-      linewidth: 2
-    });
-    this.rootGroup.add(new THREE.LineSegments(doorGeo, doorMat));
+    if (!isOutdoor) {
+      // Doorway frame (width 1.8m, height 2.1m) anchored at ground level
+      const dw = 1.8;
+      const dh = 2.1;
+      const dy = doorPos.y;
+      const doorFramePoints = [
+        new THREE.Vector3(doorPos.x, dy, doorPos.z), new THREE.Vector3(doorPos.x, dy + dh, doorPos.z),
+        new THREE.Vector3(doorPos.x, dy + dh, doorPos.z), new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7),
+        new THREE.Vector3(doorPos.x + dw * 0.7, dy + dh, doorPos.z + dw * 0.7), new THREE.Vector3(doorPos.x + dw * 0.7, dy, doorPos.z + dw * 0.7)
+      ];
+      const doorGeo = new THREE.BufferGeometry().setFromPoints(doorFramePoints);
+      const doorMat = new THREE.LineBasicMaterial({
+        color: VISUAL_THEME.CONNECTOR_WIRE,
+        linewidth: 2
+      });
+      this.rootGroup.add(new THREE.LineSegments(doorGeo, doorMat));
 
-    // Vector line connecting door to outdoor pedestrian node
-    const connLinePoints = [doorPos, footwayPos];
-    const connGeo = new THREE.BufferGeometry().setFromPoints(connLinePoints);
-    const connMat = new THREE.LineDashedMaterial({
-      color: VISUAL_THEME.CONNECTOR_WIRE,
-      dashSize: 0.4,
-      gapSize: 0.2
-    });
-    const connLine = new THREE.Line(connGeo, connMat);
-    connLine.computeLineDistances();
-    const names = this.facility.routeDisplayNames || {};
-    connLine.name = names.connectorLineName || 'Connector_1F_SE_Line';
-    this.rootGroup.add(connLine);
+      // Vector line connecting door to outdoor pedestrian node
+      const connLinePoints = [doorPos, footwayPos];
+      const connGeo = new THREE.BufferGeometry().setFromPoints(connLinePoints);
+      const connMat = new THREE.LineDashedMaterial({
+        color: VISUAL_THEME.CONNECTOR_WIRE,
+        dashSize: 0.4,
+        gapSize: 0.2
+      });
+      const connLine = new THREE.Line(connGeo, connMat);
+      connLine.computeLineDistances();
+      const names = this.facility.routeDisplayNames || {};
+      connLine.name = names.connectorLineName || 'Connector_1F_SE_Line';
+      this.rootGroup.add(connLine);
+      this.disposables.push(doorGeo, doorMat, connGeo, connMat);
+    }
 
     // Architectural Origin Marker ("내 위치" 출발지 표식 — 논-글로우 동심 링 + 점)
+    const markerAnchor = isOutdoor ? footwayPos : doorPos;
     const originGroup = new THREE.Group();
     originGroup.name = 'Origin_Marker_Group';
-    originGroup.position.set(doorPos.x, Math.max(0.25, doorPos.y + 0.35), doorPos.z);
+    originGroup.position.set(markerAnchor.x, Math.max(0.25, markerAnchor.y + 0.35), markerAnchor.z);
 
     const oInnerGeo = new THREE.RingGeometry(2.2, 3.2, 32);
     oInnerGeo.rotateX(-Math.PI / 2);
@@ -459,7 +478,7 @@ export class HanyangResponseAdapter {
 
     this.rootGroup.add(originGroup);
 
-    this.disposables.push(doorGeo, doorMat, connGeo, connMat, oInnerGeo, oInnerMat, oOuterGeo, oOuterMat);
+    this.disposables.push(oInnerGeo, oInnerMat, oOuterGeo, oOuterMat);
   }
 
   /**
@@ -513,19 +532,33 @@ export class HanyangResponseAdapter {
           b.y + ((c.y - b.y) / l2) * radius,
           b.z + (v2z / l2) * radius
         );
-        filleted.push(pIn);
         // Quadratic mid-arc
         const mid = new THREE.Vector3(
           0.25 * pIn.x + 0.5 * b.x + 0.25 * pOut.x,
           0.25 * pIn.y + 0.5 * b.y + 0.25 * pOut.y,
           0.25 * pIn.z + 0.5 * b.z + 0.25 * pOut.z
         );
-        filleted.push(mid, pOut);
-        if (turnAngle > 0.42) {
-          turnMarkers.push({
-            pos: new THREE.Vector3(mid.x, mid.y, mid.z),
-            dir: new THREE.Vector3(v2x / l2, 0, v2z / l2)
-          });
+        const obbSource = this.buildingOBBs || this.router?.buildingOBBs;
+        const arcClearOfOBB = !obbSource || (
+          isSegmentClearOfBuildingOBBs([pIn.x, pIn.z], [mid.x, mid.z], obbSource, 0.2) &&
+          isSegmentClearOfBuildingOBBs([mid.x, mid.z], [pOut.x, pOut.z], obbSource, 0.2)
+        );
+        if (arcClearOfOBB) {
+          filleted.push(pIn, mid, pOut);
+          if (turnAngle > 0.42) {
+            turnMarkers.push({
+              pos: new THREE.Vector3(mid.x, mid.y, mid.z),
+              dir: new THREE.Vector3(v2x / l2, 0, v2z / l2)
+            });
+          }
+        } else {
+          filleted.push(b.clone());
+          if (turnAngle > 0.42) {
+            turnMarkers.push({
+              pos: new THREE.Vector3(b.x, b.y, b.z),
+              dir: new THREE.Vector3(v2x / l2, 0, v2z / l2)
+            });
+          }
         }
       } else {
         filleted.push(b.clone());
@@ -1485,8 +1518,10 @@ export class HanyangResponseAdapter {
       if (this.useRealMapRouting && typeof this.router?.setRealMapRouting === 'function' && (this.customWalkGraph || !this.router.customWalkGraph)) {
         this.router.setRealMapRouting({
           enabled: true,
-          buildingOBBs: this.router.buildingOBBs || this.buildingOBBs,
+          buildingOBBs: this.buildingOBBs ?? this.router.buildingOBBs,
           customWalkGraph: this.customWalkGraph ?? this.router.customWalkGraph,
+          waterPolygons: this.waterPolygons ?? this.router.waterPolygons,
+          waterways: this.waterways ?? this.router.waterways,
           elevationSampler: this.elevationSampler ?? this.router.elevationSampler
         });
       }

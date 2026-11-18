@@ -27,7 +27,7 @@ import {
 } from '../js/response/CampusWalkRouter.js';
 import { PedestrianRoutingEngine } from '../js/response/PedestrianRoutingEngine.js';
 import { HanyangResponseAdapter } from '../js/response/HanyangResponseAdapter.js';
-import { HANYANG_LOCAL_4KM_PACKAGE, OFFICIAL_SHELTERS_AND_FACILITIES } from '../js/response/HanyangLocalSpatialData.js';
+import { HANYANG_LOCAL_4KM_PACKAGE, OFFICIAL_SHELTERS_AND_FACILITIES, NAMED_CONTEXT_BUILDINGS } from '../js/response/HanyangLocalSpatialData.js';
 import { HANYANG_CAMPUS_WALK_GRAPH } from '../js/response/HanyangCampusWalkData.js';
 
 let passed = 0;
@@ -758,6 +758,98 @@ console.log('\n--- 11. Non-Hanyang Urban Block Routing, DEM Ridge Following & Z-
     `idx=${ctrl.selectedCandidateIndex}, order=${sortedIds.join('>')}, topDist=${topDist}m`
   );
   ctrl.dispose?.();
+
+  // 11.4: Strict Zero-OBB-Piercing audit across ALL Hanyang shelters (raw + filleted), outdoor origin wireframe guard & named campus buildings
+  const hanyangPkg = await loadRegionalSpatialPackage(37.555815, 127.045053, { regionId: 'seoul_hanyang' });
+  const hObbs = normalizeOBBList(hanyangPkg.obbBuildingsFloat32);
+  let hyShelterRawHits = 0;
+  let hyShelterFilletHits = 0;
+  let hyOutdoorWireframes = 0;
+  let hySolvedAll = true;
+  const hyOrigin = hanyangPkg.defaultOriginMeta;
+  for (const sh of hanyangPkg.sheltersAndFacilities) {
+    const dPkg = buildDynamicFacilityFromPoint({
+      buildingId: hyOrigin.id,
+      name: hyOrigin.name,
+      east_m: hyOrigin.east_m,
+      north_m: hyOrigin.north_m,
+      width_m: 4,
+      depth_m: 4,
+      height_m: 0,
+      originHasBuilding: false,
+      indoorScope: 'OUTDOOR_ONLY',
+      anchor: hanyangPkg.metadata.anchor,
+      walkGraph: hanyangPkg.walkGraph,
+      buildingOBBs: hanyangPkg.obbBuildingsFloat32,
+      waterPolygons: hanyangPkg.terrainAndHydrology?.waterPolygons || [],
+      waterways: hanyangPkg.terrainAndHydrology?.waterways || [],
+      shelter: sh
+    });
+    const sc = new THREE.Scene();
+    const ad = new HanyangResponseAdapter(sc, {
+      facilityPackage: dPkg,
+      useRealMapRouting: true,
+      buildingOBBs: hanyangPkg.obbBuildingsFloat32,
+      customWalkGraph: hanyangPkg.walkGraph
+    });
+    hyOutdoorWireframes += ad.floorGroups.size;
+    for (const mode of ['SHORTEST', 'STEP_FREE']) {
+      const rPts = ad.routePolylines[mode] || [];
+      if (rPts.length < 2) hySolvedAll = false;
+      const fPts = ad._buildFilletedRoutePoints(rPts, 0.5)?.elevated || [];
+      for (let i = 0; i + 1 < rPts.length; i++) {
+        const a = [rPts[i].x, rPts[i].z], b = [rPts[i + 1].x, rPts[i + 1].z];
+        for (let oi = 0; oi < hObbs.length; oi++) {
+          if (doesSegmentIntersectOBBXZ(a, b, hObbs[oi], 0.0)) hyShelterRawHits++;
+        }
+      }
+      for (let i = 0; i + 1 < fPts.length; i++) {
+        const a = [fPts[i].x, fPts[i].z], b = [fPts[i + 1].x, fPts[i + 1].z];
+        for (let oi = 0; oi < hObbs.length; oi++) {
+          if (doesSegmentIntersectOBBXZ(a, b, hObbs[oi], 0.0)) hyShelterFilletHits++;
+        }
+      }
+    }
+    ad.dispose();
+  }
+  let hyNamedHits = 0;
+  let hyNamedSolved = 0;
+  for (const nb of NAMED_CONTEXT_BUILDINGS) {
+    const bPkg = buildDynamicFacilityFromPoint({
+      buildingId: nb.id,
+      name: nb.name,
+      east_m: nb.east_m,
+      north_m: nb.north_m,
+      width_m: nb.width_m,
+      depth_m: nb.depth_m,
+      yaw_rad: nb.yaw_rad,
+      height_m: nb.height_m,
+      originHasBuilding: true,
+      anchor: hanyangPkg.metadata.anchor,
+      walkGraph: hanyangPkg.walkGraph,
+      buildingOBBs: hanyangPkg.obbBuildingsFloat32,
+      waterPolygons: hanyangPkg.terrainAndHydrology?.waterPolygons || [],
+      waterways: hanyangPkg.terrainAndHydrology?.waterways || [],
+      shelter: hanyangPkg.sheltersAndFacilities[0]
+    });
+    const sEdges = (bPkg.outdoorGraph?.edges || []).filter(e => e.branch === 'SHORTEST');
+    if (sEdges.length > 0) hyNamedSolved++;
+    for (const e of sEdges) {
+      const wps = e.waypoints || [];
+      for (let i = 0; i + 1 < wps.length; i++) {
+        const a = [wps[i][0], wps[i][2]], b = [wps[i + 1][0], wps[i + 1][2]];
+        for (let oi = 0; oi < hObbs.length; oi++) {
+          if (doesSegmentIntersectOBBXZ(a, b, hObbs[oi], 0.0)) hyNamedHits++;
+        }
+      }
+    }
+  }
+  assert(
+    hySolvedAll && hyOutdoorWireframes === 0 && hyShelterRawHits === 0 && hyShelterFilletHits === 0 &&
+    hyNamedSolved === NAMED_CONTEXT_BUILDINGS.length && hyNamedHits === 0,
+    '11.4: Hanyang outdoor origin (all 5 shelters, raw + filleted) & all 13 named buildings produce 0 OBB building intersections',
+    `solved=${hySolvedAll}, outdoorWireframes=${hyOutdoorWireframes}, rawHits=${hyShelterRawHits}, filletHits=${hyShelterFilletHits}, namedSolved=${hyNamedSolved}/${NAMED_CONTEXT_BUILDINGS.length}, namedHits=${hyNamedHits}`
+  );
 }
 
 console.log('\n====================================================================');
